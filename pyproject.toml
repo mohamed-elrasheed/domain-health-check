@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domain-health-check"
+version = "0.1.0"
+description = "Passive, public health checks for domains (SSL, DNS, email authentication, security headers) with client-friendly reports."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dnspython>=2.4",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+domain-health-check = "domain_health_check.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["domain_health_check*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

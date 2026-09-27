@@ -1,0 +1,13 @@
+# Real client data never goes in this public repo.
+domains.yaml
+reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/

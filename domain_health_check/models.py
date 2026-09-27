@@ -1,0 +1,48 @@
+"""Data types shared by every check, the report writer and the terminal output."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+
+# Report sections. Each check belongs to one of these.
+WEBSITE = "Website security"
+DOMAIN = "Domain & DNS"
+EMAIL = "Email security"
+
+
+class Status(str, Enum):
+    PASS = "PASS"
+    WARN = "WARN"
+    FAIL = "FAIL"
+
+    @property
+    def rank(self) -> int:
+        """Higher is worse, so max() finds the most serious result."""
+        return {"PASS": 0, "WARN": 1, "FAIL": 2}[self.value]
+
+
+@dataclass
+class CheckResult:
+    category: str
+    name: str
+    status: Status
+    summary: str  # one sentence: what we found
+    explanation: str  # plain English: why this matters
+    fix: str = ""  # what to do about it (empty when there is nothing to do)
+    details: list[str] = field(default_factory=list)  # technical specifics for an IT provider
+
+
+@dataclass
+class DomainReport:
+    domain: str
+    checked_at: datetime
+    results: list[CheckResult]
+
+    @property
+    def overall(self) -> Status:
+        return max((r.status for r in self.results), key=lambda s: s.rank, default=Status.PASS)
+
+    def count(self, status: Status) -> int:
+        return sum(1 for r in self.results if r.status is status)
