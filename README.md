@@ -80,7 +80,7 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython` and `PyYAML`.
 
 ```powershell
-git clone https://github.com/<you>/domain-health-check.git
+git clone https://github.com/mohamed-elrasheed/domain-health-check.git
 cd domain-health-check
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1        # macOS/Linux: source .venv/bin/activate
