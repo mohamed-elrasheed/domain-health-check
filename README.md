@@ -210,3 +210,7 @@ tests/
   versions are *also* still enabled, because that would take repeated connection attempts.
 - The SPF check doesn't count DNS lookups (SPF has a limit of 10).
 - DKIM can only be confirmed for selectors you know about.
+
+## License
+
+[MIT](LICENSE)
