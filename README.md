@@ -81,9 +81,40 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 - **DMARC.** A TXT record at `_dmarc.<domain>` that tells receivers what to do with mail failing
   SPF and DKIM: `p=none` (just report), `p=quarantine` (spam folder) or `p=reject` (refuse).
 
+### Site health
+
+All of these read the one page view; none makes a request of its own. A check with nothing to
+measure (no images, no structured data, a page built entirely by scripts) is marked as not run and
+left out of the score rather than passed.
+
+| Check | PASS | WARN | FAIL |
+|---|---|---|---|
+| **Search engine blocking** | no `noindex`, and robots.txt lets Googlebot in | | `noindex` in the page or `X-Robots-Tag`, or robots.txt blocks Googlebot from `/` |
+| **Page title** | 15 to 60 characters | too short, too long, or just the domain | missing |
+| **Meta description** | 70 to 160 characters | missing, too short or too long | |
+| **Canonical tag** | present and on the same site | missing, relative, or another site | |
+| **Main heading** | exactly one non-empty `h1` | none, several, or empty | |
+| **Mobile viewport** | `width=device-width` | present without it | missing |
+| **Structured data matches the page** | every JSON-LD price is in the page text and every same-site URL is linked or in the sitemap | a value that is not, or invalid JSON-LD | |
+| **Heading order** | no level skipped | an `h3` before an `h2`, and so on | |
+| **Image alt text** | 90% or more of `<img>` have a real description | below 90% | |
+| **Social preview** | `og:title`, `og:description`, `og:image` | any missing | |
+| **Sitemap and robots** | both found, sitemap valid, listed in robots.txt | any of those not true | |
+| **Page weight** | HTML under 150 KB and first byte under 5 seconds | either over | |
+| **Redirect chain** | two redirects or fewer | more than two | |
+
+- **Search engine blocking** is the most valuable check here: a site launched with `noindex` left
+  on from staging is invisible in Google, and nothing on the page looks wrong. robots.txt is read the
+  way Google reads it (`*` and `$` wildcards, longest rule wins), which Python's `robotparser` does not.
+- **Structured data matches the page** catches JSON-LD that still carries retired URLs or old prices
+  after the visible page was updated. Each match in the details says which evidence it rested on:
+  page text, a page link, or the sitemap.
+- Measured on the HTML as delivered, before scripts run. Page weight is the HTML document alone;
+  images, scripts and styles are not loaded. A sitemap index is recorded but never followed.
+
 ## Setup
 
-Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx` and `PyYAML`.
+Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML` and `selectolax`.
 
 ```powershell
 git clone https://github.com/mohamed-elrasheed/domain-health-check.git
@@ -207,6 +238,12 @@ domain_health_check/
     dns_records.py  NS and MX
     dnssec.py       DS record
     email_auth.py   SPF, DKIM, DMARC
+    site/           site health, read from the fetched page
+      indexing.py         search engine blocking, canonical tag, sitemap and robots
+      content.py          title, meta description, headings, image alt text
+      structured_data.py  JSON-LD against the visible page
+      sharing.py          social preview (Open Graph)
+      delivery.py         mobile viewport, page weight, redirect chain
 tests/
 ```
 

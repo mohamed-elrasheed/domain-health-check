@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import socket
 import urllib.request
+from pathlib import Path
 
 import httpx
 import pytest
 
 from domain_health_check import dns_utils
 from domain_health_check.checks import rdap
-from domain_health_check.fetcher import PageContext
+from domain_health_check.fetcher import FetchedFile, PageContext
+
+MIZAN = Path(__file__).parent / "fixtures" / "mizangroupllc.com"
 
 
 def _blocked(*args, **kwargs):
@@ -40,6 +44,26 @@ def make_page():
         fields.update(overrides)
         return PageContext(**fields)
     return build
+
+
+@pytest.fixture
+def mizan_page() -> PageContext:
+    """www.mizangroupllc.com as captured on 2026-10-01: the saved files plus the measured response in
+    response.json. Tests that need a failing page edit a copy of this one rather than inventing a page."""
+    measured = json.loads((MIZAN / "response.json").read_text(encoding="utf-8"))
+    return PageContext(
+        requested_url=measured["requested_url"],
+        final_url=measured["final_url"],
+        redirect_chain=[tuple(hop) for hop in measured["redirect_chain"]],
+        status=measured["status"],
+        headers=measured["headers"],
+        html=(MIZAN / "home.html").read_text(encoding="utf-8"),
+        byte_size=measured["byte_size"],
+        elapsed_ms=measured["elapsed_ms"],
+        ttfb_ms=measured["ttfb_ms"],
+        robots=FetchedFile(text=(MIZAN / "robots.txt").read_text(encoding="utf-8"), **measured["robots"]),
+        sitemap=FetchedFile(text=(MIZAN / "sitemap.xml").read_text(encoding="utf-8"), **measured["sitemap"]),
+    )
 
 
 @pytest.fixture

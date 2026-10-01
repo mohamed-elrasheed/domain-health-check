@@ -6,7 +6,7 @@ from domain_health_check import cli, fetcher, runner
 from domain_health_check.checks import http_headers
 from domain_health_check.config import DomainConfig
 from domain_health_check.fetcher import FetchError
-from domain_health_check.models import EMAIL, WEBSITE, CheckResult, DomainReport, Status
+from domain_health_check.models import EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
 from domain_health_check.report import render_markdown, write_report
 from domain_health_check.terminal import format_summary
 
@@ -75,19 +75,38 @@ def test_runner_turns_crashing_check_into_warning(monkeypatch, make_page):
     assert report.results[0].ran and not report.results[1].ran
 
 
-def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, make_page):
+def _fake_lookups(monkeypatch):
     from domain_health_check.checks import rdap, tls
-    fetched = []
     monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
-    monkeypatch.setattr(fetcher, "fetch_page", lambda d: fetched.append(d) or make_page())
     monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
-    report = runner.run_checks(DomainConfig("example.com", ["google"]), NOW)
+
+
+def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, mizan_page):
+    _fake_lookups(monkeypatch)
+    fetched = []
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: fetched.append(d) or mizan_page)
+    report = runner.run_checks(DomainConfig("mizangroupllc.com", ["google"]), NOW)
     names = [r.name for r in report.results]
-    assert names[0] == "SSL certificate" and names[-1] == "DMARC (anti-spoofing policy)"
-    assert len(names) == 12  # TLS gives 2 results and headers give 3
-    assert fetched == ["example.com"]  # one page fetch per report
+    assert names[0] == "SSL certificate" and names[-1] == "Redirect chain"
+    assert len(names) == 25  # TLS gives 2 results, headers 3, and the 13 site checks 1 each
+    assert fetched == ["mizangroupllc.com"]  # one page fetch per report
     # No check should have crashed into the runner's "couldn't be completed" fallback.
     assert not any("couldn't be completed" in r.summary for r in report.results)
+    site = [(r.name, r.status) for r in report.results if r.category == SITE]
+    assert [name for name, status in site if status is not Status.PASS] == ["Meta description"]
+    # The two header WARNs the live report shows: response.json has no CSP and no X-Content-Type-Options.
+    headers = {r.name: r.status for r in report.results if r.name in ("Content Security Policy", "X-Content-Type-Options")}
+    assert headers == {"Content Security Policy": Status.WARN, "X-Content-Type-Options": Status.WARN}
+
+
+def test_unloaded_page_gives_one_site_row(fake_dns, monkeypatch):
+    _fake_lookups(monkeypatch)
+    def offline(domain):
+        raise FetchError(f"https://{domain}/", "ConnectError: refused")
+    monkeypatch.setattr(fetcher, "fetch_page", offline)
+    report = runner.run_checks(DomainConfig("example.com"), NOW)
+    site = [r for r in report.results if r.category == SITE]
+    assert [(r.name, r.ran) for r in site] == [("Site health checks", False)]
 
 
 def test_runner_failed_fetch_becomes_a_warning(monkeypatch):

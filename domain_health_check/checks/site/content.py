@@ -1,0 +1,216 @@
+"""What the page says about itself: title, description, headings and image descriptions.
+
+These are the findings an owner can usually fix from their website builder
+without a developer, so the fixes say where to look.
+"""
+
+from __future__ import annotations
+
+import re
+from urllib.parse import urlsplit
+
+from ...fetcher import PageContext
+from ...models import SITE, CheckResult, Status
+from ._html import collapse, headings, inside, meta, parse
+
+TITLE = "Page title"
+DESCRIPTION = "Meta description"
+MAIN_HEADING = "Main heading"
+HEADING_ORDER = "Heading order"
+ALT_TEXT = "Image alt text"
+
+TITLE_MIN, TITLE_MAX = 15, 60
+DESCRIPTION_MIN, DESCRIPTION_MAX = 70, 160
+ALT_TEXT_PASS_SHARE = 0.9
+LISTED = 10  # how many offending items the details list before summarizing the rest
+
+TITLE_EXPLANATION = (
+    "The page title is the clickable headline shown for your site in Google search results and on the browser "
+    "tab. It is often the first thing a potential customer reads about you."
+)
+DESCRIPTION_EXPLANATION = (
+    "The meta description is the short summary Google often shows under your title in search results. A clear "
+    "one or two sentences helps people decide to click."
+)
+MAIN_HEADING_EXPLANATION = (
+    "The main heading, the largest headline on the page, tells visitors and search engines what the page is "
+    "about. Search engines give it extra weight."
+)
+HEADING_ORDER_EXPLANATION = (
+    "Headings work like an outline. People using screen readers move around the page by that outline, and "
+    "search engines use it to understand how your content is organized."
+)
+ALT_TEXT_EXPLANATION = (
+    "Alt text is a short written description of an image. Screen readers read it aloud to people with visual "
+    "impairments, and search engines use it to understand your pictures. Purely decorative images can be left "
+    "blank on purpose, so a few gaps can be fine."
+)
+
+
+def _more(items: list[str]) -> list[str]:
+    return items[:LISTED] + ([f"...and {len(items) - LISTED} more"] if len(items) > LISTED else [])
+
+
+# ---------- Page title
+
+def evaluate_title(title: str | None, final_url: str) -> CheckResult:
+    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
+        return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details))
+
+    fix = (
+        "In your website builder, open the home page settings and look for \"SEO title\" or \"page title\". "
+        f"Aim for {TITLE_MIN} to {TITLE_MAX} characters naming your business and what you do, for example "
+        "\"Smith Plumbing, 24-hour plumber in Austin\"."
+    )
+    if not title:
+        return result(Status.FAIL, "Your home page has no title.", fix)
+
+    details = [f"Title: {title}", f"Length: {len(title)} characters"]
+    host = (urlsplit(final_url).hostname or "").removeprefix("www.")
+    if title.lower().rstrip("/").removeprefix("https://").removeprefix("http://").removeprefix("www.") == host:
+        return result(Status.WARN, "Your home page title is just your web address.", fix, details)
+    if len(title) < TITLE_MIN:
+        return result(Status.WARN, f"Your home page title is very short ({len(title)} characters).", fix, details)
+    if len(title) > TITLE_MAX:
+        return result(Status.WARN, f"Your home page title is {len(title)} characters long, so Google will likely "
+                                   "cut it off in search results.", fix, details)
+    return result(Status.PASS, f"Your home page title is \"{title}\", a good length at {len(title)} characters.",
+                  details=details)
+
+
+def check_title(page: PageContext) -> list[CheckResult]:
+    node = parse(page.html).css_first("head > title")
+    return [evaluate_title(collapse(node.text()) if node else None, page.final_url)]
+
+
+# ---------- Meta description
+
+def evaluate_description(descriptions: list[str]) -> CheckResult:
+    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
+        return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details))
+
+    fix = (
+        "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
+        f"description\". Write one or two sentences, {DESCRIPTION_MIN} to {DESCRIPTION_MAX} characters, saying "
+        "what you do and where."
+    )
+    description = next((d for d in descriptions if d), "")
+    if not description:
+        return result(Status.WARN, "Your home page has no meta description, so Google picks its own text to show.",
+                      fix)
+
+    details = [f"Description: {description}", f"Length: {len(description)} characters"]
+    if len(descriptions) > 1:
+        details.append(f"Note: the page has {len(descriptions)} description tags; we measured the first.")
+    if len(description) < DESCRIPTION_MIN:
+        return result(Status.WARN, f"Your home page description is short ({len(description)} characters), so it "
+                                   "may not tell searchers enough.", fix, details)
+    if len(description) > DESCRIPTION_MAX:
+        return result(Status.WARN, f"Your home page description is {len(description)} characters long, so Google "
+                                   "will likely cut it off in search results.", fix, details)
+    return result(Status.PASS, f"Your home page description is a good length at {len(description)} characters.",
+                  details=details)
+
+
+def check_description(page: PageContext) -> list[CheckResult]:
+    return [evaluate_description(meta(parse(page.html), "description"))]
+
+
+# ---------- Main heading
+
+def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
+    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
+        return CheckResult(SITE, MAIN_HEADING, status, summary, MAIN_HEADING_EXPLANATION, fix, list(details))
+
+    fix = (
+        "In your website builder, make sure the page has exactly one headline set as \"Heading 1\" (H1) that "
+        "says what your business does. Other headlines on the page should use Heading 2 or smaller."
+    )
+    details = [f"Heading 1: {text or '(empty)'}" for text in h1_texts]
+    if not h1_texts:
+        return result(Status.WARN, "Your home page has no main heading.", fix)
+    if len(h1_texts) > 1:
+        return result(Status.WARN, f"Your home page has {len(h1_texts)} main headings instead of one.", fix, details)
+    if not h1_texts[0]:
+        return result(Status.WARN, "Your home page main heading is empty.", fix, details)
+    return result(Status.PASS, f"Your home page has one main heading: \"{h1_texts[0]}\".", details=details)
+
+
+def check_main_heading(page: PageContext) -> list[CheckResult]:
+    return [evaluate_main_heading([text for level, text in headings(parse(page.html)) if level == 1])]
+
+
+# ---------- Heading order
+
+def evaluate_heading_order(levels: list[int]) -> CheckResult:
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
+        return CheckResult(SITE, HEADING_ORDER, status, summary, HEADING_ORDER_EXPLANATION, fix, list(details), ran)
+
+    if not levels:
+        return result(Status.PASS, "Your home page has no headings, so there is no order to check.", ran=False)
+    skips, previous = [], 1  # starting at 1 means the first heading may be an h1 or an h2
+    for position, level in enumerate(levels, start=1):
+        if level > previous + 1:
+            skips.append(f"Heading {position} of {len(levels)} is an h{level} directly after an h{previous}")
+        previous = level
+    details = [f"Order: {' '.join(f'h{level}' for level in levels)}"]
+    if skips:
+        noun = "place" if len(skips) == 1 else "places"
+        return result(
+            Status.WARN, f"Your home page skips a heading level in {len(skips)} {noun}.",
+            "In your website builder, change the skipped headings so each level follows the one above it: Heading 2 "
+            "under Heading 1, Heading 3 under Heading 2. The look can stay the same; only the heading level changes.",
+            details + _more(skips),
+        )
+    return result(Status.PASS, f"Your {len(levels)} headings are in order, with no levels skipped.", details=details)
+
+
+def check_heading_order(page: PageContext) -> list[CheckResult]:
+    return [evaluate_heading_order([level for level, _ in headings(parse(page.html))])]
+
+
+# ---------- Image alt text
+
+IMAGE_FILE = re.compile(r"(?i)^[\w\-. ()]+\.(jpe?g|png|gif|webp|svg|avif|bmp|tiff?|heic)$")
+
+
+def useful_alt(alt: str | None, src: str) -> bool:
+    """Present, not blank, and not just a file name."""
+    alt = collapse(alt)
+    if not alt or IMAGE_FILE.match(alt):
+        return False
+    stem = urlsplit(src).path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    return alt.lower() != stem.lower()
+
+
+def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
+    """images is [(src, alt)] for every <img>, including lazy-loaded ones below the fold."""
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
+        return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran)
+
+    if not images:
+        return result(Status.PASS, "Your home page has no images, so there is no alt text to check.", ran=False)
+    missing = [src or "(no address)" for src, alt in images if not useful_alt(alt, src)]
+    described = len(images) - len(missing)
+    details = [f"{described} of {len(images)} images have a useful description. We counted every image in the "
+               "page, including ones that only load when a visitor scrolls down."]
+    if described / len(images) < ALT_TEXT_PASS_SHARE:
+        return result(
+            Status.WARN, f"{len(missing)} of the {len(images)} images on your home page have no description.",
+            "In your website builder, open each image listed in the technical details and fill in its alt text "
+            "(sometimes called \"image description\") with a short phrase saying what the picture shows, such as "
+            "\"Technician installing a Wi-Fi router\". Images that are purely decorative can stay blank.",
+            details + [f"No useful alt text: {src}" for src in _more(missing)],
+        )
+    return result(Status.PASS, f"{described} of the {len(images)} images on your home page have a description.",
+                  details=details + [f"No useful alt text: {src}" for src in _more(missing)])
+
+
+def check_alt_text(page: PageContext) -> list[CheckResult]:
+    images = [
+        (node.attributes.get("src") or node.attributes.get("data-src") or "", node.attributes.get("alt"))
+        for node in parse(page.html).css("img")
+        if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
+    ]
+    return [evaluate_alt_text(images)]
+
