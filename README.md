@@ -9,7 +9,8 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 > **Scope.** We only run these checks on domains submitted through the form at
 > [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent.
 > Each report touches public DNS and registry (RDAP) records, one TLS handshake, and a single page
-> view of the home page, the same footprint as one ordinary visitor, and it honors `robots.txt`.
+> view: the home page plus the `robots.txt` and sitemap files search engines read, the same footprint
+> as one ordinary visitor. It honors `robots.txt` and never opens the sitemaps a sitemap index lists.
 > It does **not** port-scan, probe paths, test for vulnerabilities, touch a login, crawl other pages,
 > or send email. Every request
 > identifies itself with the User-Agent `domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)`
@@ -195,7 +196,7 @@ domain_health_check/
   cli.py            command-line entry point
   config.py         loads and validates domains.yaml
   runner.py         runs every check for a domain
-  fetcher.py        the one page view: robots.txt, User-Agent, timeouts, size cap
+  fetcher.py        the one page view: robots.txt, home page, sitemap, User-Agent, timeouts, size caps
   report.py         Markdown report
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper

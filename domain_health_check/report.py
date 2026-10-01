@@ -71,7 +71,8 @@ def render_markdown(report: DomainReport) -> str:
         "## About this report",
         "",
         "These results come only from information that is publicly visible to anyone on the internet: DNS "
-        "records, the domain registry, and a single ordinary visit to the website's home page. Nothing was "
+        "records, the domain registry, and a single ordinary visit to the website's home page, along with the "
+        "robots.txt and sitemap files that search engines read. Nothing was "
         "scanned, probed or logged into. The checks show how things looked at the time above; settings "
         "can change at any time.",
         "",

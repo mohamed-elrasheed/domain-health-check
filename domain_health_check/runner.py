@@ -44,6 +44,7 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
                 "A lookup failed or timed out while running this check.",
                 "Run the check again later. If it keeps failing, ask your IT provider to look at the error below.",
                 [f"Error: {type(exc).__name__}: {exc}"],
+                ran=False,
             ))
     return DomainReport(domain.name, now, results)
 

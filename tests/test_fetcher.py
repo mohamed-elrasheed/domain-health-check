@@ -101,3 +101,86 @@ def test_connection_failure_is_a_fetch_error():
         fetcher.fetch_page("example.com", transport=httpx.MockTransport(refuse))
     assert info.value.url == "https://example.com/"  # the owner sees their home page, not robots.txt
     assert "robots.txt" in info.value.reason
+
+
+def test_sitemap_listed_in_robots_is_fetched_and_ttfb_recorded():
+    seen = []
+    transport = site({
+        "https://example.com/robots.txt": httpx.Response(
+            200, text="User-agent: *\nAllow: /\nSitemap: https://www.example.com/pages.xml\n"),
+        "https://example.com/": httpx.Response(200, html=HOME),
+        "https://www.example.com/pages.xml": httpx.Response(200, text="<urlset></urlset>"),
+    }, seen)
+    page = fetcher.fetch_page("example.com", transport=transport)
+    assert page.robots.status == 200 and "Sitemap:" in page.robots.text
+    assert page.sitemap == fetcher.FetchedFile("https://www.example.com/pages.xml", 200, "<urlset></urlset>")
+    assert 0 <= page.ttfb_ms <= page.elapsed_ms
+    assert len(seen) == 3
+
+
+def test_sitemap_defaults_to_sitemap_xml_and_ignores_other_sites():
+    transport = site({
+        "https://example.com/robots.txt": httpx.Response(200, text="Sitemap: https://cdn.other.test/sitemap.xml\n"),
+        "https://example.com/": httpx.Response(200, html=HOME),
+    })
+    page = fetcher.fetch_page("example.com", transport=transport)
+    assert page.sitemap.url == "https://example.com/sitemap.xml" and page.sitemap.status == 404
+
+
+def test_sitemap_index_is_not_followed():
+    seen = []
+    index = ("<sitemapindex><sitemap><loc>https://example.com/a.xml</loc></sitemap>"
+             "<sitemap><loc>https://example.com/b.xml</loc></sitemap></sitemapindex>")
+    transport = site({
+        "https://example.com/": httpx.Response(200, html=HOME),
+        "https://example.com/sitemap.xml": httpx.Response(200, text=index),
+    }, seen)
+    page = fetcher.fetch_page("example.com", transport=transport)
+    assert page.sitemap.text == index
+    assert [str(r.url) for r in seen] == [
+        "https://example.com/robots.txt", "https://example.com/", "https://example.com/sitemap.xml"]
+
+
+def test_sitemap_read_is_capped(monkeypatch):
+    monkeypatch.setattr(fetcher, "SITEMAP_MAX_BYTES", 50)
+    transport = site({
+        "https://example.com/": httpx.Response(200, html=HOME),
+        "https://example.com/sitemap.xml": httpx.Response(200, text="<urlset>" + "<url></url>" * 100),
+    })
+    page = fetcher.fetch_page("example.com", transport=transport)
+    assert page.sitemap.truncated and len(page.sitemap.text) == 50
+
+
+def test_sitemap_disallowed_by_robots_is_not_fetched():
+    seen = []
+    transport = site({
+        "https://example.com/robots.txt": httpx.Response(200, text="User-agent: *\nDisallow: /sitemap.xml\n"),
+        "https://example.com/": httpx.Response(200, html=HOME),
+    }, seen)
+    page = fetcher.fetch_page("example.com", transport=transport)
+    assert page.sitemap is None
+    assert "https://example.com/sitemap.xml" not in [str(r.url) for r in seen]
+
+
+def test_failed_sitemap_still_returns_the_page():
+    def handle(request):
+        if request.url.path == "/sitemap.xml":
+            raise httpx.ReadTimeout("slow", request=request)
+        return httpx.Response(200, html=HOME)
+    page = fetcher.fetch_page("example.com", transport=httpx.MockTransport(handle))
+    assert page.html == HOME and page.sitemap is None
+
+
+def test_robots_text_survives_a_block_and_a_failed_home_page():
+    blocked = site({"https://example.com/robots.txt": httpx.Response(200, text="User-agent: *\nDisallow: /\n")})
+    with pytest.raises(RobotsDisallowed) as info:
+        fetcher.fetch_page("example.com", transport=blocked)
+    assert "Disallow: /" in info.value.robots.text
+
+    def handle(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+        raise httpx.ConnectError("refused", request=request)
+    with pytest.raises(FetchError) as info:
+        fetcher.fetch_page("example.com", transport=httpx.MockTransport(handle))
+    assert info.value.robots.status == 200

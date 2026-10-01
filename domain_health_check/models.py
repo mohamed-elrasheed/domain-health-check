@@ -10,6 +10,7 @@ from enum import Enum
 WEBSITE = "Website security"
 DOMAIN = "Domain & DNS"
 EMAIL = "Email security"
+SITE = "Site health"
 
 
 class Status(str, Enum):
@@ -32,6 +33,7 @@ class CheckResult:
     explanation: str  # plain English: why this matters
     fix: str = ""  # what to do about it (empty when there is nothing to do)
     details: list[str] = field(default_factory=list)  # technical specifics for an IT provider
+    ran: bool = True  # False when there was nothing we could measure; the score leaves these out
 
 
 @dataclass

@@ -111,6 +111,7 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
             "Nothing needs to change if blocking automated tools is intentional. If you would like these "
             "checked, ask your web developer to allow domain-health-check in your robots.txt file.",
             [f"Error: {page.reason}"],
+            ran=False,
         )]
     if isinstance(page, FetchError):
         return [CheckResult(
@@ -120,6 +121,7 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
             "If this domain is meant to have a website, ask your web host why the home page can't be "
             "loaded over HTTPS. If it's only used for email, you can ignore this.",
             [f"Error: {page.reason}"],
+            ran=False,
         )]
 
     headers = page.headers

@@ -55,6 +55,7 @@ def test_unreachable_site_gives_single_warning():
     assert result.status is Status.WARN
     assert "couldn't load https://example.com/" in result.summary
     assert result.details == ["Error: ConnectError: refused"]
+    assert not result.ran
 
 
 def test_robots_block_says_so_instead_of_blaming_the_host():

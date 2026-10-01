@@ -72,6 +72,7 @@ def test_runner_turns_crashing_check_into_warning(monkeypatch, make_page):
     report = runner.run_checks(DomainConfig("example.com"), NOW)
     assert [r.status for r in report.results] == [Status.PASS, Status.WARN]
     assert "TimeoutError" in report.results[1].details[0]
+    assert report.results[0].ran and not report.results[1].ran
 
 
 def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, make_page):

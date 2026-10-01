@@ -34,7 +34,8 @@ def make_page():
         html = overrides.pop("html", "<html><head><title>Example</title></head><body></body></html>")
         fields = dict(
             requested_url="https://example.com/", final_url="https://example.com/", redirect_chain=[],
-            status=200, headers={}, html=html, byte_size=len(html.encode()), elapsed_ms=120,
+            status=200, headers={}, html=html, byte_size=len(html.encode()), elapsed_ms=120, ttfb_ms=80,
+            robots=None, sitemap=None,
         )
         fields.update(overrides)
         return PageContext(**fields)
