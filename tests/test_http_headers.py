@@ -1,8 +1,7 @@
-import urllib.error
-
 import pytest
 
 from domain_health_check.checks import http_headers
+from domain_health_check.fetcher import FetchError, RobotsDisallowed
 from domain_health_check.models import Status
 
 
@@ -38,17 +37,28 @@ def test_content_type_options(value, expected):
     assert http_headers.evaluate_content_type_options(value).status is expected
 
 
-def test_check_http_headers_uses_fetched_headers(monkeypatch):
+def test_check_http_headers_uses_fetched_headers(make_page):
     headers = {"strict-transport-security": "max-age=31536000", "x-content-type-options": "nosniff"}
-    monkeypatch.setattr(http_headers, "fetch_headers", lambda d: ("https://www.example.com/", headers))
-    results = http_headers.check_http_headers("example.com")
+    page = make_page(final_url="https://www.example.com/", headers=headers)
+    results = http_headers.check_http_headers(page)
     assert [r.status for r in results] == [Status.PASS, Status.WARN, Status.PASS]
     assert all("Checked page: https://www.example.com/" in r.details for r in results)
 
 
-def test_unreachable_site_gives_single_warning(monkeypatch):
-    def offline(domain):
-        raise urllib.error.URLError("Name or service not known")
-    monkeypatch.setattr(http_headers, "fetch_headers", offline)
-    [result] = http_headers.check_http_headers("example.com")
+def test_error_page_headers_are_still_checked(make_page):
+    page = make_page(status=404, headers={"strict-transport-security": "max-age=31536000"})
+    assert http_headers.check_http_headers(page)[0].status is Status.PASS
+
+
+def test_unreachable_site_gives_single_warning():
+    [result] = http_headers.check_http_headers(FetchError("https://example.com/", "ConnectError: refused"))
     assert result.status is Status.WARN
+    assert "couldn't load https://example.com/" in result.summary
+    assert result.details == ["Error: ConnectError: refused"]
+
+
+def test_robots_block_says_so_instead_of_blaming_the_host():
+    [result] = http_headers.check_http_headers(RobotsDisallowed("https://example.com/", "Disallow: /"))
+    assert result.status is Status.WARN
+    assert "asks automated tools not to load" in result.summary
+    assert "web host" not in result.fix

@@ -2,8 +2,10 @@
 
 from datetime import datetime, timezone
 
-from domain_health_check import cli, runner
+from domain_health_check import cli, fetcher, runner
+from domain_health_check.checks import http_headers
 from domain_health_check.config import DomainConfig
+from domain_health_check.fetcher import FetchError
 from domain_health_check.models import EMAIL, WEBSITE, CheckResult, DomainReport, Status
 from domain_health_check.report import render_markdown, write_report
 from domain_health_check.terminal import format_summary
@@ -59,10 +61,11 @@ def test_terminal_summary_plain_and_colored():
     assert "\033[31mFAIL" in format_summary(report, color=True)
 
 
-def test_runner_turns_crashing_check_into_warning(monkeypatch):
+def test_runner_turns_crashing_check_into_warning(monkeypatch, make_page):
     def boom():
         raise TimeoutError("resolver timed out")
-    monkeypatch.setattr(runner, "_checks_for", lambda domain, now: [
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: make_page())
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
         (WEBSITE, "Fine", lambda: [CheckResult(WEBSITE, "Fine", Status.PASS, "ok", "why")]),
         (EMAIL, "Broken", boom),
     ])
@@ -71,17 +74,41 @@ def test_runner_turns_crashing_check_into_warning(monkeypatch):
     assert "TimeoutError" in report.results[1].details[0]
 
 
-def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch):
-    from domain_health_check.checks import http_headers, rdap, tls
+def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, make_page):
+    from domain_health_check.checks import rdap, tls
+    fetched = []
     monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
-    monkeypatch.setattr(http_headers, "fetch_headers", lambda d: (f"https://{d}/", {}))
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: fetched.append(d) or make_page())
     monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
     report = runner.run_checks(DomainConfig("example.com", ["google"]), NOW)
     names = [r.name for r in report.results]
     assert names[0] == "SSL certificate" and names[-1] == "DMARC (anti-spoofing policy)"
     assert len(names) == 12  # TLS gives 2 results and headers give 3
+    assert fetched == ["example.com"]  # one page fetch per report
     # No check should have crashed into the runner's "couldn't be completed" fallback.
     assert not any("couldn't be completed" in r.summary for r in report.results)
+
+
+def test_runner_failed_fetch_becomes_a_warning(monkeypatch):
+    def offline(domain):
+        raise FetchError(f"https://{domain}/", "ConnectError: refused")
+    monkeypatch.setattr(fetcher, "fetch_page", offline)
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
+        (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
+    ])
+    [result] = runner.run_checks(DomainConfig("example.com"), NOW).results
+    assert result.status is Status.WARN and "couldn't load https://example.com/" in result.summary
+
+
+def test_runner_survives_unexpected_fetch_crash(monkeypatch):
+    def broken(domain):
+        raise KeyError("bug")
+    monkeypatch.setattr(fetcher, "fetch_page", broken)
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
+        (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
+    ])
+    [result] = runner.run_checks(DomainConfig("example.com"), NOW).results
+    assert result.status is Status.WARN and "KeyError" in result.details[0]
 
 
 def test_cli_exit_codes(tmp_path, monkeypatch, capsys):

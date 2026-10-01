@@ -13,19 +13,16 @@ the browser. A few of them switch on browser security features:
   * X-Content-Type-Options: nosniff: "trust the file type I tell you." Stops
     browsers guessing that an uploaded text file is actually a script.
 
-We fetch the home page once, as a browser would, and read its headers.
+We read the headers of the home page the runner already fetched (see fetcher.py).
 """
 
 from __future__ import annotations
 
 import re
-import urllib.error
-import urllib.request
 
+from ..fetcher import FetchError, PageContext, RobotsDisallowed
 from ..models import WEBSITE, CheckResult, Status
 
-TIMEOUT_SECONDS = 10
-USER_AGENT = "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
 HSTS_MIN_SECONDS = 15_552_000  # 180 days, the common recommendation
 
 HSTS_EXPLANATION = (
@@ -40,17 +37,6 @@ XCTO_EXPLANATION = (
     "This setting stops browsers from guessing what type a file is. Without it, a file that should be "
     "treated as harmless text could, in some cases, be run as code."
 )
-
-
-def fetch_headers(domain: str) -> tuple[str, dict[str, str]]:
-    """GET the home page over HTTPS (following redirects) and return (final_url, headers)."""
-    request = urllib.request.Request(f"https://{domain}/", headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            return response.geturl(), {k.lower(): v for k, v in response.headers.items()}
-    except urllib.error.HTTPError as exc:
-        # Error pages (403, 404, 500...) still carry headers worth checking.
-        return exc.filename, {k.lower(): v for k, v in (exc.headers or {}).items()}
 
 
 def evaluate_hsts(value: str | None) -> CheckResult:
@@ -113,24 +99,35 @@ def evaluate_content_type_options(value: str | None) -> CheckResult:
     return CheckResult(WEBSITE, name, Status.PASS, "The nosniff protection is switched on.", XCTO_EXPLANATION)
 
 
-def check_http_headers(domain: str) -> list[CheckResult]:
-    try:
-        final_url, headers = fetch_headers(domain)
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
+    # Error pages (403, 404, 500...) still carry headers worth checking, so only a failed fetch stops us.
+    if isinstance(page, RobotsDisallowed):
         return [CheckResult(
             WEBSITE, "Security headers", Status.WARN,
-            f"We couldn't load https://{domain}/ to check its security headers.",
+            "Your website asks automated tools not to load its home page, so we didn't check its security headers.",
+            "Security headers switch on protections built into visitors' browsers. Your site's robots.txt file, "
+            "which gives instructions to automated tools, doesn't allow us in, and we respect that. "
+            "This result is unknown, not a problem we found.",
+            "Nothing needs to change if blocking automated tools is intentional. If you would like these "
+            "checked, ask your web developer to allow domain-health-check in your robots.txt file.",
+            [f"Error: {page.reason}"],
+        )]
+    if isinstance(page, FetchError):
+        return [CheckResult(
+            WEBSITE, "Security headers", Status.WARN,
+            f"We couldn't load {page.url} to check its security headers.",
             "Security headers switch on protections built into visitors' browsers.",
             "If this domain is meant to have a website, ask your web host why the home page can't be "
             "loaded over HTTPS. If it's only used for email, you can ignore this.",
-            [f"Error: {getattr(exc, 'reason', exc)}"],
+            [f"Error: {page.reason}"],
         )]
 
+    headers = page.headers
     results = [
         evaluate_hsts(headers.get("strict-transport-security")),
         evaluate_csp(headers.get("content-security-policy"), headers.get("content-security-policy-report-only")),
         evaluate_content_type_options(headers.get("x-content-type-options")),
     ]
     for r in results:
-        r.details.append(f"Checked page: {final_url}")
+        r.details.append(f"Checked page: {page.final_url}")
     return results

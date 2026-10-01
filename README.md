@@ -9,8 +9,9 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 > **Scope.** We only run these checks on domains submitted through the form at
 > [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent.
 > Each report touches public DNS and registry (RDAP) records, one TLS handshake, and a single page
-> view of the home page, the same footprint as one ordinary visitor. It does **not** port-scan, probe
-> paths, test for vulnerabilities, touch a login, crawl other pages, or send email. Every request
+> view of the home page, the same footprint as one ordinary visitor, and it honors `robots.txt`.
+> It does **not** port-scan, probe paths, test for vulnerabilities, touch a login, crawl other pages,
+> or send email. Every request
 > identifies itself with the User-Agent `domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)`
 > so anyone reading their server logs can see who it was and why.
 
@@ -81,7 +82,7 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 
 ## Setup
 
-Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython` and `PyYAML`.
+Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx` and `PyYAML`.
 
 ```powershell
 git clone https://github.com/mohamed-elrasheed/domain-health-check.git
@@ -194,12 +195,13 @@ domain_health_check/
   cli.py            command-line entry point
   config.py         loads and validates domains.yaml
   runner.py         runs every check for a domain
+  fetcher.py        the one page view: robots.txt, User-Agent, timeouts, size cap
   report.py         Markdown report
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper
   checks/
     tls.py          SSL certificate and TLS version
-    http_headers.py HSTS, CSP, X-Content-Type-Options
+    http_headers.py HSTS, CSP, X-Content-Type-Options (reads the fetched page)
     rdap.py         domain registration expiry
     dns_records.py  NS and MX
     dnssec.py       DS record
