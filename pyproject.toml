@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "domain-health-check"
 version = "0.1.0"
-description = "Passive, public health checks for domains (SSL, DNS, email authentication, security headers) with client-friendly reports."
+description = "Plain-English health reports for domains submitted through mizangroupllc.com/digital, built from public DNS and registry records plus a single page view."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

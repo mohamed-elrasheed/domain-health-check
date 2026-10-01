@@ -26,7 +26,7 @@ from ..models import DOMAIN, CheckResult, Status
 
 BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 TIMEOUT_SECONDS = 15
-USER_AGENT = "domain-health-check/0.1 (passive RDAP lookup)"
+USER_AGENT = "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
 
 # Losing a domain is far worse than a lapsed certificate, so warn earlier.
 WARN_DAYS = 60

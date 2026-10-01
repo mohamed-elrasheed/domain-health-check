@@ -25,7 +25,7 @@ import urllib.request
 from ..models import WEBSITE, CheckResult, Status
 
 TIMEOUT_SECONDS = 10
-USER_AGENT = "domain-health-check/0.1 (passive security header check)"
+USER_AGENT = "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
 HSTS_MIN_SECONDS = 15_552_000  # 180 days, the common recommendation
 
 HSTS_EXPLANATION = (

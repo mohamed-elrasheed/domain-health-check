@@ -1,9 +1,9 @@
 """A thin wrapper around dnspython.
 
 DNS (the Domain Name System) is the internet's public directory. Anyone can ask
-"what are the mail servers for example.com?" and get an answer, which is what
-makes all of the DNS-based checks in this tool passive: we only read what the
-domain owner has already published for the whole world to see.
+"what are the mail servers for example.com?" and get an answer. The DNS-based
+checks in this tool only read what the domain owner has already published for
+the whole world to see.
 
 The rest of the code only ever sees plain strings, which also makes the checks
 easy to test with fake DNS data.

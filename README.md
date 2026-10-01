@@ -1,14 +1,18 @@
 # domain-health-check
 
-A command-line tool that runs **passive, public** health checks on a list of domains and writes a
-plain-English report for each one, suitable for handing to a non-technical client.
+A command-line tool that runs health checks on a list of domains and writes a plain-English report
+for each one, suitable for handing to a non-technical client. It produces the free report offered at
+[mizangroupllc.com/digital](https://www.mizangroupllc.com/digital).
 
 Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why it matters and what to do about it.
 
-> **Passive lookups only.** This tool reads information that domains already publish to the whole
-> internet: DNS records, public registry (RDAP) data, and a single ordinary HTTPS request to the home
-> page, exactly what a browser does when someone visits. It does **not** port-scan, probe, fuzz,
-> brute-force, log in, or send email. Even so, only check domains you own or have permission to assess.
+> **Scope.** We only run these checks on domains submitted through the form at
+> [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent.
+> Each report touches public DNS and registry (RDAP) records, one TLS handshake, and a single page
+> view of the home page, the same footprint as one ordinary visitor. It does **not** port-scan, probe
+> paths, test for vulnerabilities, touch a login, crawl other pages, or send email. Every request
+> identifies itself with the User-Agent `domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)`
+> so anyone reading their server logs can see who it was and why.
 
 ## What it checks and why
 

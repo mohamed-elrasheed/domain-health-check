@@ -17,7 +17,7 @@ from .terminal import format_summary, use_color
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="domain-health-check",
-        description="Run passive, public health checks on domains and write client-friendly reports.",
+        description="Run health checks on domains submitted through mizangroupllc.com/digital and write client-friendly reports.",
     )
     parser.add_argument(
         "domains", nargs="*",
