@@ -107,8 +107,8 @@ def test_lookalike_is_skipped_and_the_confirmed_listing_is_used(with_places_key)
 def test_name_match_without_corroboration_is_rejected(with_places_key):
     search = [{"id": "x", "displayName": {"text": "Example Plumbing", "languageCode": "en"}}]
     context = find(places_api(search, {"x": listing("x", website="https://other.test/", phone="(555) 999-0000")}))
-    assert context.place is None and context.place_outcome == "unconfirmed"
-    assert "none links to example.com" in context.errors["place"]
+    assert context.place is None and context.place_outcome == "unconfirmed" and not context.phone_compared
+    assert "none links to example.com, so" in context.errors["place"]
 
 
 def test_no_name_match_records_counts_not_other_businesses(with_places_key):
@@ -172,6 +172,12 @@ def test_unconfirmed_similar_listing_is_a_finding_without_its_details():
                               errors={"place": "1 listing(s) named like ..., but none links to example.com"})
     [result] = bp.check_profile(context)
     assert result.ran and result.status is Status.WARN and "similar name" in result.summary
+    assert "phone" not in result.summary  # no phone was given, so none was compared
+
+
+def test_phone_is_mentioned_only_when_one_was_compared():
+    context = ExternalContext(place_outcome="unconfirmed", phone_compared=True, errors={"place": "x"})
+    assert "or list your phone number" in bp.check_profile(context)[0].summary
 
 
 def test_api_error_is_not_checked():

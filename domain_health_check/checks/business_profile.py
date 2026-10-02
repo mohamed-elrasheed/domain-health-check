@@ -73,9 +73,11 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
                 f"come up, create or claim your free profile at {MANAGE} and make sure it shows your business name, "
                 "your website and the area you serve.", [why])
         if external.place_outcome == "unconfirmed":
+            # Only say what we compared: without a phone number from the form, we never looked at the listing's.
+            phone = " or list your phone number" if external.phone_compared else ""
             return result(
                 Status.WARN, "We found a Google Business Profile with a similar name, but it does not link to your "
-                             "website or list your phone number, so we could not confirm it is yours.",
+                             f"website{phone}, so we could not confirm it is yours.",
                 f"If that listing is yours, sign in at {MANAGE} and add your website, so customers can tell it is "
                 "you.", [why])
         if why.startswith("no business name"):

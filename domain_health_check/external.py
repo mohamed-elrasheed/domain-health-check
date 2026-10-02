@@ -72,6 +72,7 @@ class ExternalContext:
     # What the search came to: "found", "not_found" (no listing by that name and place), "unconfirmed" (a similar
     # name that does not link back to the domain or phone), or "" when it did not run (no key, no name, an error).
     place_outcome: str = ""
+    phone_compared: bool = False  # whether we had a phone number to compare listings against
     errors: dict[str, str] = field(default_factory=dict)  # source -> why it is missing
 
     @property
@@ -229,5 +230,7 @@ def _find_place(client: httpx.Client, context: ExternalContext, domain: str, bus
                                    f'"{query}"')
     else:
         context.place_outcome = "unconfirmed"
+        context.phone_compared = bool(matching.phone_digits(business.phone))
+        phone = " or lists the phone number we were given" if context.phone_compared else ""
         context.errors["place"] = (f'{len(candidates)} listing(s) named like "{business.name}", but none links to '
-                                   f"{domain} or lists the phone number we were given, so we did not use any of them")
+                                   f"{domain}{phone}, so we did not use any of them")
