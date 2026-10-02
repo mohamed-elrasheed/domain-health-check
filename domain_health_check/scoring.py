@@ -49,6 +49,11 @@ WEIGHTS: dict[str, int] = {
     "Sitemap and robots": 1,
     "Page weight": 1,
     "Redirect chain": 1,
+    # Speed, from PageSpeed Insights. Real-world speed only scores when Google publishes field data.
+    "Real-world loading speed": 2,
+    "Mobile speed": 1,
+    "Accessibility": 1,
+    "Best practices": 1,
 }
 
 CREDIT = {Status.PASS: 1.0, Status.WARN: 0.5, Status.FAIL: 0.0}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -76,3 +77,17 @@ def load_config(path: Path) -> list[DomainConfig]:
             raise ConfigError(f"{d.name} is listed more than once in {path}")
         seen.add(d.name)
     return domains
+
+
+def load_env(path: Path) -> None:
+    """Read KEY=VALUE lines from a .env file into the environment, without overriding anything already
+    set. A missing file is fine: every API key is optional."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if key and value:
+            os.environ.setdefault(key, value.strip("\"'"))

@@ -82,7 +82,10 @@ def test_weights_cover_exactly_the_checks_that_exist():
     security = {"SSL certificate", "TLS version", "HSTS (always use HTTPS)", "Content Security Policy",
                 "X-Content-Type-Options", rdap.NAME, "Nameservers", "DNSSEC", "Mail servers (MX)",
                 "SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)"}
-    assert set(scoring.WEIGHTS) == site | security
+    from domain_health_check.checks import pagespeed
+    speed = {pagespeed.FIELD_SPEED, pagespeed.MOBILE_SPEED, pagespeed.ACCESSIBILITY, pagespeed.BEST_PRACTICES}
+    assert set(scoring.WEIGHTS) == site | security | speed
+    assert "SEO" not in scoring.WEIGHTS  # Lighthouse's seo category would double-count the site checks
 
 
 def test_failed_fetch_does_not_lower_the_score(fake_dns, monkeypatch, mizan_page):

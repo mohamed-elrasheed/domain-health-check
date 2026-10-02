@@ -113,6 +113,28 @@ left out of the score rather than passed.
 - Measured on the HTML as delivered, before scripts run. Page weight is the HTML document alone;
   images, scripts and styles are not loaded. A sitemap index is recorded but never followed.
 
+### Speed (optional, from Google PageSpeed Insights)
+
+Runs only when `PAGESPEED_API_KEY` is set. With no key, these rows do not appear and cost nothing.
+Mobile and desktop are tested at the same time, and each raw response is cached for 24 hours in
+`.cache/pagespeed/` (gitignored). We only ask Google to test a page we were able, and allowed, to load
+ourselves.
+
+| Check | PASS | WARN | FAIL | Not run |
+|---|---|---|---|---|
+| **Real-world loading speed** | Chrome field data `FAST` | `AVERAGE` | `SLOW` | Google publishes no field data for the page (the usual case for a small business) |
+| **Mobile speed** | Lighthouse performance 90+ | 50 to 89 | below 50 | score null or missing |
+| **Accessibility** | Lighthouse accessibility 90+ | 50 to 89 | below 50 | score null or missing |
+| **Best practices** | Lighthouse best-practices 90+ | 50 to 89 | below 50 | score null or missing |
+
+- Bands are Google's own, so the report agrees with any other tool the owner runs. Lab scores move
+  a few points between runs, so summaries name the band and the number stays in the details.
+- `categories.*.score` is 0 to 1 and arrives as either a float or an int. Lighthouse's `seo` category
+  is not scored: the site checks above already measure the same things directly.
+- Whole-site field data (`originLoadingExperience`) is labeled as the whole site, never as the page.
+- A timeout, an API error or a skipped test is one "Google speed test" row that did not run, and is
+  left out of the score.
+
 ## Setup
 
 Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML` and `selectolax`.
@@ -124,6 +146,9 @@ py -m venv .venv
 .\.venv\Scripts\Activate.ps1        # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 ```
+
+To include the speed checks, copy `.env.example` to `.env` and add a PageSpeed Insights API key.
+`.env` is gitignored; the tool reads it at startup and never overrides a variable already set.
 
 Then create your own domain list. `domains.yaml` is gitignored, so real client domains never end
 up in the repository:
@@ -229,6 +254,9 @@ domain_health_check/
   config.py         loads and validates domains.yaml
   runner.py         runs every check for a domain
   fetcher.py        the one page view: robots.txt, home page, sitemap, User-Agent, timeouts, size caps
+  robots.py         robots.txt as RFC 9309 and Google read it, for our access and for Googlebot's
+  external.py       outside services fetched once per report (PageSpeed Insights), with a 24-hour cache
+  scoring.py        the weighted 0 to 100 score
   report.py         Markdown report
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper
@@ -245,6 +273,7 @@ domain_health_check/
       structured_data.py  JSON-LD against the visible page
       sharing.py          social preview (Open Graph)
       delivery.py         mobile viewport, page weight, redirect chain
+    pagespeed.py    real-world speed, mobile speed, accessibility, best practices
 tests/
 ```
 

@@ -65,7 +65,7 @@ def test_runner_turns_crashing_check_into_warning(monkeypatch, make_page):
     def boom():
         raise TimeoutError("resolver timed out")
     monkeypatch.setattr(fetcher, "fetch_page", lambda d: make_page())
-    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page, ext: [
         (WEBSITE, "Fine", lambda: [CheckResult(WEBSITE, "Fine", Status.PASS, "ok", "why")]),
         (EMAIL, "Broken", boom),
     ])
@@ -113,7 +113,7 @@ def test_runner_failed_fetch_becomes_a_warning(monkeypatch):
     def offline(domain):
         raise FetchError(f"https://{domain}/", "ConnectError: refused")
     monkeypatch.setattr(fetcher, "fetch_page", offline)
-    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page, ext: [
         (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
     ])
     [result] = runner.run_checks(DomainConfig("example.com"), NOW).results
@@ -124,7 +124,7 @@ def test_runner_survives_unexpected_fetch_crash(monkeypatch):
     def broken(domain):
         raise KeyError("bug")
     monkeypatch.setattr(fetcher, "fetch_page", broken)
-    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page: [
+    monkeypatch.setattr(runner, "_checks_for", lambda domain, now, page, ext: [
         (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
     ])
     [result] = runner.run_checks(DomainConfig("example.com"), NOW).results

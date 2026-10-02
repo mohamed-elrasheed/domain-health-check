@@ -1,0 +1,401 @@
+{
+ "_comment": "Real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile strategy, captured 2026-10-02. Audit bodies stripped to keep the fixture small; the fields the checks read are untouched and exactly as the API returned them. Note loadingExperience is ABSENT because the site does not get enough traffic for Google to publish field data - that is the common case for our prospects and must report as did-not-run, not a failure.",
+ "kind": "pagespeedonline#result",
+ "id": "https://www.mizangroupllc.com/",
+ "analysisUTCTimestamp": "2026-10-02T00:22:24.458Z",
+ "lighthouseResult": {
+  "lighthouseVersion": "13.5.0",
+  "finalUrl": "https://www.mizangroupllc.com/",
+  "categories": {
+   "performance": {
+    "id": "performance",
+    "title": "Performance",
+    "score": 0.64,
+    "auditRefs": [
+     {
+      "id": "first-contentful-paint",
+      "weight": 10,
+      "group": "metrics",
+      "acronym": "FCP"
+     },
+     {
+      "id": "largest-contentful-paint",
+      "weight": 25,
+      "group": "metrics",
+      "acronym": "LCP"
+     },
+     {
+      "id": "total-blocking-time",
+      "weight": 30,
+      "group": "metrics",
+      "acronym": "TBT"
+     },
+     {
+      "id": "cumulative-layout-shift",
+      "weight": 25,
+      "group": "metrics",
+      "acronym": "CLS"
+     },
+     {
+      "id": "speed-index",
+      "weight": 10,
+      "group": "metrics",
+      "acronym": "SI"
+     },
+     {
+      "id": "cache-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "cls-culprits-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "document-latency-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "dom-size-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "duplicated-javascript-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "font-display-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "forced-reflow-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "image-delivery-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "inp-breakdown-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "lcp-breakdown-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "lcp-discovery-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "legacy-javascript-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "network-dependency-tree-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "render-blocking-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "third-parties-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "viewport-insight",
+      "weight": 0,
+      "group": "insights"
+     },
+     {
+      "id": "interactive",
+      "weight": 0,
+      "group": "hidden",
+      "acronym": "TTI"
+     },
+     {
+      "id": "max-potential-fid",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "unminified-css",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "unminified-javascript",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "unused-css-rules",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "unused-javascript",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "total-byte-weight",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "user-timings",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "bootup-time",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "mainthread-work-breakdown",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "long-tasks",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "non-composited-animations",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "unsized-images",
+      "weight": 0,
+      "group": "diagnostics"
+     },
+     {
+      "id": "network-requests",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "network-rtt",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "network-server-latency",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "main-thread-tasks",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "diagnostics",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "metrics",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "screenshot-thumbnails",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "final-screenshot",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "script-treemap-data",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "resource-summary",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "redirects",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "server-response-time",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "layout-shifts",
+      "weight": 0,
+      "group": "hidden"
+     }
+    ]
+   },
+   "seo": {
+    "id": "seo",
+    "title": "SEO",
+    "description": "These checks ensure that your page is following basic search engine optimization advice. There are many additional factors Lighthouse does not score here that may affect your search ranking, including performance on [Core Web Vitals](https://web.dev/explore/vitals). [Learn more about Google Search Essentials](https://support.google.com/webmasters/answer/35769).",
+    "score": 1,
+    "manualDescription": "Run these additional validators on your site to check additional SEO best practices.",
+    "auditRefs": [
+     {
+      "id": "is-crawlable",
+      "weight": 4.043478260869565,
+      "group": "seo-crawl"
+     },
+     {
+      "id": "document-title",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "meta-description",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "http-status-code",
+      "weight": 1,
+      "group": "seo-crawl"
+     },
+     {
+      "id": "link-text",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "crawlable-anchors",
+      "weight": 1,
+      "group": "seo-crawl"
+     },
+     {
+      "id": "robots-txt",
+      "weight": 1,
+      "group": "seo-crawl"
+     },
+     {
+      "id": "image-alt",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "hreflang",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "canonical",
+      "weight": 1,
+      "group": "seo-content"
+     },
+     {
+      "id": "structured-data",
+      "weight": 0
+     }
+    ]
+   }
+  },
+  "audits": {
+   "interactive": {
+    "id": "interactive",
+    "title": "Time to Interactive",
+    "description": "Time to Interactive is the amount of time it takes for the page to become fully interactive. [Learn more about the Time to Interactive metric](https://developer.chrome.com/docs/lighthouse/performance/interactive/).",
+    "score": 0.68,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "5.7\u00a0s",
+    "numericValue": 5727.713384700521,
+    "numericUnit": "millisecond"
+   },
+   "speed-index": {
+    "id": "speed-index",
+    "title": "Speed Index",
+    "description": "Speed Index shows how quickly the contents of a page are visibly populated. [Learn more about the Speed Index metric](https://developer.chrome.com/docs/lighthouse/performance/speed-index/).",
+    "score": 0.9,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "3.4\u00a0s",
+    "numericValue": 3364.6476031436778,
+    "numericUnit": "millisecond"
+   },
+   "cumulative-layout-shift": {
+    "id": "cumulative-layout-shift",
+    "title": "Cumulative Layout Shift",
+    "description": "Cumulative Layout Shift measures the movement of visible elements within the viewport. [Learn more about the Cumulative Layout Shift metric](https://web.dev/articles/cls).",
+    "score": 1,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "0",
+    "details": {
+     "items": [
+      {
+       "newEngineResult": {
+        "cumulativeLayoutShift": 0,
+        "cumulativeLayoutShiftMainFrame": 0
+       },
+       "newEngineResultDiffered": false,
+       "cumulativeLayoutShiftMainFrame": 0
+      }
+     ],
+     "type": "debugdata"
+    },
+    "numericValue": 0,
+    "numericUnit": "unitless"
+   },
+   "total-blocking-time": {
+    "id": "total-blocking-time",
+    "title": "Total Blocking Time",
+    "description": "Sum of all time periods between FCP and Time to Interactive, when task length exceeded 50ms, expressed in milliseconds. [Learn more about the Total Blocking Time metric](https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time/).",
+    "score": 0.67,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "410\u00a0ms",
+    "numericValue": 410.19042172935406,
+    "numericUnit": "millisecond"
+   },
+   "first-contentful-paint": {
+    "id": "first-contentful-paint",
+    "title": "First Contentful Paint",
+    "description": "First Contentful Paint marks the time at which the first text or image is painted. [Learn more about the First Contentful Paint metric](https://developer.chrome.com/docs/lighthouse/performance/first-contentful-paint/).",
+    "score": 0.59,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "2.7\u00a0s",
+    "numericValue": 2735.709624663528,
+    "numericUnit": "millisecond"
+   },
+   "largest-contentful-paint": {
+    "id": "largest-contentful-paint",
+    "title": "Largest Contentful Paint",
+    "description": "Largest Contentful Paint marks the time at which the largest text or image is painted. [Learn more about the Largest Contentful Paint metric](https://developer.chrome.com/docs/lighthouse/performance/lighthouse-largest-contentful-paint/)",
+    "score": 0.16,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "5.7\u00a0s",
+    "numericValue": 5727.713384700521,
+    "numericUnit": "millisecond"
+   }
+  }
+ },
+ "loadingExperience": {
+  "initial_url": "https://www.mizangroupllc.com/"
+ }
+}

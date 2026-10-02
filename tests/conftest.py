@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from domain_health_check import dns_utils
+from domain_health_check import cli, dns_utils
 from domain_health_check.checks import rdap
 from domain_health_check.fetcher import FetchedFile, PageContext
 
@@ -29,6 +29,9 @@ def no_network(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", _blocked)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _blocked)  # httpx.MockTransport still works
     rdap._load_bootstrap.cache_clear()
+    # Never let a developer's real API key, or their .env file, into a test run.
+    monkeypatch.delenv("PAGESPEED_API_KEY", raising=False)
+    monkeypatch.setattr(cli, "ENV_FILE", Path(__file__).parent / "no-such.env")
 
 
 @pytest.fixture
@@ -64,6 +67,13 @@ def mizan_page() -> PageContext:
         robots=FetchedFile(text=(MIZAN / "robots.txt").read_text(encoding="utf-8"), **measured["robots"]),
         sitemap=FetchedFile(text=(MIZAN / "sitemap.xml").read_text(encoding="utf-8"), **measured["sitemap"]),
     )
+
+
+@pytest.fixture
+def psi_mobile() -> dict:
+    """A real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile, trimmed. It has the
+    performance and seo categories only, and loadingExperience holds nothing but initial_url."""
+    return json.loads((MIZAN / "psi-mobile.json").read_text(encoding="utf-8"))
 
 
 @pytest.fixture

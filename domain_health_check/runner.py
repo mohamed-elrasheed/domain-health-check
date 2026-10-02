@@ -5,16 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable
 
-from . import fetcher
-from .checks import dns_records, dnssec, email_auth, http_headers, rdap, site, tls
+from . import external, fetcher
+from .checks import dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
 from .checks.site import content, delivery, indexing, sharing, structured_data
 from .config import DomainConfig
-from .fetcher import FetchError, PageContext
+from .external import ExternalContext
+from .fetcher import FetchError, PageContext, RobotsDisallowed
 from .models import DOMAIN, EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
 
 
 def _checks_for(
-    domain: DomainConfig, now: datetime, page: PageContext | FetchError,
+    domain: DomainConfig, now: datetime, page: PageContext | FetchError, ext: ExternalContext,
 ) -> list[tuple[str, str, Callable[[], list[CheckResult]]]]:
     """(category, name, zero-argument function) in the order they appear in the report."""
     d = domain.name
@@ -47,14 +48,20 @@ def _checks_for(
         (SITE, "Sitemap and robots", on_page(indexing.check_sitemap_and_robots)),
         (SITE, "Page weight", on_page(delivery.check_page_weight)),
         (SITE, "Redirect chain", on_page(delivery.check_redirects)),
+        (SITE, "Google speed test", lambda: pagespeed.check_speed_test_ran(ext)),
+        (SITE, "Real-world loading speed", lambda: pagespeed.check_field_speed(ext)),
+        (SITE, "Mobile speed", lambda: pagespeed.check_mobile_speed(ext)),
+        (SITE, "Accessibility", lambda: pagespeed.check_accessibility(ext)),
+        (SITE, "Best practices", lambda: pagespeed.check_best_practices(ext)),
     ]
 
 
 def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainReport:
     now = now or datetime.now(timezone.utc)
     page = _fetch_page(domain.name)
+    ext = _fetch_external(domain.name, page)
     results: list[CheckResult] = []
-    for category, name, check in _checks_for(domain, now, page):
+    for category, name, check in _checks_for(domain, now, page, ext):
         try:
             results.extend(check())
         except Exception as exc:  # one failing lookup shouldn't sink the whole report
@@ -78,3 +85,18 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return exc
     except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
+
+
+def _fetch_external(domain: str, page: PageContext | FetchError) -> ExternalContext:
+    """Outside services, once per report. We never ask Google to load a page we could not, or were asked
+    not to, load ourselves. Like the page fetch, a failure here is reported by the checks, never raised."""
+    if isinstance(page, RobotsDisallowed):
+        url, skipped = None, "not run, because robots.txt asks us not to load the home page"
+    elif isinstance(page, FetchError):
+        url, skipped = None, "not run, because we could not load the home page"
+    else:
+        url, skipped = page.final_url, ""
+    try:
+        return external.fetch_external(domain, url, skipped)
+    except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
+        return ExternalContext(errors={"psi_mobile": f"{type(exc).__name__}"})

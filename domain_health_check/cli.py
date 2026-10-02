@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .config import ConfigError, DomainConfig, load_config, normalize_domain
+from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .models import Status
 from .report import write_report
 from .runner import run_checks
@@ -32,8 +32,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+ENV_FILE = Path(".env")  # API keys, never committed; see .env.example
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    load_env(ENV_FILE)
     # Registrar names and the like can contain characters the Windows console can't print.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
