@@ -1,0 +1,11 @@
+# Normalize line endings in the repository to LF regardless of what the
+# working tree uses. Without this, editing on Windows rewrites every file
+# as CRLF and git reports the whole repo as modified, burying real changes.
+* text=auto
+
+# Binary and already-compressed formats must never be converted.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ttf binary
+*.ico binary
