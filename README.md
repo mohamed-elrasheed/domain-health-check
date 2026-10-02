@@ -119,8 +119,8 @@ left out of the score rather than passed.
 ### Speed (optional, from Google PageSpeed Insights)
 
 Runs only when `PAGESPEED_API_KEY` is set. With no key, these rows do not appear and cost nothing.
-Mobile and desktop are tested at the same time, and each raw response is cached for 24 hours in
-`.cache/pagespeed/` (gitignored). We only ask Google to test a page we were able, and allowed, to load
+Mobile is tested three times and desktop once, all four at the same time. Each raw response is cached
+for 24 hours in `.cache/pagespeed/` (gitignored), then deleted. We only ask Google to test a page we were able, and allowed, to load
 ourselves.
 
 | Check | PASS | WARN | FAIL | Not run |
@@ -130,8 +130,13 @@ ourselves.
 | **Accessibility** | Lighthouse accessibility 90+ | below 90 | | score null or missing |
 | **Best practices** | Lighthouse best-practices 90+ | below 90 | | score null or missing |
 
-- Bands are Google's own, so the report agrees with any other tool the owner runs. Lab scores move
-  a few points between runs, so summaries name the band and the number stays in the details.
+- Bands are Google's own, so the report agrees with any other tool the owner runs. Lab results move
+  between runs (one live check returned 64, 79 and 80 for the same page minutes apart), so the band
+  comes from the median of three mobile runs, and the spread goes in the details: "Three runs
+  returned 64, 79 and 80 on 2 October 2026".
+- The mobile speed finding leads with largest contentful paint in seconds ("takes about 4.7 seconds to
+  show its main content"), which moves far less than the score and means more to an owner. A score is
+  never a bare number in a summary.
 - `categories.*.score` is 0 to 1 and arrives as either a float or an int. Lighthouse's `seo` category
   is not scored: the site checks above already measure the same things directly.
 - Whole-site field data (`originLoadingExperience`) is labeled as the whole site, never as the page.
