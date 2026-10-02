@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import time
+from http import HTTPStatus
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
@@ -76,6 +77,23 @@ class RobotsDisallowed(FetchError):
     """The site's robots.txt asks us not to load the page, so we didn't."""
 
 
+class PageStatusError(FetchError):
+    """The site answered with an error status instead of the page. Its body is a block page, a captcha or a
+    maintenance notice, never the site, so nothing reads it: reading one 403 page as the home page produced a
+    dozen findings about a site we never saw."""
+
+    def __init__(self, url: str, status: int, where: str, robots: FetchedFile | None = None):
+        super().__init__(url, f"{where} answered with HTTP status {status} ({status_phrase(status)})", robots)
+        self.status = status
+
+
+def status_phrase(status: int) -> str:
+    try:
+        return HTTPStatus(status).phrase
+    except ValueError:
+        return "unknown status"
+
+
 def robots_allows(status: int, text: str, url: str) -> bool:
     """Whether robots.txt (already fetched) lets us load url. Follows RFC 9309: a 4xx means there
     are no rules, and a 5xx means assume everything is disallowed. Wildcards and longest-match are
@@ -115,6 +133,10 @@ def fetch_page(domain: str, *, transport: httpx.BaseTransport | None = None) -> 
             robots = _get_file(client, robots_requested, ROBOTS_MAX_BYTES)
         except FetchError as exc:  # unreachable robots.txt: RFC 9309 says don't load anything
             raise FetchError(url, f"{robots_requested} {exc.reason}") from exc
+        if robots.status == 429 or robots.status >= 500:
+            # Too many requests, or the server is failing: we do not load anything, and say why plainly
+            # instead of claiming robots.txt told us to stay away.
+            raise PageStatusError(url, robots.status, robots.url, robots)
         if not robots_allows(robots.status, robots.text, url):
             raise RobotsDisallowed(
                 url, f"{robots.url} (status {robots.status}) does not allow {USER_AGENT} to load /", robots)
@@ -124,6 +146,8 @@ def fetch_page(domain: str, *, transport: httpx.BaseTransport | None = None) -> 
         except FetchError as exc:
             exc.robots = robots
             raise
+        if response.status_code != 200:  # the guard: an error page's body is never read as the site
+            raise PageStatusError(url, response.status_code, str(response.url), robots)
 
         sitemap = None
         candidate = sitemap_url(robots)
@@ -159,7 +183,7 @@ def _get_file(client: httpx.Client, url: str, max_bytes: int) -> FetchedFile:
 def _get(client: httpx.Client, url: str, max_bytes: int) -> tuple[httpx.Response, bytes, int, int]:
     """Stream url, stopping once more than max_bytes have arrived, so an oversized body reads
     as max_bytes plus at most one chunk. Returns (response, body, ttfb_ms, elapsed_ms).
-    Error statuses are returned, not raised."""
+    Error statuses are returned, not raised; an error body is not even downloaded."""
     started = time.monotonic()
     deadline = started + TOTAL_SECONDS
     chunks: list[bytes] = []
@@ -167,7 +191,7 @@ def _get(client: httpx.Client, url: str, max_bytes: int) -> tuple[httpx.Response
     try:
         with client.stream("GET", url) as response:
             ttfb_ms = int((time.monotonic() - started) * 1000)
-            for chunk in response.iter_bytes():
+            for chunk in (response.iter_bytes() if response.status_code < 400 else ()):
                 chunks.append(chunk)
                 size += len(chunk)
                 if size > max_bytes:

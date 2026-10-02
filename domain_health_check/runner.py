@@ -98,7 +98,7 @@ def _fetch_external(domain: str, page: PageContext | FetchError) -> ExternalCont
     if isinstance(page, RobotsDisallowed):
         url, skipped = None, "not run, because robots.txt asks us not to load the home page"
     elif isinstance(page, FetchError):
-        url, skipped = None, "not run, because we could not load the home page"
+        url, skipped = None, f"not run, because we could not load the home page ({page.reason})"
     else:
         url, skipped = page.final_url, ""
     try:

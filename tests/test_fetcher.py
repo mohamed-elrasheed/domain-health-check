@@ -42,12 +42,6 @@ def test_user_agent_names_us_and_links_to_the_form():
     assert fetcher.USER_AGENT == "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
 
 
-def test_error_status_is_returned_not_raised():
-    transport = site({"https://example.com/": httpx.Response(503, text="down", headers={"X-Test": "1"})})
-    page = fetcher.fetch_page("example.com", transport=transport)
-    assert page.status == 503 and page.headers["x-test"] == "1"
-
-
 def test_robots_disallow_stops_before_the_home_page():
     seen = []
     transport = site({

@@ -45,9 +45,10 @@ def test_check_http_headers_uses_fetched_headers(make_page):
     assert all("Checked page: https://www.example.com/" in r.details for r in results)
 
 
-def test_error_page_headers_are_still_checked(make_page):
-    page = make_page(status=404, headers={"strict-transport-security": "max-age=31536000"})
-    assert http_headers.check_http_headers(page)[0].status is Status.PASS
+def test_error_page_headers_are_not_judged():
+    from domain_health_check.fetcher import PageStatusError
+    [result] = http_headers.check_http_headers(PageStatusError("https://example.com/", 403, "https://example.com/"))
+    assert not result.ran and "status 403" in result.summary
 
 
 def test_unreachable_site_gives_single_warning():

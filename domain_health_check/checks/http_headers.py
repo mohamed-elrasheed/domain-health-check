@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 
-from ..fetcher import FetchError, PageContext, RobotsDisallowed
+from ..fetcher import FetchError, PageContext, PageStatusError, RobotsDisallowed
 from ..models import WEBSITE, CheckResult, Status
 
 HSTS_MIN_SECONDS = 15_552_000  # 180 days, the common recommendation
@@ -110,6 +110,18 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
             "This result is unknown, not a problem we found.",
             "Nothing needs to change if blocking automated tools is intentional. If you would like these "
             "checked, ask your web developer to allow domain-health-check in your robots.txt file.",
+            [f"Error: {page.reason}"],
+            ran=False,
+        )]
+    if isinstance(page, PageStatusError):
+        # The headers of an error page belong to whatever turned us away, not to the site.
+        return [CheckResult(
+            WEBSITE, "Security headers", Status.WARN,
+            f"Your website answered our visit with an error (status {page.status}), so we did not check its "
+            "security headers.",
+            "Security headers switch on protections built into visitors' browsers. The headers on an error page "
+            "come from whatever turned us away, not from your site, so we did not judge them.",
+            "Nothing to do based on this report.",
             [f"Error: {page.reason}"],
             ran=False,
         )]

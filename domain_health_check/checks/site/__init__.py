@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from ...fetcher import FetchError, PageContext, RobotsDisallowed
+from ...fetcher import FetchError, PageContext, PageStatusError, RobotsDisallowed, status_phrase
 from ...models import SITE, CheckResult, Status
 from ._html import headings, parse, visible_text, word_count
 
@@ -37,7 +37,14 @@ def built_by_scripts(page: PageContext) -> bool:
 def check_page_loaded(page: PageContext | FetchError) -> list[CheckResult]:
     if isinstance(page, PageContext):
         return []
-    if isinstance(page, RobotsDisallowed):
+    if isinstance(page, PageStatusError):
+        summary = (f"Your website answered our visit with an error (status {page.status}, "
+                   f"{status_phrase(page.status).lower()}) instead of the home page, so we did not run the site "
+                   "health checks.")
+        fix = ("If your website loads normally for visitors, nothing needs to change: some sites turn away automated "
+               "checks like ours, and this says nothing about what your visitors see. If it does not load for them "
+               f"either, ask your web host why it answers with status {page.status}.")
+    elif isinstance(page, RobotsDisallowed):
         summary = "Your website asks automated tools not to load its home page, so we did not run the site health checks."
         fix = ("Nothing needs to change if blocking automated tools is intentional. If you would like these checks, "
                "ask your web developer to allow domain-health-check in your robots.txt file.")

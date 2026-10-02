@@ -243,7 +243,21 @@ def evaluate_sitemap_and_robots(robots: FetchedFile, sitemap: FetchedFile) -> Ch
     return result(Status.PASS, summary, details=details)
 
 
+ANSWERED = (200, 404, 410)  # found, or genuinely not there; anything else tells us nothing about the file
+
+
 def check_sitemap_and_robots(page: PageContext) -> list[CheckResult]:
+    for file in (page.robots, page.sitemap):
+        if file is not None and file.status not in ANSWERED:
+            return [CheckResult(
+                SITE, SITEMAP, Status.WARN,
+                f"Your website answered with an error (status {file.status}) when we asked for {file.url}, so we "
+                "could not check your sitemap.",
+                SITEMAP_EXPLANATION, "Nothing to do based on this report.",
+                [f"robots.txt: {page.robots.url} (status {page.robots.status})" if page.robots else "robots.txt: not read",
+                 f"Sitemap: {page.sitemap.url} (status {page.sitemap.status})" if page.sitemap else "Sitemap: not read"],
+                ran=False,
+            )]
     if page.robots is None or page.sitemap is None:
         return [CheckResult(
             SITE, SITEMAP, Status.WARN, "We could not read your sitemap, so we could not check it.",
