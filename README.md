@@ -151,7 +151,7 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 
 | Check | Weight | PASS | WARN | Not run |
 |---|---|---|---|---|
-| **Google Business Profile** | 3 | a confirmed listing marked open | closed, or status not stated | no listing could be confirmed as theirs |
+| **Google Business Profile** | 3 | a confirmed listing marked open | closed; not findable by name and place; or a similar listing that does not link back | no business name given, or the API did not answer |
 | **Profile completeness** | 2 | website, phone and opening hours all listed | any missing | |
 | **Profile website link** | 2 | links to the domain we checked | missing, or another site | |
 | **Reviews** | 1 | 5 or more | fewer | |
@@ -159,8 +159,9 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 - **A wrong match is worse than none.** A listing is used only when its name closely matches and its
   website is on the submitted domain, or its phone is the submitted number. A search for one real
   business returned a different one with a near-identical name; a shared word is never enough.
-- When no listing can be confirmed, that is one "not checked" row. We cannot tell "no profile" from "a
-  profile we could not match", so we never claim the business has none.
+- Not being findable is the finding: "We could not find a Google Business Profile for this business by
+  name and location. Either there is not one, or it is not set up to be found." It never claims the
+  business has no profile, and no extra calls are spent trying to prove it.
 - The star rating is never requested, scored or shown. Field masks are billed by their most expensive
   field: the search asks only for ids and names, and details are fetched for at most three name matches.
 

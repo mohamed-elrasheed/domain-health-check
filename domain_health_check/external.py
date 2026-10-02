@@ -69,6 +69,9 @@ class ExternalContext:
     psi_desktop: dict | None = None  # one run; None means did not run
     place: dict | None = None  # Places details for a confirmed match; None means not found or did not run
     place_match: str = ""  # how the match was confirmed: "website" or "phone"
+    # What the search came to: "found", "not_found" (no listing by that name and place), "unconfirmed" (a similar
+    # name that does not link back to the domain or phone), or "" when it did not run (no key, no name, an error).
+    place_outcome: str = ""
     errors: dict[str, str] = field(default_factory=dict)  # source -> why it is missing
 
     @property
@@ -215,14 +218,16 @@ def _find_place(client: httpx.Client, context: ExternalContext, domain: str, bus
             details = _places_get(client, "GET", PLACES_DETAILS.format(candidate["id"]), key, DETAILS_MASK)
             how = matching.corroboration(details, domain, business.phone)
             if how:
-                context.place, context.place_match = details, how
+                context.place, context.place_match, context.place_outcome = details, how, "found"
                 return
     except SourceError as exc:
         context.errors["place"] = f"Places: {exc}".replace(key, "<key>")
         return
     if not candidates:
+        context.place_outcome = "not_found"
         context.errors["place"] = (f'no listing named like "{business.name}" among {len(found)} search results for '
                                    f'"{query}"')
     else:
+        context.place_outcome = "unconfirmed"
         context.errors["place"] = (f'{len(candidates)} listing(s) named like "{business.name}", but none links to '
                                    f"{domain} or lists the phone number we were given, so we did not use any of them")

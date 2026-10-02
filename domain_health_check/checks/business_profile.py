@@ -63,16 +63,26 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
 
     if external.place is None:
         why = external.errors.get("place", "")
+        # Not being findable is the finding: a customer searching by name and place would not find it either.
+        # We never claim no profile exists, and we do not spend more calls trying to prove it.
+        if external.place_outcome == "not_found":
+            return result(
+                Status.WARN, "We could not find a Google Business Profile for this business by name and location. "
+                             "Either there is not one, or it is not set up to be found.",
+                "Search for your business on Google Maps the way a customer would, by name and town. If it does not "
+                f"come up, create or claim your free profile at {MANAGE} and make sure it shows your business name, "
+                "your website and the area you serve.", [why])
+        if external.place_outcome == "unconfirmed":
+            return result(
+                Status.WARN, "We found a Google Business Profile with a similar name, but it does not link to your "
+                             "website or list your phone number, so we could not confirm it is yours.",
+                f"If that listing is yours, sign in at {MANAGE} and add your website, so customers can tell it is "
+                "you.", [why])
         if why.startswith("no business name"):
             return result(Status.WARN, "We did not look for your Google Business Profile, because we did not have "
                                        "your business name.", "Nothing to do based on this report.", [why], ran=False)
-        return result(
-            Status.WARN, "We could not confirm which Google Business Profile is yours, so it is not part of this "
-                         "report.",
-            "Search for your business name on Google Maps. If it does not appear, setting up a free Google Business "
-            f"Profile at {MANAGE} is one of the most useful things a local business can do. If it does appear, make "
-            "sure it lists your website, which is how we confirm a listing.",
-            [why], ran=False)
+        return result(Status.WARN, "Google's business listings did not answer this time, so your profile is not part "
+                                   "of this report.", "Nothing to do based on this report.", [why], ran=False)
 
     status = external.place.get("businessStatus", "")
     details = _listing_details(external) + [f"Business status: {status or 'not stated'}"]

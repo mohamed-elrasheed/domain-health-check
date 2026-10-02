@@ -107,14 +107,15 @@ def test_lookalike_is_skipped_and_the_confirmed_listing_is_used(with_places_key)
 def test_name_match_without_corroboration_is_rejected(with_places_key):
     search = [{"id": "x", "displayName": {"text": "Example Plumbing", "languageCode": "en"}}]
     context = find(places_api(search, {"x": listing("x", website="https://other.test/", phone="(555) 999-0000")}))
-    assert context.place is None
+    assert context.place is None and context.place_outcome == "unconfirmed"
     assert "none links to example.com" in context.errors["place"]
 
 
 def test_no_name_match_records_counts_not_other_businesses(with_places_key):
     search = [{"id": "a", "displayName": {"text": "Unrelated Bakery", "languageCode": "en"}}]
     context = find(places_api(search, {}))
-    assert context.place is None and "among 1 search results" in context.errors["place"]
+    assert context.place is None and context.place_outcome == "not_found"
+    assert "among 1 search results" in context.errors["place"]
     assert "Unrelated Bakery" not in context.errors["place"]
 
 
@@ -156,11 +157,26 @@ def test_closed_profile_warns(status, phrase):
     assert result.status is Status.WARN and phrase in result.summary
 
 
-def test_unconfirmed_profile_is_not_checked_and_the_dependents_do_not_appear():
-    context = ExternalContext(errors={"place": "1 listing(s) named like ..., but none links to example.com"})
+def test_not_findable_is_a_finding_that_claims_nothing_more():
+    context = ExternalContext(place_outcome="not_found", errors={"place": 'no listing named like "X" among 0 results'})
     [result] = bp.check_profile(context)
-    assert not result.ran and "could not confirm" in result.summary
+    assert result.ran and result.status is Status.WARN
+    assert result.summary == ("We could not find a Google Business Profile for this business by name and location. "
+                              "Either there is not one, or it is not set up to be found.")
+    assert "does not have" not in result.summary and "no profile" not in result.summary.lower()
     assert bp.check_completeness(context) == bp.check_website_link(context, "example.com") == bp.check_reviews(context) == []
+
+
+def test_unconfirmed_similar_listing_is_a_finding_without_its_details():
+    context = ExternalContext(place_outcome="unconfirmed",
+                              errors={"place": "1 listing(s) named like ..., but none links to example.com"})
+    [result] = bp.check_profile(context)
+    assert result.ran and result.status is Status.WARN and "similar name" in result.summary
+
+
+def test_api_error_is_not_checked():
+    [result] = bp.check_profile(ExternalContext(errors={"place": "Places: HTTP 500"}))
+    assert not result.ran
 
 
 def test_no_places_key_means_no_rows():
