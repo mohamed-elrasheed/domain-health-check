@@ -24,7 +24,7 @@ from __future__ import annotations
 from .checks import pagespeed, site
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .ladder import CUSTOMER_FACING, LADDER, TIER
-from .scoring import score
+from .scoring import credit, score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action",
         Status.INFO: "For information"}
@@ -115,14 +115,18 @@ def headline(report: DomainReport) -> tuple[int | None, str]:
         verb = "is" if broken == 1 else "are"
         return value, f"{_things(broken)} on your site {verb} broken today."
     found = confirmed(report)
-    customer = [r for r in found if tier(r) <= CUSTOMER_FACING]
-    if len(customer) >= 3:
+    # "Costing you customers" only for customer-facing findings that are materially wrong (less than half right):
+    # a description 17 characters too long is not costing anyone customers, a missing one is.
+    costly = [r for r in found if tier(r) <= CUSTOMER_FACING and credit(r) < 0.5]
+    if len(costly) >= 3:
         return value, "Nothing on your site is broken. Here is what is costing you customers."
-    if customer:
-        return value, f"Nothing on your site is broken. {_things(len(customer))} could be costing you customers."
+    if costly:
+        return value, f"Nothing on your site is broken. {_things(len(costly))} could be costing you customers."
     if found:
         many = "A few" if len(found) <= 3 else str(len(found))
-        return value, f"Nothing on your site is broken. {many} behind-the-scenes settings could be stronger."
+        if all(tier(r) > CUSTOMER_FACING for r in found):
+            return value, f"Nothing on your site is broken. {many} behind-the-scenes settings could be stronger."
+        return value, f"Nothing on your site is broken. {many} small things could be better."
     return value, "Nothing on your site is broken, and everything we checked looks good."
 
 

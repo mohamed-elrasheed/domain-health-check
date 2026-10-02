@@ -311,3 +311,12 @@ def test_alt_text_fix_has_no_invented_example():
     from domain_health_check.checks.site import content
     result = content.evaluate_alt_text([("https://example.com/a.jpg", None)] * 3)
     assert "such as" not in result.fix and "over the phone" in result.fix and "listed under Fix it yourself" in result.fix
+
+
+def test_costing_customers_only_counts_findings_that_are_materially_wrong():
+    mild = [CheckResult(SITE, "Meta description", Status.WARN, "s", "Why. More.", "f", measure=0.9),
+            CheckResult(SITE, "Mobile speed", Status.WARN, "s", "Why. More.", "f", measure=0.8)]
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS)] + mild)
+    assert layout.headline(report)[1] == "Nothing on your site is broken. A few small things could be better."
+    report.results.append(finding("Google Business Profile", "Google Business Profile"))  # binary, credit 0.25
+    assert layout.headline(report)[1] == "Nothing on your site is broken. One thing could be costing you customers."
