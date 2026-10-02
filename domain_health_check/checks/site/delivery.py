@@ -38,8 +38,8 @@ REDIRECT_EXPLANATION = (
 # ---------- Mobile viewport
 
 def evaluate_viewport(contents: list[str]) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, VIEWPORT, status, summary, VIEWPORT_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, VIEWPORT, status, summary, VIEWPORT_EXPLANATION, fix, list(details), measure=measure)
 
     fix = "Ask your web developer to add the standard mobile viewport setting to your home page."
     tag = 'Tag to add in the page head: <meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -49,7 +49,7 @@ def evaluate_viewport(contents: list[str]) -> CheckResult:
     details = [f"Viewport: {content}" for content in contents]
     if not any(re.search(r"width\s*=\s*device-width", content, re.IGNORECASE) for content in contents):
         return result(Status.WARN, "Your home page has a phone setting, but it does not fit the page to the screen "
-                                   "width.", fix, details + [tag])
+                                   "width.", fix, details + [tag], measure=0.5)  # present, but not right
     return result(Status.PASS, "Your home page is set up to fit phone screens.", details=details)
 
 
@@ -60,8 +60,8 @@ def check_viewport(page: PageContext) -> list[CheckResult]:
 # ---------- Page weight
 
 def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: int, truncated: bool) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, PAGE_WEIGHT, status, summary, WEIGHT_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, PAGE_WEIGHT, status, summary, WEIGHT_EXPLANATION, fix, list(details), measure=measure)
 
     size_kb = f"more than {MAX_BYTES // 1000:,} KB" if truncated else f"{round(byte_size / 1000):,} KB"
     details = [
@@ -79,7 +79,9 @@ def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: in
     if problems:
         return result(Status.WARN, " ".join(problems),
                       "Ask your web developer to look at what makes the page large or slow to start. The technical "
-                      "details show exactly what we measured.", details)
+                      "details show exactly what we measured.", details,
+                      # graded: the worse of size and wait against their limits (432 KB against 150 KB is 0.35)
+                      measure=min(MAX_HTML_BYTES / max(byte_size, 1), MAX_TTFB_MS / max(ttfb_ms, 1), 1.0))
     return result(Status.PASS, f"Your home page is {size_kb} before images, and your server started sending it in "
                                f"{ttfb_ms / 1000:.2f} seconds.", details=details)
 
@@ -93,8 +95,8 @@ def check_page_weight(page: PageContext) -> list[CheckResult]:
 
 def evaluate_redirects(requested_url: str, chain: list[tuple[str, int]], final_url: str) -> CheckResult:
     """chain holds resolved URLs, so a relative Location header has already been turned into an address."""
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, REDIRECTS, status, summary, REDIRECT_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, REDIRECTS, status, summary, REDIRECT_EXPLANATION, fix, list(details), measure=measure)
 
     details = [f"{url} answered {status}" for url, status in chain] + [f"Final address: {final_url}"]
     hops = len(chain)
@@ -102,7 +104,7 @@ def evaluate_redirects(requested_url: str, chain: list[tuple[str, int]], final_u
         return result(Status.WARN, f"Visitors going to {requested_url} pass through {hops} redirects before they "
                                    "reach your home page.",
                       f"Ask your web developer to point your redirects straight to the final address, {final_url}",
-                      details)
+                      details, measure=MAX_HOPS / hops)
     if hops == 0:
         return result(Status.PASS, "Your home page loads directly, with no redirects.", details=details)
     noun = "redirect" if hops == 1 else "redirects"

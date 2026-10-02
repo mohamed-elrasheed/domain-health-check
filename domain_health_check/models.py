@@ -37,6 +37,9 @@ class CheckResult:
     details: list[str] = field(default_factory=list)  # technical specifics for an IT provider
     ran: bool = True  # False when there was nothing we could measure; the score leaves these out
     certain: bool = True  # False when the finding is a maybe; it never opens the report
+    # For a graded finding, how much of the thing is right, 0 to 1 (14 of 40 images described is 0.35).
+    # None means binary: present or absent, nothing in between. scoring.py turns this into credit.
+    measure: float | None = None
 
 
 @dataclass

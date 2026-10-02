@@ -219,8 +219,8 @@ def _same_file(a: str, b: str) -> bool:
 
 
 def evaluate_sitemap_and_robots(robots: FetchedFile, sitemap: FetchedFile) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, SITEMAP, status, summary, SITEMAP_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, SITEMAP, status, summary, SITEMAP_EXPLANATION, fix, list(details), measure=measure)
 
     details = [f"robots.txt: {robots.url} (status {robots.status})",
                f"Sitemap: {sitemap.url} (status {sitemap.status})"]
@@ -228,6 +228,9 @@ def evaluate_sitemap_and_robots(robots: FetchedFile, sitemap: FetchedFile) -> Ch
         details.append(f"We read only the first {SITEMAP_MAX_BYTES // 1_000_000} MB of the sitemap, so we checked "
                        "how it starts rather than every entry.")
     problems: list[tuple[str, str]] = []  # (summary, fix), most important first
+    # A missing or unreadable sitemap is binary. A sitemap that exists but is not listed in robots.txt (or there is
+    # no robots.txt to list it in) is half there: search engines can still find it at its usual address.
+    half_there = False
 
     kind, locs = None, []
     if sitemap.status != 200:
@@ -245,16 +248,20 @@ def evaluate_sitemap_and_robots(robots: FetchedFile, sitemap: FetchedFile) -> Ch
     listed = re.findall(r"(?im)^\s*sitemap\s*:\s*(\S+)", robots.text) if robots.status == 200 else []
     details += [f"robots.txt lists sitemap: {url}" for url in listed]
     if robots.status != 200:
+        half_there = True
         problems.append(("Your website has no robots.txt file to point search engines to your sitemap.",
                          "Ask your web developer to add a robots.txt file with a line pointing to your sitemap."))
     elif sitemap.status == 200 and not any(_same_file(url, sitemap.url) for url in listed):
+        half_there = True
         problems.append(("Your robots.txt file does not mention your sitemap, so search engines have to find it "
                          "on their own.",
                          "Ask your web developer to add a line to your robots.txt file pointing to your sitemap."))
         details.append(f"Line to add to robots.txt: Sitemap: {sitemap.url}")
 
     if problems:
-        return result(Status.WARN, problems[0][0], " ".join(fix for _, fix in problems), details)
+        only_half = half_there and sitemap.status == 200 and kind is not None
+        return result(Status.WARN, problems[0][0], " ".join(fix for _, fix in problems), details,
+                      measure=0.5 if only_half else None)
 
     count = f"at least {len(locs)}" if sitemap.truncated else str(len(locs))
     if kind == "sitemapindex":

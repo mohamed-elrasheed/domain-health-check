@@ -38,7 +38,8 @@ def evaluate_social_preview(tags: dict[str, str]) -> CheckResult:
     else:
         summary = f"Your home page link preview is missing its {' and '.join(missing)}."
     return CheckResult(SITE, SOCIAL_PREVIEW, Status.WARN, summary, EXPLANATION, fix,
-                       details + [f"Missing: og:{plain}" for plain in missing])
+                       details + [f"Missing: og:{plain}" for plain in missing],
+                       measure=(len(REQUIRED) - len(missing)) / len(REQUIRED))  # the share of the three present
 
 
 def check_social_preview(page: PageContext) -> list[CheckResult]:

@@ -173,8 +173,10 @@ def spread(runs: list[dict], category: str) -> tuple[int | None, str]:
 # ---------- Real-world loading speed
 
 def evaluate_field_speed(loading: dict | None, origin: dict | None) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
-        return CheckResult(SITE, FIELD_SPEED, status, summary, FIELD_EXPLANATION, fix, list(details), ran)
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
+               measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, FIELD_SPEED, status, summary, FIELD_EXPLANATION, fix, list(details), ran,
+                           measure=measure)
 
     category = (loading or {}).get("overall_category")
     if category not in FIELD_CATEGORIES:
@@ -197,9 +199,9 @@ def evaluate_field_speed(loading: dict | None, origin: dict | None) -> CheckResu
                       details=details)
     if category == "AVERAGE":
         return result(Status.WARN, "Google's data from real visitors using Chrome shows your home page loads at an "
-                                   "average speed, with room to be faster.", fix, details)
+                                   "average speed, with room to be faster.", fix, details, measure=0.5)
     return result(Status.WARN, "Google's data from real visitors using Chrome shows your home page loads slowly for "
-                               "many of them.", fix, details)
+                               "many of them.", fix, details, measure=0.0)  # Google's three bands, evenly spaced
 
 
 def check_field_speed(external: ExternalContext) -> list[CheckResult]:
@@ -253,7 +255,7 @@ def evaluate_mobile_speed(runs: list[dict], desktop: dict | None, desktop_error:
     status = band_status(name)
     explanation = f"{SPEED_EXPLANATION} {how_chosen(len(runs))}"
     return CheckResult(SITE, MOBILE_SPEED, status, summary, explanation, "" if status is Status.PASS else FIX,
-                       details + link)
+                       details + link, measure=score / 100)  # Google's own graded measure, the median of the runs
 
 
 def check_mobile_speed(external: ExternalContext) -> list[CheckResult]:
@@ -270,7 +272,7 @@ def evaluate_lab(name: str, runs: list[dict]) -> CheckResult:
         return _not_scored(name, link)
     status = band_status(band(score))
     return CheckResult(SITE, name, status, summaries[band(score)], explanation, "" if status is Status.PASS else FIX,
-                       [f"Lighthouse {category} score, mobile: {ran}"] + link)
+                       [f"Lighthouse {category} score, mobile: {ran}"] + link, measure=score / 100)
 
 
 def check_accessibility(external: ExternalContext) -> list[CheckResult]:

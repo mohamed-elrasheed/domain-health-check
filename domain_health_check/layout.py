@@ -38,8 +38,8 @@ SELF_FIX = {"Page title", "Meta description", "Image alt text", "Main heading", 
             "Google Business Profile", "Profile completeness", "Profile website link", "Reviews"}
 # This report sells Mizan Digital Services, which lives at /digital; /services is the physical and networking
 # division.
-PRICING = ("If you would like us to take care of these, our prices are at https://www.mizangroupllc.com/digital, "
-           "and we quote every job in writing first.")
+PRICING = ("If you would like us to take care of these, our prices are at "
+           "https://www.mizangroupllc.com/digital#pricing, and we quote every job in writing first.")
 
 
 def label(r: CheckResult) -> str:

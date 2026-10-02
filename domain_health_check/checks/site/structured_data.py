@@ -105,8 +105,9 @@ def _url_key(url: str) -> str:
 def evaluate_structured_data(
     blocks: list[str], page_url: str, page_text: str, page_links: set[str], sitemap_urls: set[str],
 ) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
-        return CheckResult(SITE, NAME, status, summary, EXPLANATION, fix, list(details), ran)
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
+               measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, NAME, status, summary, EXPLANATION, fix, list(details), ran, measure=measure)
 
     if not blocks:
         return result(Status.WARN, "Your home page has no structured data, so there was nothing for us to compare.",
@@ -155,7 +156,8 @@ def evaluate_structured_data(
             summary = "Part of your home page structured data has an error, so search engines ignore it."
         return result(Status.WARN, summary,
                       "Ask your web developer to update the structured data on your home page so it matches what "
-                      "the page says today. The technical details list each value that did not match.", details)
+                      "the page says today. The technical details list each value that did not match.", details,
+                      measure=len(found) / (len(found) + len(unmatched) + len(invalid)))  # the share that matched
 
     if not values:
         return result(Status.PASS, "Your home page structured data has no prices or links for us to compare.",

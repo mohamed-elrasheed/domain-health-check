@@ -114,7 +114,8 @@ def evaluate_completeness(external: ExternalContext) -> CheckResult:
     listed = missing[0] if len(missing) == 1 else ", ".join(missing[:-1]) + f" and {missing[-1]}"
     return CheckResult(LOCAL, COMPLETENESS, Status.WARN, f"Your Google Business Profile is missing your {listed}.",
                        COMPLETENESS_EXPLANATION,
-                       f"Sign in at {MANAGE}, open your profile and add your {listed}. It takes a few minutes.", details)
+                       f"Sign in at {MANAGE}, open your profile and add your {listed}. It takes a few minutes.", details,
+                       measure=(len(wanted) - len(missing)) / len(wanted))
 
 
 def check_completeness(external: ExternalContext) -> list[CheckResult]:
@@ -153,7 +154,7 @@ def evaluate_reviews(external: ExternalContext) -> CheckResult:
                f"Your Google Business Profile has {count} review{'s' if count != 1 else ''} so far.")
     return CheckResult(LOCAL, REVIEWS, Status.WARN, summary, REVIEWS_EXPLANATION,
                        "Ask a few happy customers to leave a review. Your profile has a share link for exactly this, "
-                       f"under \"Ask for reviews\" at {MANAGE}.", details)
+                       f"under \"Ask for reviews\" at {MANAGE}.", details, measure=count / MIN_REVIEWS)
 
 
 def check_reviews(external: ExternalContext) -> list[CheckResult]:

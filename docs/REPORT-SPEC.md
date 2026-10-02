@@ -133,13 +133,36 @@ An earlier table weighted email records at 3 and a missing main heading at 1. Th
 proxy the old ordering used.
 
 ```
-earned  = sum(weight × {PASS: 1.0, WARN: 0.5, FAIL: 0.0}[status])
-possible = sum(weight for every check that ran)
-score   = round(100 × earned / possible)
+credit   = PASS: 1.0
+           FAIL: 0.0
+           WARN, graded (a matter of degree): the check's own measure, 0 to 1
+           WARN, binary (present or absent): tier 1-2: 0.0, tier 3-4: 0.25, tier 5-6: 0.5
+earned   = sum(weight × credit)
+possible = sum(weight for every result that counts)
+score    = round(100 × earned / possible)
 ```
 
-Checks that could not run (the WARN-on-exception path in `runner`) are excluded from both sides. A
-timeout must not look like a failure.
+**Why a confirmed absence earns nothing.** Half credit was correct when WARN meant "this might be a
+problem". It is not correct now. Uncertain findings moved to "Worth checking", so every WARN left in the
+main list is a confirmed, observed defect. A meta description either exists or it does not. There is no
+partial credit for sort-of-having-one. Confirmed-absent scores zero.
+
+**Binary and graded.** Each check declares which it is through its result: a graded finding carries a
+measure of how much of the thing is right, a binary one does not.
+
+- Binary: main heading present, meta description present, canonical present, title present, sitemap
+  present, viewport present, template placeholder text, Google Business Profile findable.
+- Graded: alt text (images described ÷ images), heading order (headings in order ÷ headings), title and
+  description length, social preview tags, structured data matches, page weight, Google's speed and
+  accessibility scores, redirect hops, profile completeness, review count, days left before a certificate
+  or domain expires.
+
+"Heading order skipped in 2 places" and "no main heading at all" are not the same site, and proportional
+credit says so without a special case: 31 of 31 images undescribed scores zero, 14 of 40 does not.
+
+**Left out of both sides:** checks that could not run (the WARN-on-exception path in `runner`; a timeout
+must not look like a failure), INFO results (a fact, not a grade), and findings we could not confirm. A
+maybe neither costs nor earns points.
 
 **Two rules about the score.** It must not be tuned to come out low so the report looks urgent, and it
 must not be tuned to come out high so the owner feels good. If a site is in good shape the number says so

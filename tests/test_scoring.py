@@ -120,3 +120,57 @@ def test_failed_fetch_does_not_lower_the_score(fake_dns, monkeypatch, mizan_page
     ran_only = [r for r in report.results if r.ran]
     assert scoring.score(report.results) == scoring.score(ran_only)
     assert EMAIL in {r.category for r in ran_only}
+
+
+# ---------- rule B: binary versus graded, and maybes left out
+
+def warn(name, measure=None, certain=True):
+    return CheckResult(WEBSITE, name, Status.WARN, "s", "e", measure=measure, certain=certain)
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("Main heading", 0.0),                    # tier 2: confirmed absent scores zero
+    ("Search engine blocking", 0.0),          # tier 1
+    ("Google Business Profile", 0.25),        # tier 3
+    ("Mobile viewport", 0.25),                # tier 4
+    ("DMARC (anti-spoofing policy)", 0.5),    # tier 5
+    ("DNSSEC", 0.5),                          # tier 6
+])
+def test_binary_warn_credit_by_tier(name, expected):
+    assert scoring.credit(warn(name)) == expected
+
+
+def test_graded_warn_earns_its_measure_with_no_special_case():
+    from domain_health_check.checks.site import content
+    none_described = content.evaluate_alt_text([("https://example.com/a.jpg", None)] * 31)
+    some_described = content.evaluate_alt_text([("https://example.com/a.jpg", "A floor")] * 14
+                                               + [("https://example.com/b.jpg", None)] * 26)
+    assert scoring.credit(none_described) == 0.0
+    assert scoring.credit(some_described) == pytest.approx(14 / 40)
+
+
+def test_two_heading_skips_is_not_the_same_site_as_no_main_heading():
+    from domain_health_check.checks.site import content
+    skipped_twice = content.evaluate_heading_order([1, 2, 4, 2, 3, 2, 4] + [2] * 23)  # 2 skips in 30 headings
+    no_h1 = content.evaluate_main_heading([])
+    assert scoring.credit(skipped_twice) == pytest.approx(28 / 30)
+    assert scoring.credit(no_h1) == 0.0
+
+
+def test_absent_and_placeholder_text_are_binary_but_length_is_graded():
+    from domain_health_check.checks.site import content
+    assert content.evaluate_description([]).measure is None
+    assert scoring.credit(content.evaluate_description([])) == 0.0
+    long = content.evaluate_description(["x" * 177])
+    assert scoring.credit(long) == pytest.approx(160 / 177)
+
+
+def test_measures_are_clamped():
+    assert scoring.credit(warn("Image alt text", measure=1.7)) == 1.0
+    assert scoring.credit(warn("Image alt text", measure=-0.2)) == 0.0
+
+
+def test_a_maybe_neither_costs_nor_earns_points():
+    sure = [result("SSL certificate", Status.PASS), result("Main heading", Status.PASS)]
+    assert scoring.score(sure + [warn("DKIM (email signatures)", certain=False)]) == scoring.score(sure) == 100
+    assert scoring.score(sure + [warn("Main heading", certain=False)]) == 100

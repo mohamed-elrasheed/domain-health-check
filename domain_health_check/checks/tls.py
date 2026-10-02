@@ -79,8 +79,8 @@ def evaluate_certificate(cert: dict, now: datetime) -> CheckResult:
         "Certificate matches the domain name: yes",
     ]
 
-    def result(status: Status, summary: str, fix: str = "") -> CheckResult:
-        return CheckResult(WEBSITE, "SSL certificate", status, summary, CERT_EXPLANATION, fix, details)
+    def result(status: Status, summary: str, fix: str = "", measure: float | None = None) -> CheckResult:
+        return CheckResult(WEBSITE, "SSL certificate", status, summary, CERT_EXPLANATION, fix, details, measure=measure)
 
     if days_left < 0:  # broken: browsers show a full-page warning
         return result(Status.FAIL, f"The certificate expired {-days_left} days ago.", CERT_FIX)
@@ -90,6 +90,7 @@ def evaluate_certificate(cert: dict, now: datetime) -> CheckResult:
             f"The certificate expires in {days_left} days.",
             "Confirm with your web host that the certificate will renew automatically before "
             f"{expires:%d %B %Y}. If it doesn't, renew it manually.",
+            measure=days_left / WARN_DAYS,  # a matter of time, not broken yet
         )
     return result(Status.PASS, f"Valid for another {days_left} days, issued by {issuer}.")
 

@@ -124,6 +124,7 @@ def evaluate_registration(data: dict, now: datetime) -> CheckResult:
         return CheckResult(
             DOMAIN, NAME, Status.WARN, f"The domain registration expires in {days_left} days.", EXPLANATION,
             "Check with your registrar that auto-renew is on and the payment details are current.", details,
+            measure=days_left / WARN_DAYS,  # a matter of time, not broken yet
         )
     return CheckResult(
         DOMAIN, NAME, Status.PASS, f"Registered until {expiry:%d %B %Y} ({days_left} days from now).",

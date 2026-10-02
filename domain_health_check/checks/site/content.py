@@ -98,8 +98,10 @@ PLACEHOLDER_SUMMARY = {
 # ---------- Page title
 
 def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True) -> CheckResult:
-        return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details), certain=certain)
+    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True,
+               measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details), certain=certain,
+                           measure=measure)
 
     fix = (
         "In your website builder, open the home page settings and look for \"SEO title\" or \"page title\". "
@@ -118,10 +120,11 @@ def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -
         return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="title"), fix, details,
                       certain=kind == "template")  # no shared words is a maybe; a demo phrase is not
     if len(title) < TITLE_MIN:
-        return result(Status.WARN, f"Your home page title is very short ({len(title)} characters).", fix, details)
+        return result(Status.WARN, f"Your home page title is very short ({len(title)} characters).", fix, details,
+                      measure=len(title) / TITLE_MIN)  # a matter of degree, not absent
     if len(title) > TITLE_MAX:
         return result(Status.WARN, f"Your home page title is {len(title)} characters long, so Google will likely "
-                                   "cut it off in search results.", fix, details)
+                                   "cut it off in search results.", fix, details, measure=TITLE_MAX / len(title))
     return result(Status.PASS, f"Your home page title is \"{title}\", a good length at {len(title)} characters.",
                   details=details)
 
@@ -140,9 +143,10 @@ def check_title(page: PageContext) -> list[CheckResult]:
 # ---------- Meta description
 
 def evaluate_description(descriptions: list[str], context: list[str] = ()) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True) -> CheckResult:
+    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True,
+               measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details),
-                           certain=certain)
+                           certain=certain, measure=measure)
 
     fix = (
         "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
@@ -163,10 +167,12 @@ def evaluate_description(descriptions: list[str], context: list[str] = ()) -> Ch
                       certain=kind == "template")
     if len(description) < DESCRIPTION_MIN:
         return result(Status.WARN, f"Your home page description is short ({len(description)} characters), so it "
-                                   "may not tell searchers enough.", fix, details)
+                                   "may not tell searchers enough.", fix, details,
+                      measure=len(description) / DESCRIPTION_MIN)
     if len(description) > DESCRIPTION_MAX:
         return result(Status.WARN, f"Your home page description is {len(description)} characters long, so Google "
-                                   "will likely cut it off in search results.", fix, details)
+                                   "will likely cut it off in search results.", fix, details,
+                      measure=DESCRIPTION_MAX / len(description))
     return result(Status.PASS, f"Your home page description is a good length at {len(description)} characters.",
                   details=details)
 
@@ -181,8 +187,9 @@ def check_description(page: PageContext) -> list[CheckResult]:
 # ---------- Main heading
 
 def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, MAIN_HEADING, status, summary, MAIN_HEADING_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, MAIN_HEADING, status, summary, MAIN_HEADING_EXPLANATION, fix, list(details),
+                           measure=measure)
 
     fix = (
         "In your website builder, make sure the page has exactly one headline set as \"Heading 1\" (H1) that "
@@ -192,7 +199,8 @@ def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
     if not h1_texts:
         return result(Status.WARN, "Your home page has no main heading.", fix)
     if len(h1_texts) > 1:
-        return result(Status.WARN, f"Your home page has {len(h1_texts)} main headings instead of one.", fix, details)
+        return result(Status.WARN, f"Your home page has {len(h1_texts)} main headings instead of one.", fix, details,
+                      measure=1 / len(h1_texts))  # there is a main heading, just not only one
     if not h1_texts[0]:
         return result(Status.WARN, "Your home page main heading is empty.", fix, details)
     return result(Status.PASS, f"Your home page has one main heading: \"{h1_texts[0]}\".", details=details)
@@ -205,8 +213,10 @@ def check_main_heading(page: PageContext) -> list[CheckResult]:
 # ---------- Heading order
 
 def evaluate_heading_order(levels: list[int]) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
-        return CheckResult(SITE, HEADING_ORDER, status, summary, HEADING_ORDER_EXPLANATION, fix, list(details), ran)
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
+               measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, HEADING_ORDER, status, summary, HEADING_ORDER_EXPLANATION, fix, list(details), ran,
+                           measure=measure)
 
     if not levels:
         return result(Status.PASS, "Your home page has no headings, so there is no order to check.", ran=False)
@@ -225,7 +235,7 @@ def evaluate_heading_order(levels: list[int]) -> CheckResult:
             Status.WARN, f"Your home page skips a heading level in {len(skips)} {noun}.",
             "In your website builder, change the skipped headings so each level follows the one above it: Heading 2 "
             "under Heading 1, Heading 3 under Heading 2. The look can stay the same; only the heading level changes.",
-            details + _more(skips),
+            details + _more(skips), measure=(len(levels) - len(skips)) / len(levels),
         )
     return result(Status.PASS, f"Your {len(levels)} headings are in order, with no levels skipped.", details=details)
 
@@ -268,8 +278,10 @@ def useful_alt(alt: str | None, address: str) -> bool:
 
 def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
     """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold."""
-    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
-        return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran)
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
+               measure: float | None = None) -> CheckResult:
+        return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran,
+                           measure=measure)
 
     if not images:
         return result(Status.PASS, "Your home page has no images, so there is no alt text to check.", ran=False)
@@ -284,7 +296,7 @@ def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
             "In your website builder, open each image listed under Fix it yourself and fill in its alt text "
             "(sometimes called \"image description\") with a short phrase describing the picture the way you would "
             "describe it to someone over the phone. Images that are purely decorative can stay blank.",
-            details + _more(lacking),
+            details + _more(lacking), measure=described / len(images),
         )
     return result(Status.PASS, f"{described} of the {len(images)} images on your home page have a description.",
                   details=details + _more(lacking))
