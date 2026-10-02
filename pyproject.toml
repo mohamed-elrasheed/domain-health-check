@@ -32,3 +32,6 @@ domain_health_check = ["assets/*.png", "assets/fonts/*.ttf", "assets/fonts/OFL.t
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Integration tests hit real servers and are opt-in: pytest -m integration
+addopts = "-m 'not integration'"
+markers = ["integration: reaches real servers; opt-in with pytest -m integration"]
