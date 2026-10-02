@@ -37,13 +37,13 @@ MAIN_HEADING_EXPLANATION = (
     "about. Search engines give it extra weight."
 )
 HEADING_ORDER_EXPLANATION = (
-    "Headings work like an outline. People using screen readers move around the page by that outline, and "
-    "search engines use it to understand how your content is organized."
+    "Search engines read your headings as an outline to understand how your content is organized, and people "
+    "using screen readers move around the page by that outline."
 )
 ALT_TEXT_EXPLANATION = (
-    "Alt text is a short written description of an image. Screen readers read it aloud to people with visual "
-    "impairments, and search engines use it to understand your pictures. Purely decorative images can be left "
-    "blank on purpose, so a few gaps can be fine."
+    "Without a written description, search engines cannot tell what your pictures show, and screen readers have "
+    "nothing to read aloud to people with visual impairments. That description is called alt text. Purely "
+    "decorative images can be left blank on purpose, so a few gaps can be fine."
 )
 
 

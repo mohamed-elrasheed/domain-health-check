@@ -280,3 +280,11 @@ def test_hedged_findings_do_not_count_as_costing_customers():
     report = DomainReport("example.com", NOW, [result(0, Status.PASS),
                                                finding(SITE, "Meta description", certain=False)])
     assert layout.headline(report)[1] == "Nothing on your site is broken, and everything we checked looks good."
+
+
+def test_brief_leads_with_why_it_matters_for_the_owner_fixable_checks():
+    # The brief uses the explanation's first sentence, so that sentence must be the reason, not a definition.
+    from domain_health_check.checks.site import content
+    for explanation in (content.ALT_TEXT_EXPLANATION, content.HEADING_ORDER_EXPLANATION):
+        first = explanation.split(". ")[0]
+        assert not first.startswith(("Alt text is", "Headings work like")), first
