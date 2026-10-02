@@ -20,7 +20,8 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
 from ... import robots as robots_txt
-from ...fetcher import SITEMAP_MAX_BYTES, FetchedFile, FetchError, PageContext, same_site
+from ...fetcher import (SITEMAP_MAX_BYTES, FetchedFile, FetchError, PageContext, robots_blocks_search,
+                        same_site, status_phrase)
 from ...models import SITE, CheckResult, Status
 from ._html import meta, parse
 
@@ -100,9 +101,30 @@ def evaluate_search_blocking(
                   details=["No noindex instruction in the page or its headers, and robots.txt lets Googlebot in."])
 
 
+def evaluate_robots_status(robots: FetchedFile) -> CheckResult:
+    """A robots.txt that answers with a server error (or 429) is itself a block: search engines stop crawling
+    the whole site until it recovers. This is broken today, so it is a FAIL."""
+    kind = "is being turned away (too many requests)" if robots.status == 429 else "returns a server error"
+    return CheckResult(
+        SITE, SEARCH_BLOCKING, Status.FAIL,
+        f"Your robots.txt file {kind}. Search engines treat that as an instruction to stop crawling your site "
+        "entirely, so your pages may be dropping out of Google.",
+        "Search engines read your robots.txt file, a short file of instructions, before they visit any page. When "
+        "it fails to load, Google treats that as an instruction to stay away and stops crawling your whole site "
+        "until it loads again. Nothing on your pages looks wrong while this happens.",
+        "Ask your web developer or host to make the robots.txt file load normally. It can be very short, but it "
+        "has to answer without an error.",
+        [f"{robots.url} answered with HTTP status {robots.status} ({status_phrase(robots.status)})",
+         "Google treats a 5xx or 429 on robots.txt as fully disallowed; after 30 days it falls back to its last "
+         "copy of the file."],
+    )
+
+
 def check_search_blocking(page: PageContext | FetchError) -> list[CheckResult]:
     """Runs even when the home page could not be loaded: robots.txt alone can show that Google is kept out."""
     robots = page.robots
+    if robots is not None and robots_blocks_search(robots.status):
+        return [evaluate_robots_status(robots)]
     readable = robots is not None and robots.status == 200
     if isinstance(page, FetchError):
         rule = googlebot_block(robots.text) if readable else None

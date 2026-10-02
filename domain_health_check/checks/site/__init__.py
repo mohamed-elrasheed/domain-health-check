@@ -37,9 +37,14 @@ def built_by_scripts(page: PageContext) -> bool:
 def check_page_loaded(page: PageContext | FetchError) -> list[CheckResult]:
     if isinstance(page, PageContext):
         return []
-    if isinstance(page, PageStatusError):
-        summary = (f"Your website answered our visit with an error (status {page.status}, "
-                   f"{status_phrase(page.status).lower()}) instead of the home page, so we did not run the site "
+    if isinstance(page, PageStatusError) and page.stage == "robots":
+        summary = (f"Your robots.txt file ({page.where}) answered with an error (status {page.status}, "
+                   f"{status_phrase(page.status).lower()}). A broken robots.txt means we are not permitted to "
+                   "continue, so we stopped there deliberately and did not request your home page.")
+        fix = "Fix the robots.txt file first (see the search engine finding above); the page checks can follow."
+    elif isinstance(page, PageStatusError):
+        summary = (f"Your home page ({page.where}) answered our visit with an error (status {page.status}, "
+                   f"{status_phrase(page.status).lower()}) instead of the page, so we did not run the site "
                    "health checks.")
         fix = ("If your website loads normally for visitors, nothing needs to change: some sites turn away automated "
                "checks like ours, and this says nothing about what your visitors see. If it does not load for them "

@@ -82,9 +82,18 @@ class PageStatusError(FetchError):
     maintenance notice, never the site, so nothing reads it: reading one 403 page as the home page produced a
     dozen findings about a site we never saw."""
 
-    def __init__(self, url: str, status: int, where: str, robots: FetchedFile | None = None):
+    def __init__(self, url: str, status: int, where: str, robots: FetchedFile | None = None, stage: str = "page"):
         super().__init__(url, f"{where} answered with HTTP status {status} ({status_phrase(status)})", robots)
         self.status = status
+        self.where = where  # the URL that answered with the error
+        self.stage = stage  # "robots": we stopped at robots.txt and never requested the home page; "page": the home page
+
+
+def robots_blocks_search(status: int) -> bool:
+    """Whether a robots.txt status alone stops search engines crawling the whole site. Google treats 5xx and 429
+    as "fully disallowed" until the file recovers. Every other 4xx, 403 included, it treats as no robots.txt at
+    all, meaning no restrictions (RFC 9309 agrees), so a 403 here is not a search problem."""
+    return status == 429 or status >= 500
 
 
 def status_phrase(status: int) -> str:
@@ -133,10 +142,10 @@ def fetch_page(domain: str, *, transport: httpx.BaseTransport | None = None) -> 
             robots = _get_file(client, robots_requested, ROBOTS_MAX_BYTES)
         except FetchError as exc:  # unreachable robots.txt: RFC 9309 says don't load anything
             raise FetchError(url, f"{robots_requested} {exc.reason}") from exc
-        if robots.status == 429 or robots.status >= 500:
-            # Too many requests, or the server is failing: we do not load anything, and say why plainly
-            # instead of claiming robots.txt told us to stay away.
-            raise PageStatusError(url, robots.status, robots.url, robots)
+        if robots_blocks_search(robots.status):
+            # RFC 9309: a server error on robots.txt means assume everything is disallowed, so we stop here,
+            # and say so plainly instead of claiming robots.txt told us to stay away.
+            raise PageStatusError(url, robots.status, robots.url, robots, stage="robots")
         if not robots_allows(robots.status, robots.text, url):
             raise RobotsDisallowed(
                 url, f"{robots.url} (status {robots.status}) does not allow {USER_AGENT} to load /", robots)

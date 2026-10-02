@@ -106,7 +106,7 @@ def test_not_run_never_reads_as_verified():
     assert "Real-world loading speed" not in section(md, "What is already working")
     assert "Error: ConnectError" in section(md, "What we could not check")
     assert report.overall is Status.PASS
-    assert "**100 out of 100.**" in md  # what did not run is not counted
+    assert "out of 100" not in md  # the website was not loaded, so there is no score at all
 
 
 def test_about_mentions_google_only_when_its_test_ran():
@@ -148,7 +148,32 @@ def test_headline_sentence(statuses, sentence):
 
 
 def test_no_score_when_nothing_ran():
-    report = DomainReport("example.com", NOW, [CheckResult(SITE, "Site health checks", Status.WARN, "s", "e",
+    report = DomainReport("example.com", NOW, [CheckResult(SITE, "Google speed test", Status.WARN, "s", "e",
                                                            ran=False)])
     assert layout.headline(report)[0] is None
     assert "We could not complete enough checks" in render_markdown(report)
+
+
+def test_no_score_when_the_website_was_not_loaded():
+    # A number computed over DNS and email alone would read as "my site is fine".
+    report = DomainReport("example.com", NOW, [
+        result(0, Status.PASS), result(1, Status.PASS),
+        CheckResult(SITE, "Site health checks", Status.WARN, "We could not load it.", "Why.", ran=False),
+    ])
+    value, sentence = layout.headline(report)
+    assert value is None
+    assert sentence == "We could not load your website, so this report covers your domain and email only."
+    md = render_markdown(report)
+    assert "out of 100" not in md and f"**{sentence}**" in md
+
+
+def test_no_score_but_robots_finding_is_mentioned():
+    report = DomainReport("example.com", NOW, [
+        result(0, Status.PASS),
+        CheckResult(SITE, "Search engine blocking", Status.FAIL, "Your robots.txt file returns a server error.", "Why."),
+        CheckResult(SITE, "Site health checks", Status.WARN, "We stopped at robots.txt.", "Why.", ran=False),
+    ])
+    assert layout.headline(report) == (
+        None, "We could not load your website, so this report covers your domain and email, plus your robots.txt "
+              "file only.")
+    assert "Search engine blocking" in section(render_markdown(report), "Worth doing")

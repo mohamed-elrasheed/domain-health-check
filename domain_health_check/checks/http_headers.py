@@ -113,11 +113,21 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
             [f"Error: {page.reason}"],
             ran=False,
         )]
+    if isinstance(page, PageStatusError) and page.stage == "robots":
+        return [CheckResult(
+            WEBSITE, "Security headers", Status.WARN,
+            f"We stopped at your robots.txt file, which answered with an error (status {page.status}), so we did "
+            "not request your home page or check its security headers.",
+            "Security headers switch on protections built into visitors' browsers.",
+            "Nothing to do based on this report.",
+            [f"Error: {page.reason}"],
+            ran=False,
+        )]
     if isinstance(page, PageStatusError):
         # The headers of an error page belong to whatever turned us away, not to the site.
         return [CheckResult(
             WEBSITE, "Security headers", Status.WARN,
-            f"Your website answered our visit with an error (status {page.status}), so we did not check its "
+            f"Your home page answered our visit with an error (status {page.status}), so we did not check its "
             "security headers.",
             "Security headers switch on protections built into visitors' browsers. The headers on an error page "
             "come from whatever turned us away, not from your site, so we did not judge them.",

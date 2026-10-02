@@ -17,8 +17,8 @@ Sections, per docs/REPORT-SPEC.md:
 
 from __future__ import annotations
 
-from .checks import pagespeed
-from .models import CheckResult, DomainReport, Status
+from .checks import pagespeed, site
+from .models import SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, reading, score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action"}
@@ -38,8 +38,17 @@ def label(r: CheckResult) -> str:
     return WORD[r.status] if r.ran else NOT_CHECKED
 
 
+def website_not_loaded(report: DomainReport) -> bool:
+    return any(r.name == site.PAGE_LOADED and not r.ran for r in report.results)
+
+
 def headline(report: DomainReport) -> tuple[int | None, str]:
-    """(score, one-line reading). The score is None when nothing ran."""
+    """(score, one-line reading). No score when nothing ran, and none when the website itself could not be
+    loaded: a number computed over DNS and email alone reads as "my site is fine"."""
+    if website_not_loaded(report):
+        robots_finding = any(r.category == SITE and r.ran for r in report.results)
+        covered = "your domain and email, plus your robots.txt file" if robots_finding else "your domain and email"
+        return None, f"We could not load your website, so this report covers {covered} only."
     value = score(report.results)
     if value is None:
         return None, "We could not complete enough checks to give your site a score."

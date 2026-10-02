@@ -97,8 +97,25 @@ def test_robots_server_error_stops_before_the_home_page():
 
 def test_403_block_page_with_failing_robots(report_for):
     report = report_for(site(home=(403, BLOCK_PAGE), robots=(500, "Internal Server Error")))
-    assert "status 500" in not_loaded_row(report).summary
-    assert_no_content_findings(report)
+    row = not_loaded_row(report)
+    # Say what happened: robots.txt failed and we stopped there; the home page was never requested.
+    assert "robots.txt file (https://example.com/robots.txt) answered with an error (status 500" in row.summary
+    assert "did not request your home page" in row.summary and "403" not in row.summary
+    # A failing robots.txt is itself a finding: Google stops crawling the whole site.
+    [blocking] = [r for r in report.results if r.name == "Search engine blocking"]
+    assert blocking.ran and blocking.status is Status.FAIL and "returns a server error" in blocking.summary
+    others = [r.name for r in report.results if r.category == SITE and r.ran and r.name != "Search engine blocking"]
+    assert others == []
+
+
+@pytest.mark.parametrize("status, fails", [(500, True), (503, True), (429, True), (403, False), (404, False)])
+def test_which_robots_statuses_block_search(status, fails):
+    from domain_health_check.checks.site import indexing
+    from domain_health_check.fetcher import FetchedFile
+    robots = FetchedFile("https://example.com/robots.txt", status, "")
+    results = indexing.check_search_blocking(FetchError("https://example.com/", "x", robots))
+    # Google treats 5xx and 429 as "fully disallowed"; any other 4xx, 403 included, as no robots.txt at all.
+    assert (results != [] and results[0].status is Status.FAIL) is fails
 
 
 def test_403_block_page_body_is_never_read(report_for):
