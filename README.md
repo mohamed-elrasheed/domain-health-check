@@ -176,6 +176,8 @@ domain-health-check                        # check everything in domains.yaml
 domain-health-check example.com            # check one domain without a config file
 domain-health-check -c other.yaml -o out   # different config file / report folder
 domain-health-check --no-color             # plain output (also honours NO_COLOR)
+domain-health-check example.com --pdf      # also write the report as a PDF
+domain-health-check example.com --email    # PDF, emailed to you for review (needs SMTP_* in .env)
 python -m domain_health_check --help
 ```
 
@@ -281,6 +283,7 @@ domain_health_check/
   layout.py         what each report section says, shared by both formats
   report.py         Markdown report, and keeping only the latest per domain
   pdf.py            PDF report (WeasyPrint), from the same report object
+  mailer.py         emails a finished report to the reviewer, never to the site owner
   assets/           logo and Plus Jakarta Sans (SIL Open Font License)
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper
