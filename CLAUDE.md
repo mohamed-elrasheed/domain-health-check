@@ -43,7 +43,14 @@ domain_health_check/
 ├── config.py       # domains.yaml -> DomainConfig
 ├── models.py       # Status, CheckResult, DomainReport
 ├── runner.py       # run_checks(DomainConfig) -> DomainReport. Returns data, never prints
+├── fetcher.py      # the one page view -> PageContext
+├── external.py     # outside services (PageSpeed, Places) -> ExternalContext
+├── robots.py       # robots.txt as RFC 9309 reads it, for us and for Googlebot
+├── scoring.py      # WEIGHTS and the 0 to 100 score
+├── layout.py       # what each report section says, shared by both formats
 ├── report.py       # DomainReport -> markdown
+├── pdf.py          # DomainReport -> PDF (WeasyPrint)
+├── mailer.py       # sends a finished report to Mo, never to the site owner
 ├── terminal.py     # DomainReport -> console
 ├── dns_utils.py
 └── checks/         # each public check_* returns list[CheckResult]
@@ -146,6 +153,24 @@ These produced wrong findings in a real audit. Encode them, do not rediscover th
   any computed-style or contrast sweep, or you invent failures that do not exist.
 - Lazy-loaded images below the fold do not load on first paint. Say which number you measured.
 - A relative `Location` header on a 301 is valid. Assert the resolved destination, not the raw header.
+- Lazy-load plugins put a placeholder in `src` and the real URL in `data-src` or `srcset`. Any test reading
+  an image's filename must resolve the real source first, or it compares against the placeholder and
+  reports the opposite of the truth. This produced a live report claiming 19 of 31 images had useful alt
+  text when the real answer was 0 of 31.
+- One PageSpeed lab run is noise. The same page returned 64, 79 and 80 minutes apart. Band on the median
+  of three, and lead with largest contentful paint, which moves far less.
+
+## Data, fixtures and retention
+
+- **The only website whose content may be committed is Mizan's own.** Every other fixture is synthetic:
+  handwritten HTML reproducing the conditions under test, never a real page. `reports/` stays ignored.
+  Someone submitting their address to a form is not consenting to their page being published in a
+  public repository. The same goes for commit messages and test comments: never name another domain or
+  describe its findings.
+- **We keep the most recent report per domain and nothing older.** A stale scan is misleading, and holding
+  data we have no use for is a liability. If someone wants a current picture we run it again; the check
+  is cheap. `write_report` and `write_pdf` delete a domain's older reports, and cached PageSpeed
+  responses are deleted after 24 hours.
 
 ## Do not
 
