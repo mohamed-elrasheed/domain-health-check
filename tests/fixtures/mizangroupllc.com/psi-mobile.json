@@ -1,8 +1,8 @@
 {
- "_comment": "Real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile strategy, captured 2026-10-02. Audit bodies stripped to keep the fixture small; the fields the checks read are untouched and exactly as the API returned them. Note loadingExperience is ABSENT because the site does not get enough traffic for Google to publish field data - that is the common case for our prospects and must report as did-not-run, not a failure.",
+ "_comment": "Real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile strategy, all four categories, captured 2026-10-02. Audit bodies stripped; every field the checks read is exactly as the API returned it. NOTE loadingExperience is PRESENT BUT EMPTY - it carries only initial_url and no metrics or overall_category, because the site does not get enough traffic for Google to publish field data. Test for a missing overall_category, not a missing key. This is the common case for our prospects and must report as did-not-run, never as a failure.",
  "kind": "pagespeedonline#result",
  "id": "https://www.mizangroupllc.com/",
- "analysisUTCTimestamp": "2026-10-02T00:22:24.458Z",
+ "analysisUTCTimestamp": "2026-10-02T00:44:47.039Z",
  "lighthouseResult": {
   "lighthouseVersion": "13.5.0",
   "finalUrl": "https://www.mizangroupllc.com/",
@@ -10,7 +10,7 @@
    "performance": {
     "id": "performance",
     "title": "Performance",
-    "score": 0.64,
+    "score": 0.79,
     "auditRefs": [
      {
       "id": "first-contentful-paint",
@@ -255,6 +255,497 @@
      }
     ]
    },
+   "accessibility": {
+    "id": "accessibility",
+    "title": "Accessibility",
+    "description": "These checks highlight opportunities to [improve the accessibility of your web app](https://developer.chrome.com/docs/lighthouse/accessibility/). Automatic detection can only detect a subset of issues and does not guarantee the accessibility of your web app, so [manual testing](https://web.dev/articles/how-to-review) is also encouraged.",
+    "score": 1,
+    "manualDescription": "These items address areas which an automated testing tool cannot cover. Learn more in our guide on [conducting an accessibility review](https://web.dev/articles/how-to-review).",
+    "auditRefs": [
+     {
+      "id": "accesskeys",
+      "weight": 0,
+      "group": "a11y-navigation"
+     },
+     {
+      "id": "aria-allowed-attr",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-command-name",
+      "weight": 7,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-conditional-attr",
+      "weight": 7,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-deprecated-role",
+      "weight": 1,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-dialog-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-hidden-body",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-hidden-focus",
+      "weight": 7,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-input-field-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-meter-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-progressbar-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-prohibited-attr",
+      "weight": 7,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-required-attr",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-required-children",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-required-parent",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-roles",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-text",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-toggle-field-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-tooltip-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-treeitem-name",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-valid-attr-value",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "aria-valid-attr",
+      "weight": 10,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "button-name",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "bypass",
+      "weight": 0,
+      "group": "a11y-navigation"
+     },
+     {
+      "id": "color-contrast",
+      "weight": 7,
+      "group": "a11y-color-contrast"
+     },
+     {
+      "id": "definition-list",
+      "weight": 0,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "dlitem",
+      "weight": 0,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "document-title",
+      "weight": 7,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "duplicate-id-aria",
+      "weight": 0,
+      "group": "a11y-aria"
+     },
+     {
+      "id": "form-field-multiple-labels",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "frame-title",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "heading-order",
+      "weight": 3,
+      "group": "a11y-navigation"
+     },
+     {
+      "id": "html-has-lang",
+      "weight": 7,
+      "group": "a11y-language"
+     },
+     {
+      "id": "html-lang-valid",
+      "weight": 7,
+      "group": "a11y-language"
+     },
+     {
+      "id": "html-xml-lang-mismatch",
+      "weight": 0,
+      "group": "a11y-language"
+     },
+     {
+      "id": "image-alt",
+      "weight": 10,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "input-button-name",
+      "weight": 10,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "input-image-alt",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "label",
+      "weight": 10,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "link-in-text-block",
+      "weight": 0,
+      "group": "a11y-color-contrast"
+     },
+     {
+      "id": "link-name",
+      "weight": 7,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "list",
+      "weight": 7,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "listitem",
+      "weight": 7,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "meta-refresh",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "meta-viewport",
+      "weight": 10,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "object-alt",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "select-name",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "skip-link",
+      "weight": 3,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "tabindex",
+      "weight": 7,
+      "group": "a11y-navigation"
+     },
+     {
+      "id": "target-size",
+      "weight": 7,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "td-headers-attr",
+      "weight": 0,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "th-has-data-cells",
+      "weight": 0,
+      "group": "a11y-tables-lists"
+     },
+     {
+      "id": "valid-lang",
+      "weight": 0,
+      "group": "a11y-language"
+     },
+     {
+      "id": "video-caption",
+      "weight": 0,
+      "group": "a11y-audio-video"
+     },
+     {
+      "id": "landmark-one-main",
+      "weight": 3,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "autocomplete-valid",
+      "weight": 1,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "presentation-role-conflict",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "svg-img-alt",
+      "weight": 1,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "focusable-controls",
+      "weight": 0
+     },
+     {
+      "id": "interactive-element-affordance",
+      "weight": 0
+     },
+     {
+      "id": "logical-tab-order",
+      "weight": 0
+     },
+     {
+      "id": "visual-order-follows-dom",
+      "weight": 0
+     },
+     {
+      "id": "focus-traps",
+      "weight": 0
+     },
+     {
+      "id": "managed-focus",
+      "weight": 0
+     },
+     {
+      "id": "use-landmarks",
+      "weight": 0
+     },
+     {
+      "id": "offscreen-content-hidden",
+      "weight": 0
+     },
+     {
+      "id": "custom-controls-labels",
+      "weight": 0
+     },
+     {
+      "id": "custom-controls-roles",
+      "weight": 0
+     },
+     {
+      "id": "table-duplicate-name",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "empty-heading",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "aria-allowed-role",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "image-redundant-alt",
+      "weight": 0,
+      "group": "a11y-names-labels"
+     },
+     {
+      "id": "identical-links-same-purpose",
+      "weight": 0,
+      "group": "a11y-best-practices"
+     },
+     {
+      "id": "label-content-name-mismatch",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "table-fake-caption",
+      "weight": 0,
+      "group": "hidden"
+     },
+     {
+      "id": "td-has-header",
+      "weight": 0,
+      "group": "hidden"
+     }
+    ]
+   },
+   "best-practices": {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "score": 1,
+    "auditRefs": [
+     {
+      "id": "is-on-https",
+      "weight": 5,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "redirects-http",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "geolocation-on-start",
+      "weight": 1,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "notification-on-start",
+      "weight": 1,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "csp-xss",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "has-hsts",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "origin-isolation",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "clickjacking-mitigation",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "trusted-types-xss",
+      "weight": 0,
+      "group": "best-practices-trust-safety"
+     },
+     {
+      "id": "paste-preventing-inputs",
+      "weight": 3,
+      "group": "best-practices-ux"
+     },
+     {
+      "id": "image-aspect-ratio",
+      "weight": 1,
+      "group": "best-practices-ux"
+     },
+     {
+      "id": "image-size-responsive",
+      "weight": 1,
+      "group": "best-practices-ux"
+     },
+     {
+      "id": "doctype",
+      "weight": 1,
+      "group": "best-practices-browser-compat"
+     },
+     {
+      "id": "charset",
+      "weight": 1,
+      "group": "best-practices-browser-compat"
+     },
+     {
+      "id": "baseline",
+      "weight": 0,
+      "group": "best-practices-browser-compat"
+     },
+     {
+      "id": "js-libraries",
+      "weight": 0,
+      "group": "best-practices-general"
+     },
+     {
+      "id": "deprecations",
+      "weight": 5,
+      "group": "best-practices-general"
+     },
+     {
+      "id": "third-party-cookies",
+      "weight": 5,
+      "group": "best-practices-general"
+     },
+     {
+      "id": "errors-in-console",
+      "weight": 1,
+      "group": "best-practices-general"
+     },
+     {
+      "id": "valid-source-maps",
+      "weight": 0,
+      "group": "best-practices-general"
+     },
+     {
+      "id": "inspector-issues",
+      "weight": 1,
+      "group": "best-practices-general"
+     }
+    ]
+   },
    "seo": {
     "id": "seo",
     "title": "SEO",
@@ -320,24 +811,44 @@
    }
   },
   "audits": {
-   "interactive": {
-    "id": "interactive",
-    "title": "Time to Interactive",
-    "description": "Time to Interactive is the amount of time it takes for the page to become fully interactive. [Learn more about the Time to Interactive metric](https://developer.chrome.com/docs/lighthouse/performance/interactive/).",
-    "score": 0.68,
+   "total-blocking-time": {
+    "id": "total-blocking-time",
+    "title": "Total Blocking Time",
+    "description": "Sum of all time periods between FCP and Time to Interactive, when task length exceeded 50ms, expressed in milliseconds. [Learn more about the Total Blocking Time metric](https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time/).",
+    "score": 1,
     "scoreDisplayMode": "numeric",
-    "displayValue": "5.7\u00a0s",
-    "numericValue": 5727.713384700521,
+    "displayValue": "10\u00a0ms",
+    "numericValue": 8,
     "numericUnit": "millisecond"
    },
    "speed-index": {
     "id": "speed-index",
     "title": "Speed Index",
     "description": "Speed Index shows how quickly the contents of a page are visibly populated. [Learn more about the Speed Index metric](https://developer.chrome.com/docs/lighthouse/performance/speed-index/).",
-    "score": 0.9,
+    "score": 0.97,
     "scoreDisplayMode": "numeric",
-    "displayValue": "3.4\u00a0s",
-    "numericValue": 3364.6476031436778,
+    "displayValue": "2.6\u00a0s",
+    "numericValue": 2558.7186252636784,
+    "numericUnit": "millisecond"
+   },
+   "first-contentful-paint": {
+    "id": "first-contentful-paint",
+    "title": "First Contentful Paint",
+    "description": "First Contentful Paint marks the time at which the first text or image is painted. [Learn more about the First Contentful Paint metric](https://developer.chrome.com/docs/lighthouse/performance/first-contentful-paint/).",
+    "score": 0.65,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "2.6\u00a0s",
+    "numericValue": 2558.7186252636784,
+    "numericUnit": "millisecond"
+   },
+   "interactive": {
+    "id": "interactive",
+    "title": "Time to Interactive",
+    "description": "Time to Interactive is the amount of time it takes for the page to become fully interactive. [Learn more about the Time to Interactive metric](https://developer.chrome.com/docs/lighthouse/performance/interactive/).",
+    "score": 0.77,
+    "scoreDisplayMode": "numeric",
+    "displayValue": "5.0\u00a0s",
+    "numericValue": 4989.524975181533,
     "numericUnit": "millisecond"
    },
    "cumulative-layout-shift": {
@@ -350,47 +861,23 @@
     "details": {
      "items": [
       {
-       "newEngineResult": {
-        "cumulativeLayoutShift": 0,
-        "cumulativeLayoutShiftMainFrame": 0
-       },
-       "newEngineResultDiffered": false,
-       "cumulativeLayoutShiftMainFrame": 0
+       "cumulativeLayoutShiftMainFrame": 0.0003627935353783344,
+       "newEngineResultDiffered": false
       }
      ],
      "type": "debugdata"
     },
-    "numericValue": 0,
+    "numericValue": 0.0003627935353783344,
     "numericUnit": "unitless"
-   },
-   "total-blocking-time": {
-    "id": "total-blocking-time",
-    "title": "Total Blocking Time",
-    "description": "Sum of all time periods between FCP and Time to Interactive, when task length exceeded 50ms, expressed in milliseconds. [Learn more about the Total Blocking Time metric](https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time/).",
-    "score": 0.67,
-    "scoreDisplayMode": "numeric",
-    "displayValue": "410\u00a0ms",
-    "numericValue": 410.19042172935406,
-    "numericUnit": "millisecond"
-   },
-   "first-contentful-paint": {
-    "id": "first-contentful-paint",
-    "title": "First Contentful Paint",
-    "description": "First Contentful Paint marks the time at which the first text or image is painted. [Learn more about the First Contentful Paint metric](https://developer.chrome.com/docs/lighthouse/performance/first-contentful-paint/).",
-    "score": 0.59,
-    "scoreDisplayMode": "numeric",
-    "displayValue": "2.7\u00a0s",
-    "numericValue": 2735.709624663528,
-    "numericUnit": "millisecond"
    },
    "largest-contentful-paint": {
     "id": "largest-contentful-paint",
     "title": "Largest Contentful Paint",
     "description": "Largest Contentful Paint marks the time at which the largest text or image is painted. [Learn more about the Largest Contentful Paint metric](https://developer.chrome.com/docs/lighthouse/performance/lighthouse-largest-contentful-paint/)",
-    "score": 0.16,
+    "score": 0.3,
     "scoreDisplayMode": "numeric",
-    "displayValue": "5.7\u00a0s",
-    "numericValue": 5727.713384700521,
+    "displayValue": "4.8\u00a0s",
+    "numericValue": 4817.024427637114,
     "numericUnit": "millisecond"
    }
   }
