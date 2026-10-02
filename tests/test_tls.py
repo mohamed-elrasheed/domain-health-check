@@ -62,8 +62,10 @@ def _verification_error(code, message):
 @pytest.mark.parametrize("code, message, status", [
     (62, "Hostname mismatch, certificate is not valid for 'example.com'.", Status.FAIL),  # broken
     (10, "certificate has expired", Status.FAIL),                                        # broken
-    (18, "self-signed certificate", Status.WARN),
-    (20, "unable to get local issuer certificate", Status.WARN),  # often a missing intermediate
+    (18, "self-signed certificate", Status.FAIL),                # a browser warning: visitors cannot get in
+    (19, "self-signed certificate in certificate chain", Status.FAIL),
+    (9, "certificate is not yet valid", Status.FAIL),
+    (20, "unable to get local issuer certificate", Status.FAIL),  # untrusted issuer, or a missing intermediate
 ])
 def test_verification_failure(monkeypatch, code, message, status):
     monkeypatch.setattr(tls, "fetch_tls_info", _verification_error(code, message))

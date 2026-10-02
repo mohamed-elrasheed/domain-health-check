@@ -5,8 +5,8 @@ for each one, suitable for handing to a non-technical client. It produces the fr
 [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital).
 
 Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why it matters and what to do about it.
-FAIL means something is broken today, never just a risk: an expired certificate or one issued for another
-name, a domain expiring within 30 days, no mail servers, or a site telling Google not to list it. Everything
+FAIL means something is broken today, never just a risk: a certificate error that shows visitors a browser
+security warning, a domain expiring within 30 days, no mail servers, or a site telling Google not to list it. Everything
 else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 
 > **Scope.** We only run these checks on domains submitted through the form at
@@ -25,7 +25,7 @@ else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 
 | Check | PASS | WARN | FAIL |
 |---|---|---|---|
-| **SSL certificate**: expiry, hostname match, issuer | valid for 30+ days | expires in under 30 days, untrusted issuer, or site unreachable | expired, or issued for a different name |
+| **SSL certificate**: expiry, hostname match, issuer | valid for 30+ days | expires in under 30 days, or site unreachable | any error that shows visitors a browser security warning: expired, not yet valid, self-signed, untrusted issuer, wrong hostname |
 | **TLS version** | TLS 1.2 or 1.3 | older than TLS 1.2 | |
 | **HSTS** | `max-age` of at least 180 days | missing, short `max-age` or malformed | |
 | **Content-Security-Policy** | present | missing, or report-only | |

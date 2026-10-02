@@ -20,11 +20,19 @@ from datetime import datetime, timezone
 from ..models import WEBSITE, CheckResult, Status
 
 WARN_DAYS = 30
-# OpenSSL verify codes for the two certificate problems that break the site outright.
-BROKEN_CERT_CODES = {
+# Every certificate error a browser shows as a full-page security warning is a FAIL: the test is whether a visitor
+# can get in without clicking past a warning, and they cannot. Summaries by OpenSSL verify code; any other
+# verification failure gets the general one.
+CERT_SUMMARY = {
+    9: "The certificate is not valid yet, so browsers block the website with a security warning.",
     10: "The certificate has expired, so browsers block the website with a security warning.",
+    18: "The certificate is self-signed, so browsers block the website with a security warning.",
+    19: "The certificate is signed by an authority browsers do not trust, so they block the website with a "
+        "security warning.",
     62: "The certificate is for a different domain name, so browsers block the website with a security warning.",
 }
+UNTRUSTED = "Browsers do not trust this website's certificate, so they block it with a security warning."
+MISSING_INTERMEDIATE = 20  # also what a server that forgot its intermediate certificate looks like
 TIMEOUT_SECONDS = 10
 
 CERT_EXPLANATION = (
@@ -109,16 +117,13 @@ def check_tls(domain: str, now: datetime | None = None) -> list[CheckResult]:
     except ssl.SSLCertVerificationError as exc:
         reason = getattr(exc, "verify_message", None) or str(exc)
         code = getattr(exc, "verify_code", None)
-        if code in BROKEN_CERT_CODES:  # expired, or issued for a different name: browsers block the site
-            return [CheckResult(
-                WEBSITE, "SSL certificate", Status.FAIL,
-                BROKEN_CERT_CODES[code], CERT_EXPLANATION, CERT_FIX, [f"Reason given: {reason}"],
-            )]
-        # Self-signed, untrusted issuer, missing intermediate certificate: some browsers may still connect.
+        details = [f"Reason given: {reason}"]
+        if code == MISSING_INTERMEDIATE:
+            details.append("This can also mean the server is not sending its intermediate certificate. Some browsers "
+                           "repair that on their own, many do not, so visitors see the warning.")
         return [CheckResult(
-            WEBSITE, "SSL certificate", Status.WARN,
-            "Browsers may reject this website's certificate.",
-            CERT_EXPLANATION, CERT_FIX, [f"Reason given: {reason}"],
+            WEBSITE, "SSL certificate", Status.FAIL, CERT_SUMMARY.get(code, UNTRUSTED),
+            CERT_EXPLANATION, CERT_FIX, details,
         )]
     except ssl.SSLError as exc:
         return [CheckResult(
