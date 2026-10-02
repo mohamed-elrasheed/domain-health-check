@@ -8,10 +8,8 @@
   * Sitemap and robots: the sitemap lists the site's pages; robots.txt is the
     usual place to tell search engines where it is.
 
-robots.txt is read the way Google reads it (RFC 9309): the googlebot group if
-there is one, otherwise *, the longest matching rule wins, Allow wins a tie,
-and * and $ are wildcards. Python's robotparser does none of the last three,
-so it would miss a rule such as "Disallow: /*".
+robots.txt is read by robots.py, the same reader the fetcher uses for our own
+access, the way Google reads it.
 """
 
 from __future__ import annotations
@@ -21,6 +19,7 @@ import re
 import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
+from ... import robots as robots_txt
 from ...fetcher import SITEMAP_MAX_BYTES, FetchedFile, FetchError, PageContext, same_site
 from ...models import SITE, CheckResult, Status
 from ._html import meta, parse
@@ -49,49 +48,9 @@ SITEMAP_EXPLANATION = (
 )
 
 
-# ---------- robots.txt, as Google reads it
-
-def robots_groups(text: str) -> dict[str, list[tuple[str, str]]]:
-    """{user agent (lowercased): [(allow|disallow, pattern), ...]}. Repeated groups are merged."""
-    groups: dict[str, list[tuple[str, str]]] = {}
-    agents: list[str] = []
-    in_rules = False
-    for raw in text.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if ":" not in line:
-            continue
-        field, value = (part.strip() for part in line.split(":", 1))
-        field = field.lower()
-        if field == "user-agent":
-            if in_rules:  # a user-agent line after rules starts a new group
-                agents, in_rules = [], False
-            agents.append(value.lower())
-            groups.setdefault(value.lower(), [])
-        elif field in ("allow", "disallow") and agents:
-            in_rules = True
-            for agent in agents:
-                groups[agent].append((field, value))
-    return groups
-
-
-def _rule_matches(pattern: str, path: str) -> bool:
-    anchored = pattern.endswith("$")
-    body = pattern[:-1] if anchored else pattern
-    regex = "".join(".*" if c == "*" else re.escape(c) for c in body) + ("$" if anchored else "")
-    return re.match(regex, path) is not None
-
-
 def googlebot_block(robots_text: str, path: str = "/") -> str | None:
     """The robots.txt rule that stops Googlebot crawling path, or None if it may."""
-    groups = robots_groups(robots_text)
-    rules = groups["googlebot"] if "googlebot" in groups else groups.get("*", [])
-    best: tuple[tuple[int, bool], str, str] | None = None
-    for directive, pattern in rules:
-        if pattern and _rule_matches(pattern, path):  # an empty Disallow allows everything
-            key = (len(pattern), directive == "allow")
-            if best is None or key > best[0]:
-                best = (key, directive, pattern)
-    return f"Disallow: {best[2]}" if best and best[1] == "disallow" else None
+    return robots_txt.blocking_rule(robots_text, "googlebot", path)
 
 
 def header_noindex(value: str) -> bool:

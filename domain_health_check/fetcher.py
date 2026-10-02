@@ -18,12 +18,14 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass
-from urllib import robotparser
 from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+from . import robots as robots_txt
+
 USER_AGENT = "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
+ROBOTS_TOKEN = "domain-health-check"  # the product token robots.txt groups match against
 TIMEOUT_SECONDS = 10  # per connect / read, as httpx measures it
 TOTAL_SECONDS = 30  # one download, including redirects and a slow trickle of bytes
 MAX_REDIRECTS = 5
@@ -75,15 +77,14 @@ class RobotsDisallowed(FetchError):
 
 
 def robots_allows(status: int, text: str, url: str) -> bool:
-    """Whether robots.txt (already fetched) lets our User-Agent load url. Follows RFC 9309:
-    a 4xx means there are no rules, and a 5xx means assume everything is disallowed."""
+    """Whether robots.txt (already fetched) lets us load url. Follows RFC 9309: a 4xx means there
+    are no rules, and a 5xx means assume everything is disallowed. Wildcards and longest-match are
+    honored on every supported Python, which urllib.robotparser only does from 3.14."""
     if 400 <= status < 500:
         return True
     if status >= 500:
         return False
-    parser = robotparser.RobotFileParser()
-    parser.parse(text.splitlines())
-    return parser.can_fetch(USER_AGENT, url)
+    return robots_txt.blocking_rule(text, ROBOTS_TOKEN, url) is None
 
 
 def same_site(a: str, b: str) -> bool:

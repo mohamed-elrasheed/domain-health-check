@@ -105,7 +105,8 @@ left out of the score rather than passed.
 
 - **Search engine blocking** is the most valuable check here: a site launched with `noindex` left
   on from staging is invisible in Google, and nothing on the page looks wrong. robots.txt is read the
-  way Google reads it (`*` and `$` wildcards, longest rule wins), which Python's `robotparser` does not.
+  way Google reads it (`*` and `$` wildcards, longest rule wins) by `robots.py`, the same reader that
+  decides whether we may load a page ourselves. Python's `robotparser` only does this from 3.14.
 - **Structured data matches the page** catches JSON-LD that still carries retired URLs or old prices
   after the visible page was updated. Each match in the details says which evidence it rested on:
   page text, a page link, or the sitemap.
