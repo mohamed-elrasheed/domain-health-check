@@ -59,8 +59,9 @@ def test_field_data_is_empty_not_absent(psi_mobile):
 def test_band_comes_from_the_median_and_the_spread_is_in_the_details(three_runs):
     [result] = pagespeed.check_mobile_speed(ExternalContext(psi_mobile=three_runs))
     assert result.status is Status.WARN
-    assert ("Three runs returned 73, 78 and 81 on 2 October 2026 (Lighthouse performance score, mobile). "
-            "We use the middle one, 78, for the band.") in result.details
+    assert ("Lighthouse performance score, mobile: Three runs returned 73, 78 and 81 on 2 October 2026. We use "
+            "the middle one, 78. The band comes from that figure.") in result.details
+    assert result.explanation.endswith("This time all three runs finished, and we used the middle result.")
 
 
 def test_summary_leads_with_lcp_never_a_score(three_runs):
@@ -77,9 +78,25 @@ def test_one_noisy_run_cannot_flip_the_band(psi_mobile):
     assert pagespeed.check_mobile_speed(ExternalContext(psi_mobile=runs))[0].status is Status.PASS
 
 
-def test_two_runs_still_give_a_result(three_runs):
+def test_two_runs_say_two_and_use_their_average_honestly(three_runs):
+    # The live bug: "we ran it three times and used the middle result" beside "Two runs returned 43 and 55.
+    # We use the middle one, 49." The median of two is their average, and the text must say so.
     [result] = pagespeed.check_mobile_speed(ExternalContext(psi_mobile=three_runs[:2]))
-    assert result.ran and any(d.startswith("Two runs returned 73 and 81") for d in result.details)
+    assert result.ran
+    detail = result.details[0]
+    assert "Only two of three runs finished, returning 73 and 81" in detail
+    assert "we use their average, 77, which is less reliable than three runs" in detail
+    assert "We use the middle one" not in detail
+    assert "only two of the three runs finished, so we used the average of the two" in result.explanation
+    assert "used the middle result" not in result.explanation
+    assert "Largest Contentful Paint: 4.4 s, the average of 4.1 and 4.7 s" in result.details
+
+
+def test_one_run_says_one(three_runs):
+    [result] = pagespeed.check_mobile_speed(ExternalContext(psi_mobile=three_runs[:1]))
+    assert "Only one of three runs finished, returning 81" in result.details[0]
+    assert "only one of the three runs finished" in result.explanation
+    assert "Largest Contentful Paint: 4.1 s, from a single run" in result.details
 
 
 def test_other_metrics_come_from_the_middle_run(three_runs):
@@ -92,7 +109,7 @@ def test_accessibility_uses_the_median_too(psi_mobile):
             edited(psi_mobile, accessibility=0.92)]
     [result] = pagespeed.check_accessibility(ExternalContext(psi_mobile=runs))
     assert result.status is Status.PASS
-    assert result.details[0].startswith("Three runs returned 84, 92 and 95")
+    assert result.details[0].startswith("Lighthouse accessibility score, mobile: Three runs returned 84, 92 and 95")
 
 
 # ---------- Real-world loading speed

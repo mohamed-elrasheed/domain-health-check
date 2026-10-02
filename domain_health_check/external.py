@@ -108,20 +108,35 @@ def fetch_external(
     _prune_cache()
     jobs = [("mobile", run) for run in range(1, MOBILE_RUNS + 1)] + [("desktop", 1)]
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=PSI_TIMEOUT_SECONDS, transport=transport) as client:
-        with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
-            futures = {job: pool.submit(_pagespeed, client, domain, url, *job, key) for job in jobs}
-        for (strategy, run), future in futures.items():
-            try:
-                data = future.result()
-            except SourceError as exc:
-                source = f"psi_mobile_{run}" if strategy == "mobile" else "psi_desktop"
-                context.errors[source] = str(exc).replace(key, "<key>")
-                continue
-            if strategy == "mobile":
-                context.psi_mobile.append(data)
-            else:
-                context.psi_desktop = data
+        failed = _run_jobs(client, context, domain, url, key, jobs)
+        # A mobile run that failed gets one more try, so the median really is the middle of three when it can be.
+        # Whatever still fails is recorded, and the checks say how many runs the figure came from.
+        retry = [job for job in failed if job[0] == "mobile"]
+        if retry:
+            _run_jobs(client, context, domain, url, key, retry)
     return context
+
+
+def _run_jobs(client: httpx.Client, context: ExternalContext, domain: str, url: str, key: str,
+              jobs: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Run PageSpeed jobs concurrently into context. Returns the jobs that failed."""
+    failed = []
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = {job: pool.submit(_pagespeed, client, domain, url, *job, key) for job in jobs}
+    for (strategy, run), future in futures.items():
+        source = f"psi_mobile_{run}" if strategy == "mobile" else "psi_desktop"
+        try:
+            data = future.result()
+        except SourceError as exc:
+            context.errors[source] = str(exc).replace(key, "<key>")
+            failed.append((strategy, run))
+            continue
+        context.errors.pop(source, None)  # a retry that succeeded clears the first attempt's error
+        if strategy == "mobile":
+            context.psi_mobile.append(data)
+        else:
+            context.psi_desktop = data
+    return failed
 
 
 def _cache_path(domain: str, strategy: str, run: int) -> Path:

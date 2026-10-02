@@ -45,7 +45,7 @@ FIELD_CATEGORIES = {"FAST": Status.PASS, "AVERAGE": Status.WARN, "SLOW": Status.
 LCP = "largest-contentful-paint"
 OTHER_METRICS = ["first-contentful-paint", "total-blocking-time", "cumulative-layout-shift", "speed-index",
                  "interactive"]
-NUMBER_WORDS = {1: "One run", 2: "Two runs", 3: "Three runs"}
+RUNS_WANTED = 3
 
 FIELD_EXPLANATION = (
     "Google measures how quickly websites load for real visitors using Chrome, and publishes the results once a "
@@ -58,8 +58,18 @@ NOT_ENOUGH_TRAFFIC = (
 SPEED_EXPLANATION = (
     "Google's PageSpeed Insights loads your home page on a simulated mid-range phone and measures how long it takes "
     "to show its main content. Slow pages lose visitors, and speed is a small factor in Google rankings. Results "
-    "move a little every time the test runs, so we ran it three times and used the middle result."
+    "move a little every time the test runs, so we run it three times."
 )
+
+
+def how_chosen(completed: int) -> str:
+    """The method sentence, from the number of runs that actually finished, never a fixed claim."""
+    if completed >= RUNS_WANTED:
+        return "This time all three runs finished, and we used the middle result."
+    if completed == 2:
+        return ("This time only two of the three runs finished, so we used the average of the two, which is less "
+                "reliable than the middle of three.")
+    return "This time only one of the three runs finished, so treat this result as less reliable than usual."
 SPEED_SUMMARY = {
     "top": "which puts it in Google's top speed band.",
     "middle": "which puts it in Google's middle speed band, so it could load faster.",
@@ -139,12 +149,25 @@ def _listed(values: list) -> str:
 
 
 def spread(runs: list[dict], category: str) -> tuple[int | None, str]:
-    """(median score, "Three runs returned 73, 78 and 81 on 2 October 2026") over the runs that scored."""
-    scores = [s for s in (lab_score(run, category) for run in runs) if s is not None]
+    """(the figure used, the sentence saying where it came from), built from the runs that actually scored:
+      three: "Three runs returned 73, 78 and 81 on 2 October 2026. We use the middle one, 78."
+      two:   "Only two of three runs finished, returning 43 and 55 on ... With two there is no middle one, so we
+              use their average, 49, which is less reliable than three runs."
+      one:   "Only one of three runs finished, returning 64 on ... A single run can move by several points, so
+              this figure is less reliable than usual."
+    The median of two numbers is their average; calling it "the middle one" would be false."""
+    scores = sorted(s for s in (lab_score(run, category) for run in runs) if s is not None)
     if not scores:
         return None, ""
-    middle = round(median(scores))
-    return middle, f"{NUMBER_WORDS[len(scores)]} returned {_listed(sorted(scores))}{_run_date(runs)}"
+    when = _run_date(runs)
+    figure = round(median(scores))
+    if len(scores) >= RUNS_WANTED:
+        return figure, f"Three runs returned {_listed(scores)}{when}. We use the middle one, {figure}."
+    if len(scores) == 2:
+        return figure, (f"Only two of three runs finished, returning {_listed(scores)}{when}. With two there is no "
+                        f"middle one, so we use their average, {figure}, which is less reliable than three runs.")
+    return figure, (f"Only one of three runs finished, returning {scores[0]}{when}. A single run can move by several "
+                    "points, so this figure is less reliable than usual.")
 
 
 # ---------- Real-world loading speed
@@ -208,10 +231,15 @@ def evaluate_mobile_speed(runs: list[dict], desktop: dict | None, desktop_error:
     else:
         summary = LAB[MOBILE_SPEED][2][name]
 
-    details = [f"{ran} (Lighthouse performance score, mobile). We use the middle one, {score}, for the band."]
-    if lcps:
+    details = [f"Lighthouse performance score, mobile: {ran} The band comes from that figure."]
+    if len(lcps) >= RUNS_WANTED:
         details.append(f"Largest Contentful Paint: {median(lcps) / 1000:.1f} s, the middle of "
                        f"{_listed([f'{v / 1000:.1f}' for v in lcps])} s")
+    elif len(lcps) == 2:
+        details.append(f"Largest Contentful Paint: {median(lcps) / 1000:.1f} s, the average of "
+                       f"{_listed([f'{v / 1000:.1f}' for v in lcps])} s")
+    elif lcps:
+        details.append(f"Largest Contentful Paint: {lcps[0] / 1000:.1f} s, from a single run")
     middle_run = min(runs, key=lambda run: abs((lab_score(run, "performance") or 0) - score))
     for audit in OTHER_METRICS:
         shown = _audit(middle_run, audit)
@@ -223,7 +251,8 @@ def evaluate_mobile_speed(runs: list[dict], desktop: dict | None, desktop_error:
     elif desktop_error:
         details.append(f"Desktop: not available ({desktop_error})")
     status = band_status(name)
-    return CheckResult(SITE, MOBILE_SPEED, status, summary, SPEED_EXPLANATION, "" if status is Status.PASS else FIX,
+    explanation = f"{SPEED_EXPLANATION} {how_chosen(len(runs))}"
+    return CheckResult(SITE, MOBILE_SPEED, status, summary, explanation, "" if status is Status.PASS else FIX,
                        details + link)
 
 
@@ -241,7 +270,7 @@ def evaluate_lab(name: str, runs: list[dict]) -> CheckResult:
         return _not_scored(name, link)
     status = band_status(band(score))
     return CheckResult(SITE, name, status, summaries[band(score)], explanation, "" if status is Status.PASS else FIX,
-                       [f"{ran} (Lighthouse {category} score, mobile). We use the middle one, {score}."] + link)
+                       [f"Lighthouse {category} score, mobile: {ran}"] + link)
 
 
 def check_accessibility(external: ExternalContext) -> list[CheckResult]:

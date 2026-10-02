@@ -82,7 +82,7 @@ def test_read_is_capped(psi_mobile, with_key, monkeypatch):
     assert context.psi_mobile == [] and "larger than 1,000 bytes" in context.errors["psi_mobile_3"]
 
 
-def test_one_run_can_fail_alone(psi_mobile, with_key):
+def test_a_failed_mobile_run_is_retried_once(psi_mobile, with_key):
     calls = {"mobile": 0}
     lock = threading.Lock()
 
@@ -96,8 +96,25 @@ def test_one_run_can_fail_alone(psi_mobile, with_key):
             raise httpx.ConnectError("refused", request=request)
         return httpx.Response(200, json=psi_mobile)
     context = external.fetch_external("mizangroupllc.com", URL, transport=httpx.MockTransport(handle))
-    assert len(context.psi_mobile) == 2 and context.psi_desktop is None
-    assert sorted(context.errors) == ["psi_desktop", next(k for k in context.errors if k.startswith("psi_mobile_"))]
+    assert len(context.psi_mobile) == 3 and calls["mobile"] == 4  # three runs plus one retry
+    assert context.psi_desktop is None
+    assert context.errors == {"psi_desktop": "desktop: ConnectError"}  # desktop is one run, not retried
+
+
+def test_a_run_that_fails_twice_is_recorded(psi_mobile, with_key):
+    calls = {"n": 0}
+    lock = threading.Lock()
+
+    def handle(request):
+        if request.url.params["strategy"] == "mobile":
+            with lock:
+                calls["n"] += 1
+                if calls["n"] in (1, 4):  # run 1 fails, and so does its retry
+                    raise httpx.ReadTimeout("slow", request=request)
+        return httpx.Response(200, json=psi_mobile)
+    context = external.fetch_external("mizangroupllc.com", URL, transport=httpx.MockTransport(handle))
+    assert len(context.psi_mobile) == 2
+    assert [k for k in context.errors if k.startswith("psi_mobile_")] != []
 
 
 def test_cache_is_reused_for_a_day_then_deleted_and_refreshed(psi_mobile, with_key, isolated_cache):
