@@ -75,14 +75,11 @@ def evaluate_missing_mx(has_spf: bool, has_dmarc: bool) -> CheckResult:
     """No MX, no SPF and no DMARC is the normal signature of a domain never set up for email: a fact, not a
     problem, so it is informational and not scored. No MX beside SPF or DMARC means mail was set up, at least
     in part, and now has nowhere to go: something lapsed or was half-built, and email to it bounces."""
-    if not has_spf and not has_dmarc:
+    if not has_spf and not has_dmarc:  # checked and fine: a fact to state, not a grade
         return CheckResult(
-            EMAIL, "Mail servers (MX)", Status.PASS,
-            "This domain is not set up to receive email: it has no mail servers, SPF or DMARC records. That is "
-            "normal if you do not use email at this domain.",
-            MX_EXPLANATION,
-            "Nothing to do if you do not use email here. If you do, ask your email provider for the MX records to add.",
-            ["No MX, SPF or DMARC records"], ran=False,
+            EMAIL, "Mail servers (MX)", Status.INFO,
+            "This domain is not set up for email, which is normal if you use a different address for mail.",
+            MX_EXPLANATION, "", ["No MX, SPF or DMARC records"],
         )
     present = " and ".join(name for name, found in (("SPF", has_spf), ("DMARC", has_dmarc)) if found)
     return CheckResult(

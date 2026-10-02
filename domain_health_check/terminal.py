@@ -12,7 +12,8 @@ from .models import DomainReport, Status
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
-COLOR = {Status.PASS: "\033[32m", Status.WARN: "\033[33m", Status.FAIL: "\033[31m"}  # green, yellow, red
+COLOR = {Status.PASS: "\033[32m", Status.WARN: "\033[33m", Status.FAIL: "\033[31m",
+         Status.INFO: "\033[36m"}  # green, yellow, red, cyan
 NOT_CHECKED = "----"  # same width as PASS, so the columns line up
 
 
@@ -51,6 +52,8 @@ def format_summary(report: DomainReport, color: bool, report_path: Path | None =
     counts = ", ".join(
         paint(f"{report.count(s)} {s.value.lower()}", COLOR[s]) for s in (Status.PASS, Status.WARN, Status.FAIL)
     )
+    if report.count(Status.INFO):
+        counts += f", {report.count(Status.INFO)} for information"
     if report.not_checked:
         counts += f", {len(report.not_checked)} not checked"
     lines.append(f"  {counts}")

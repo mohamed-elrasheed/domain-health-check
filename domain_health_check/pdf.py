@@ -27,7 +27,7 @@ from .report import DETAILS_HEADING, output_path, prune_older
 
 ASSETS = Path(__file__).parent / "assets"
 MSYS2_BIN = Path(r"C:\msys64\ucrt64\bin")
-PILL = {Status.PASS: "good", Status.WARN: "improve", Status.FAIL: "action"}
+PILL = {Status.PASS: "good", Status.WARN: "improve", Status.FAIL: "action", Status.INFO: "info"}
 
 CSS = """
 @font-face { font-family: "PJS"; font-weight: 500; src: url("fonts/PlusJakartaSans-Medium.ttf"); }
@@ -88,6 +88,7 @@ h2 { color: #1f4b47; font-size: 13pt; margin: 22pt 0 12pt; padding-bottom: 6pt; 
 .pill.improve { background: #fbf0db; color: #8a6a1a; }
 .pill.action { background: #f6e1dc; color: #8a2f22; }
 .pill.skip { background: #edf0ed; color: #5d6b67; }
+.pill.info { background: #e8eef2; color: #3e5566; }
 
 .details { background: #f6f8f6; border-top: 1px solid #edf0ed; padding: 9pt 18pt 10pt; }
 .details .label { margin-bottom: 5pt; }

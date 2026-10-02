@@ -96,7 +96,8 @@ def message_for(cfg: MailerConfig, report: DomainReport, pdf: Path) -> EmailMess
     """The email for one report, from the same layout the documents use."""
     score, band = layout.headline(report)
     counts = {"checks passed": report.count(Status.PASS), "could be improved": report.count(Status.WARN),
-              "need action": report.count(Status.FAIL), "not checked": len(report.not_checked)}
+              "need action": report.count(Status.FAIL), "for information": report.count(Status.INFO),
+              "not checked": len(report.not_checked)}
     findings = [f"{r.name}: {r.summary}" for r in layout.worth_doing(report) + layout.also_worth_improving(report)]
     return build_message(cfg, report.domain, pdf, score=score, band=band, counts=counts, headlines=findings,
                          unreachable=report.unreachable)

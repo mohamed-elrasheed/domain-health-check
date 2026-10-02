@@ -37,8 +37,9 @@ def test_null_mx_passes(fake_dns):
 def test_domain_never_set_up_for_mail_is_informational(fake_dns):
     # No MX, no SPF, no DMARC: the normal signature of a domain that does not use email. Not a finding.
     [result] = dns_records.check_mx("example.com")
-    assert not result.ran and "not set up to receive email" in result.summary
-    assert result.status is not Status.FAIL
+    assert result.status is Status.INFO and result.ran  # checked and fine, not "not checked"
+    assert result.summary == "This domain is not set up for email, which is normal if you use a different address for mail."
+    assert result.fix == ""
 
 
 @pytest.mark.parametrize("record, name", [

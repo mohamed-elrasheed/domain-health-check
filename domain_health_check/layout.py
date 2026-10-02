@@ -21,7 +21,8 @@ from .checks import pagespeed, site
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, reading, score
 
-WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action"}
+WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action",
+        Status.INFO: "For information"}
 NOT_CHECKED = "Not checked"
 TOP = 3
 
@@ -71,6 +72,8 @@ def not_checked(report: DomainReport) -> list[CheckResult]:
 def counts(report: DomainReport) -> str:
     parts = [f"{report.count(Status.PASS)} checks passed", f"{report.count(Status.WARN)} could be improved",
              f"{report.count(Status.FAIL)} need action"]
+    if report.count(Status.INFO):
+        parts.append(f"{report.count(Status.INFO)} for information")
     if report.not_checked:
         parts.append(f"{len(report.not_checked)} not checked")
     return " · ".join(parts)
@@ -78,7 +81,7 @@ def counts(report: DomainReport) -> str:
 
 def _to_act_on(report: DomainReport) -> list[CheckResult]:
     """Every finding that ran and is not a pass: by weight, then broken before risky."""
-    found = [r for r in report.results if r.ran and r.status is not Status.PASS]
+    found = [r for r in report.results if r.ran and r.status in (Status.WARN, Status.FAIL)]
     return sorted(found, key=lambda r: (-WEIGHTS.get(r.name, 1), -r.status.rank))
 
 
@@ -91,7 +94,7 @@ def also_worth_improving(report: DomainReport) -> list[CheckResult]:
 
 
 def working(report: DomainReport) -> list[CheckResult]:
-    return [r for r in report.results if r.ran and r.status is Status.PASS]
+    return [r for r in report.results if r.ran and r.status in (Status.PASS, Status.INFO)]
 
 
 def next_steps(report: DomainReport) -> list[tuple[str, str]]:

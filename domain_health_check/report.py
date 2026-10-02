@@ -16,7 +16,7 @@ from pathlib import Path
 from . import layout
 from .models import CheckResult, DomainReport, Status
 
-ICON = {Status.PASS: "✅", Status.WARN: "⚠️", Status.FAIL: "❌"}
+ICON = {Status.PASS: "✅", Status.WARN: "⚠️", Status.FAIL: "❌", Status.INFO: "ℹ️"}
 NOT_CHECKED_ICON = "➖"
 DETAILS_HEADING = "Technical details, for whoever makes the change"
 

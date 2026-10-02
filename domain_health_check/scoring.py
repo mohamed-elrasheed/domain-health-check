@@ -74,7 +74,7 @@ READINGS = [  # (lowest score in the band, one-line reading)
 def score(results: Iterable[CheckResult]) -> int | None:
     """round(100 * earned / possible) over the checks that ran, or None when none did.
     Raises KeyError for a check missing from WEIGHTS rather than guessing its worth."""
-    scored = [r for r in results if r.ran]
+    scored = [r for r in results if r.ran and r.status is not Status.INFO]  # INFO is a fact, not a grade
     possible = sum(WEIGHTS[r.name] for r in scored)
     if not possible:
         return None

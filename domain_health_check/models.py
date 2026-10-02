@@ -18,11 +18,12 @@ class Status(str, Enum):
     PASS = "PASS"
     WARN = "WARN"
     FAIL = "FAIL"
+    INFO = "INFO"  # checked and fine, but nothing to grade: shown, never scored, never a finding
 
     @property
     def rank(self) -> int:
         """Higher is worse, so max() finds the most serious result."""
-        return {"PASS": 0, "WARN": 1, "FAIL": 2}[self.value]
+        return {"PASS": 0, "INFO": 0, "WARN": 1, "FAIL": 2}[self.value]
 
 
 @dataclass

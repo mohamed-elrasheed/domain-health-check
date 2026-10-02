@@ -208,3 +208,18 @@ def test_about_mentions_the_business_listing_search_when_it_ran():
                                                              ran=False)])
     assert "a search of Google's public business listings" in layout.about(searched)
     assert "business listings" not in layout.about(report_of(Status.PASS))
+
+
+def test_information_is_its_own_state():
+    info = CheckResult(EMAIL, "Mail servers (MX)", Status.INFO,
+                       "This domain is not set up for email, which is normal if you use a different address for mail.",
+                       "Why.")
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS), info])
+    assert scoring.score(report.results) == scoring.score([result(0, Status.PASS)]) == 100  # never scored
+    assert layout.worth_doing(report) == [] and layout.next_steps(report)[0][1].startswith("Nothing here needs")
+    md = render_markdown(report)
+    assert "| Mail servers (MX) | ℹ️ For information |" in md and "Not checked" not in md
+    assert "### ℹ️ Mail servers (MX)" in section(md, "What is already working")
+    assert "1 checks passed · 0 could be improved · 0 need action · 1 for information" in md
+    from domain_health_check import pdf
+    assert '<span class="pill info">For information</span>' in pdf.render_html(report)
