@@ -17,3 +17,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Real third-party integration targets stay on the machine that runs them.
+tests/integration/sites.txt
