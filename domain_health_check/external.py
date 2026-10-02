@@ -8,8 +8,8 @@ costs a client points.
 PageSpeed Insights is the only source so far. Calls take 20 to 90 seconds and
 return most of a megabyte, so mobile and desktop run at the same time, the
 read is capped, and each raw response is cached per (domain, strategy) for 24
-hours. A day-old cache can never stand in for the 30-day re-check, which must
-be a fresh call.
+hours, then deleted: a later report is always a fresh call, and we keep no
+data we have no use for.
 
 The API key travels as a query parameter. It is never cached, logged or put in
 an error message.

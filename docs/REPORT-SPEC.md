@@ -84,11 +84,13 @@ Three short lines:
 - How to reach us — reply to this email, or the quote form. **No "book a call" gate.** Techno Dream
   requires a consultation before you learn anything; not requiring one is the advantage, so do not
   rebuild their funnel.
-- **The free re-check in 30 days.** State it as a commitment, not an offer: "We will run these checks
-  again in 30 days and send you the difference, at no charge."
+- **No free re-check.** The first report is the free thing. Do not promise to run these checks again at
+  no charge. An earlier draft of this spec did, and it was wrong: it committed Mizan to unbounded unpaid
+  work for people who may never become clients, with no way to track what was owed to whom.
 
-That last line is the most valuable sentence in the report. It gives a second contact with a legitimate
-reason, it shows improvement in writing, and it lands at the moment a care plan makes sense.
+Re-checking is a **feature of the paid relationship**, not a giveaway. Monthly re-checks belong to care
+plan clients, and saying so turns an ongoing cost into a reason to buy. If the closing mentions it at
+all, it mentions it that way.
 
 ## The score
 
@@ -125,7 +127,7 @@ grades, no colours, no emoji.
 ## When nothing is wrong
 
 It will happen, and it is a good outcome, not an awkward one. The report says so in one line, lists the
-passes, keeps the re-check commitment, and ends. Do not pad it. Do not go looking for something to flag.
+passes, and ends. Do not pad it. Do not go looking for something to flag.
 
 A clean report sent to someone who expected a sales pitch is worth more than a long one.
 

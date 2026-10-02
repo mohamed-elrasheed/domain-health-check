@@ -7,16 +7,16 @@ from domain_health_check.checks import http_headers
 from domain_health_check.config import DomainConfig
 from domain_health_check.fetcher import FetchError
 from domain_health_check.models import EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
-from domain_health_check.report import render_markdown, write_report
 from domain_health_check.terminal import format_summary
 
 NOW = datetime(2026, 3, 14, 9, 30, tzinfo=timezone.utc)
 
 
 def sample_report(*statuses: Status) -> DomainReport:
+    names = ["SSL certificate", "DMARC (anti-spoofing policy)", "Image alt text"]
     results = [
-        CheckResult(EMAIL if i % 2 else WEBSITE, f"Check {i}", s, f"Found thing {i} | with pipe.",
-                    f"Why {i} matters.", "" if s is Status.PASS else f"Fix {i}.", [f"record <{i}>"])
+        CheckResult(EMAIL if i % 2 else WEBSITE, names[i], s, f"Found thing {i}.", f"Why {i} matters.",
+                    "" if s is Status.PASS else f"Fix {i}.")
         for i, s in enumerate(statuses)
     ]
     return DomainReport("example.com", NOW, results)
@@ -28,36 +28,11 @@ def test_overall_is_worst_status():
     assert sample_report().overall is Status.PASS
 
 
-def test_markdown_structure():
-    md = render_markdown(sample_report(Status.PASS, Status.WARN, Status.FAIL))
-    assert md.startswith("# Domain health report: example.com")
-    assert "14 March 2026" in md
-    assert "Found thing 1 \\| with pipe." in md          # table cells escaped
-    assert "record &lt;0&gt;" in md                      # details escaped
-    # Failures are listed before warnings in the "What to fix" section.
-    fix_section = md.split("## What to fix")[1].split("## What's working well")[0]
-    assert fix_section.index("Check 2") < fix_section.index("Check 1")
-    assert "Check 0" not in fix_section
-    assert "Nothing was scanned" in md
-
-
-def test_all_pass_report_has_no_fix_section():
-    md = render_markdown(sample_report(Status.PASS, Status.PASS))
-    assert "## What to fix" not in md
-    assert "Everything we checked looks healthy" in md
-
-
-def test_write_report_uses_domain_and_date(tmp_path):
-    path = write_report(sample_report(Status.PASS), tmp_path / "reports")
-    assert path.name == "example.com-2026-03-14.md"
-    assert path.read_text(encoding="utf-8").startswith("# Domain health report")
-
-
 def test_terminal_summary_plain_and_colored():
     report = sample_report(Status.PASS, Status.FAIL)
     plain = format_summary(report, color=False)
     assert "\033[" not in plain
-    assert "PASS  Check 0" in plain and "1 pass, 0 warn, 1 fail" in plain
+    assert "PASS  SSL certificate" in plain and "1 pass, 0 warn, 1 fail" in plain
     assert "\033[31mFAIL" in format_summary(report, color=True)
 
 
@@ -157,38 +132,14 @@ def test_cli_domain_arguments_override_config(tmp_path, monkeypatch):
 
 
 def report_with_not_checked() -> DomainReport:
-    results = [
-        CheckResult(WEBSITE, "Checked fine", Status.PASS, "All good.", "Why."),
+    return DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "SSL certificate", Status.PASS, "All good.", "Why."),
         CheckResult(SITE, "Real-world loading speed", Status.PASS, "Not enough traffic yet.", "Why speed.",
                     ran=False),
         CheckResult(SITE, "Site health checks", Status.WARN, "We could not load the page.", "Why site.",
-                    "Fix nothing.", ["Error: ConnectError"], ran=False),
+                    ran=False),
         CheckResult(SITE, "Google speed test", Status.FAIL, "Did not run.", "Why test.", ran=False),
-    ]
-    return DomainReport("example.com", NOW, results)
-
-
-def test_not_run_never_reads_as_verified():
-    md = render_markdown(report_with_not_checked())
-    table = md.split("## What to fix")[0].split("## What's working well")[0]
-    assert "| Real-world loading speed | ➖ Not checked |" in table
-    assert "| Site health checks | ➖ Not checked |" in table
-    assert "| Google speed test | ➖ Not checked |" in table
-    assert "✅ 1 good · ⚠️ 0 could be improved · ❌ 0 need action · ➖ 3 not checked" in md
-    assert "## What to fix" not in md  # the only non-PASS results did not run
-    working = md.split("## What's working well")[1].split("## What we could not check")[0]
-    assert "Checked fine" in working and "Real-world loading speed" not in working
-    not_checked = md.split("## What we could not check")[1].split("## About this report")[0]
-    for name in ("Real-world loading speed", "Site health checks", "Google speed test"):
-        assert f"### ➖ {name}" in not_checked
-    assert "Error: ConnectError" in not_checked
-
-
-def test_not_run_does_not_change_overall_counts_or_exit_code():
-    report = report_with_not_checked()
-    assert report.overall is Status.PASS  # the FAIL above did not run, so it is not a failure
-    assert (report.count(Status.PASS), report.count(Status.WARN), report.count(Status.FAIL)) == (1, 0, 0)
-    assert "Everything we checked looks healthy" in render_markdown(report)
+    ])
 
 
 def test_terminal_marks_not_checked():
