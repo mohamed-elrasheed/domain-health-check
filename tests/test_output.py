@@ -154,3 +154,44 @@ def test_cli_domain_arguments_override_config(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "run_checks", lambda d: seen.append(d) or sample_report(Status.PASS))
     assert cli.main(["example.org", "-o", str(tmp_path), "--no-color"]) == 0
     assert seen == [DomainConfig("example.org")]
+
+
+def report_with_not_checked() -> DomainReport:
+    results = [
+        CheckResult(WEBSITE, "Checked fine", Status.PASS, "All good.", "Why."),
+        CheckResult(SITE, "Real-world loading speed", Status.PASS, "Not enough traffic yet.", "Why speed.",
+                    ran=False),
+        CheckResult(SITE, "Site health checks", Status.WARN, "We could not load the page.", "Why site.",
+                    "Fix nothing.", ["Error: ConnectError"], ran=False),
+        CheckResult(SITE, "Google speed test", Status.FAIL, "Did not run.", "Why test.", ran=False),
+    ]
+    return DomainReport("example.com", NOW, results)
+
+
+def test_not_run_never_reads_as_verified():
+    md = render_markdown(report_with_not_checked())
+    table = md.split("## What to fix")[0].split("## What's working well")[0]
+    assert "| Real-world loading speed | ➖ Not checked |" in table
+    assert "| Site health checks | ➖ Not checked |" in table
+    assert "| Google speed test | ➖ Not checked |" in table
+    assert "✅ 1 good · ⚠️ 0 could be improved · ❌ 0 need action · ➖ 3 not checked" in md
+    assert "## What to fix" not in md  # the only non-PASS results did not run
+    working = md.split("## What's working well")[1].split("## What we could not check")[0]
+    assert "Checked fine" in working and "Real-world loading speed" not in working
+    not_checked = md.split("## What we could not check")[1].split("## About this report")[0]
+    for name in ("Real-world loading speed", "Site health checks", "Google speed test"):
+        assert f"### ➖ {name}" in not_checked
+    assert "Error: ConnectError" in not_checked
+
+
+def test_not_run_does_not_change_overall_counts_or_exit_code():
+    report = report_with_not_checked()
+    assert report.overall is Status.PASS  # the FAIL above did not run, so it is not a failure
+    assert (report.count(Status.PASS), report.count(Status.WARN), report.count(Status.FAIL)) == (1, 0, 0)
+    assert "Everything we checked looks healthy" in render_markdown(report)
+
+
+def test_terminal_marks_not_checked():
+    plain = format_summary(report_with_not_checked(), color=False)
+    assert "----  Google speed test" in plain
+    assert "1 pass, 0 warn, 0 fail, 3 not checked" in plain

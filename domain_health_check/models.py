@@ -42,9 +42,15 @@ class DomainReport:
     checked_at: datetime
     results: list[CheckResult]
 
+    # A result that did not run verified nothing, so its status never counts as a pass, a warning or a failure.
+
     @property
     def overall(self) -> Status:
-        return max((r.status for r in self.results), key=lambda s: s.rank, default=Status.PASS)
+        return max((r.status for r in self.results if r.ran), key=lambda s: s.rank, default=Status.PASS)
 
     def count(self, status: Status) -> int:
-        return sum(1 for r in self.results if r.status is status)
+        return sum(1 for r in self.results if r.ran and r.status is status)
+
+    @property
+    def not_checked(self) -> list[CheckResult]:
+        return [r for r in self.results if not r.ran]

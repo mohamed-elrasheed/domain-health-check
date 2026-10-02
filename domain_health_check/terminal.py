@@ -13,6 +13,7 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 COLOR = {Status.PASS: "\033[32m", Status.WARN: "\033[33m", Status.FAIL: "\033[31m"}  # green, yellow, red
+NOT_CHECKED = "----"  # same width as PASS, so the columns line up
 
 
 def _enable_windows_ansi() -> bool:
@@ -44,11 +45,14 @@ def format_summary(report: DomainReport, color: bool, report_path: Path | None =
     width = max(len(r.name) for r in report.results) if report.results else 0
     lines = ["", paint(report.domain, BOLD)]
     for r in report.results:
-        lines.append(f"  {paint(r.status.value, COLOR[r.status])}  {r.name.ljust(width)}  {r.summary}")
+        label = paint(r.status.value, COLOR[r.status]) if r.ran else paint(NOT_CHECKED, DIM)
+        lines.append(f"  {label}  {r.name.ljust(width)}  {r.summary}")
 
     counts = ", ".join(
         paint(f"{report.count(s)} {s.value.lower()}", COLOR[s]) for s in (Status.PASS, Status.WARN, Status.FAIL)
     )
+    if report.not_checked:
+        counts += f", {len(report.not_checked)} not checked"
     lines.append(f"  {counts}")
     if report_path:
         lines.append(paint(f"  Report: {report_path}", DIM))

@@ -4,10 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import DomainReport, Status
+from .models import CheckResult, DomainReport, Status
 
 ICON = {Status.PASS: "✅", Status.WARN: "⚠️", Status.FAIL: "❌"}
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action"}
+NOT_CHECKED_ICON, NOT_CHECKED = "➖", "Not checked"
+
+
+def _icon(r: CheckResult) -> str:
+    return ICON[r.status] if r.ran else NOT_CHECKED_ICON
+
+
+def _word(r: CheckResult) -> str:
+    """A check that did not run verified nothing, so it never reads as Good or Could be improved."""
+    return WORD[r.status] if r.ran else NOT_CHECKED
 
 
 def _cell(text: str) -> str:
@@ -35,15 +45,16 @@ def render_markdown(report: DomainReport) -> str:
         "",
         f"{ICON[Status.PASS]} {report.count(Status.PASS)} good · "
         f"{ICON[Status.WARN]} {report.count(Status.WARN)} could be improved · "
-        f"{ICON[Status.FAIL]} {report.count(Status.FAIL)} need action",
+        f"{ICON[Status.FAIL]} {report.count(Status.FAIL)} need action"
+        + (f" · {NOT_CHECKED_ICON} {len(report.not_checked)} not checked" if report.not_checked else ""),
         "",
         "| Area | Check | Result | What we found |",
         "|---|---|---|---|",
     ]
     for r in report.results:
-        lines.append(f"| {_cell(r.category)} | {_cell(r.name)} | {ICON[r.status]} {WORD[r.status]} | {_cell(r.summary)} |")
+        lines.append(f"| {_cell(r.category)} | {_cell(r.name)} | {_icon(r)} {_word(r)} | {_cell(r.summary)} |")
 
-    to_fix = sorted((r for r in report.results if r.status is not Status.PASS), key=lambda r: -r.status.rank)
+    to_fix = sorted((r for r in report.results if r.ran and r.status is not Status.PASS), key=lambda r: -r.status.rank)
     if to_fix:
         lines += ["", "## What to fix", "", "Most urgent first."]
         for r in to_fix:
@@ -59,11 +70,19 @@ def render_markdown(report: DomainReport) -> str:
             ]
             lines += _details(r.details)
 
-    passed = [r for r in report.results if r.status is Status.PASS]
+    passed = [r for r in report.results if r.ran and r.status is Status.PASS]
     if passed:
         lines += ["", "## What's working well"]
         for r in passed:
             lines += ["", f"### {ICON[r.status]} {r.name}", "", r.summary, "", f"*Why it matters:* {r.explanation}"]
+            lines += _details(r.details)
+
+    if report.not_checked:
+        lines += ["", "## What we could not check", "",
+                  "These were not checked this time, so they are not counted anywhere above. None of them is a "
+                  "finding about your website."]
+        for r in report.not_checked:
+            lines += ["", f"### {NOT_CHECKED_ICON} {r.name}", "", r.summary, "", f"*Why it matters:* {r.explanation}"]
             lines += _details(r.details)
 
     lines += [
