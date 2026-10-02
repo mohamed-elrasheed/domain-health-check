@@ -200,3 +200,46 @@ def test_first_heading_skip_does_not_invent_an_h1():
     assert result.status is Status.WARN and "2 places" in result.summary
     assert "Heading 1 of 7 is an h3 at the start of the page, before any h2" in result.details
     assert not any("after an h1" in d for d in result.details)
+
+
+# ---------- Placeholder text from a website template (synthetic reproductions)
+
+AUTO_SHOP = ["Example Auto Care, Springfield", "Auto repair and car service in Springfield",
+             "Brakes and tyres", "Oil changes", "Engine diagnostics"]
+
+
+def test_template_demo_description_is_flagged_even_at_the_right_length():
+    # The real case: an auto repair shop whose description was a theme's demo copy, at a perfect length.
+    demo = "Take payments online with a scalable platform that grows with your perfect business"
+    result = content.evaluate_description([demo + ". Built for every shop."], AUTO_SHOP)
+    assert result.status is Status.WARN and "placeholder text left over from a website template" in result.summary
+
+
+def test_description_unrelated_to_the_page_is_flagged_as_maybe():
+    unrelated = "Discover elegant furniture collections crafted with sustainable timber for modern living spaces today."
+    result = content.evaluate_description([unrelated], AUTO_SHOP)
+    assert result.status is Status.WARN and "may be placeholder text" in result.summary
+
+
+def test_related_description_passes():
+    real = "Family auto repair in Springfield: brakes, tyres, oil changes and engine diagnostics, at fixed prices."
+    assert content.evaluate_description([real], AUTO_SHOP).status is Status.PASS
+
+
+def test_too_little_context_flags_nothing():
+    unrelated = "Discover elegant furniture collections crafted with sustainable timber for modern living spaces today."
+    assert content.evaluate_description([unrelated], ["Home"]).status is Status.PASS
+
+
+def test_demo_title_is_flagged():
+    result = content.evaluate_title("Just Another WordPress Site", "https://example.com/", AUTO_SHOP)
+    assert result.status is Status.WARN and "placeholder text" in result.summary
+
+
+def test_plurals_and_variants_count_as_shared_words():
+    assert content.terms("Flooring installers") & content.terms("Floors installed")
+
+
+def test_mizan_title_and_description_are_not_placeholder(mizan_page):
+    assert "placeholder" not in content.check_title(mizan_page)[0].summary
+    assert "placeholder" not in content.check_description(mizan_page)[0].summary

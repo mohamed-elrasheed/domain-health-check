@@ -51,9 +51,53 @@ def _more(items: list[str]) -> list[str]:
     return items[:LISTED] + ([f"...and {len(items) - LISTED} more"] if len(items) > LISTED else [])
 
 
+# ---------- Placeholder text left over from a website template
+
+# A right-length title or description can still be a template's demo copy: a real auto repair shop's description
+# read "Take payments online with a scalable platform that grows with your perfect business" and passed on length.
+DEMO_PHRASES = (
+    "lorem ipsum", "just another wordpress site", "my wordpress blog", "take payments online",
+    "scalable platform that grows", "your site description", "site description goes here", "your tagline here",
+    "site tagline", "this is a sample", "sample page", "hello world", "add your description", "edit this text",
+    "your company name", "insert text here", "this is your site", "powered by wordpress",
+)
+STOPWORDS = {
+    "about", "also", "best", "been", "from", "have", "here", "home", "into", "just", "like", "make", "more", "need",
+    "only", "other", "over", "page", "site", "some", "than", "that", "their", "them", "then", "there", "they", "this",
+    "very", "website", "welcome", "were", "what", "when", "where", "which", "will", "with", "your", "yours", "ours",
+    "offer", "offers", "service", "services", "official",
+}
+MIN_TERMS, MIN_CONTEXT = 4, 3  # below these there is too little text to judge, so nothing is flagged
+
+
+def terms(text: str) -> set[str]:
+    """Meaningful words, cut to five letters so "floors" and "flooring" meet."""
+    return {w[:5] for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 4 and w not in STOPWORDS}
+
+
+def placeholder(text: str, context: list[str], min_terms: int = MIN_TERMS) -> str | None:
+    """"template" for a known demo phrase; "unrelated" when the text shares no meaningful word with the rest of
+    the page (title, headings, description) and both sides have enough words to judge; otherwise None."""
+    lowered = text.lower()
+    if any(phrase in lowered for phrase in DEMO_PHRASES):
+        return "template"
+    own, around = terms(text), terms(" ".join(context))
+    if len(own) >= min_terms and len(around) >= MIN_CONTEXT and not own & around:
+        return "unrelated"
+    return None
+
+
+PLACEHOLDER_SUMMARY = {
+    "template": "Your home page {what} looks like placeholder text left over from a website template, not a "
+                "description of your business.",
+    "unrelated": "Your home page {what} shares no words with your page's title or headings, so it may be "
+                 "placeholder text rather than a description of your business.",
+}
+
+
 # ---------- Page title
 
-def evaluate_title(title: str | None, final_url: str) -> CheckResult:
+def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
         return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details))
 
@@ -69,6 +113,9 @@ def evaluate_title(title: str | None, final_url: str) -> CheckResult:
     host = (urlsplit(final_url).hostname or "").removeprefix("www.")
     if title.lower().rstrip("/").removeprefix("https://").removeprefix("http://").removeprefix("www.") == host:
         return result(Status.WARN, "Your home page title is just your web address.", fix, details)
+    kind = placeholder(title, list(context), min_terms=2)
+    if kind:
+        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="title"), fix, details)
     if len(title) < TITLE_MIN:
         return result(Status.WARN, f"Your home page title is very short ({len(title)} characters).", fix, details)
     if len(title) > TITLE_MAX:
@@ -78,14 +125,20 @@ def evaluate_title(title: str | None, final_url: str) -> CheckResult:
                   details=details)
 
 
+def _headings_text(tree) -> list[str]:
+    return [text for level, text in headings(tree) if level <= 3]
+
+
 def check_title(page: PageContext) -> list[CheckResult]:
-    node = parse(page.html).css_first("head > title")
-    return [evaluate_title(collapse(node.text()) if node else None, page.final_url)]
+    tree = parse(page.html)
+    node = tree.css_first("head > title")
+    context = _headings_text(tree) + meta(tree, "description")
+    return [evaluate_title(collapse(node.text()) if node else None, page.final_url, context)]
 
 
 # ---------- Meta description
 
-def evaluate_description(descriptions: list[str]) -> CheckResult:
+def evaluate_description(descriptions: list[str], context: list[str] = ()) -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
         return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details))
 
@@ -102,6 +155,9 @@ def evaluate_description(descriptions: list[str]) -> CheckResult:
     details = [f"Description: {description}", f"Length: {len(description)} characters"]
     if len(descriptions) > 1:
         details.append(f"Note: the page has {len(descriptions)} description tags; we measured the first.")
+    kind = placeholder(description, list(context))
+    if kind:
+        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="description"), fix, details)
     if len(description) < DESCRIPTION_MIN:
         return result(Status.WARN, f"Your home page description is short ({len(description)} characters), so it "
                                    "may not tell searchers enough.", fix, details)
@@ -113,7 +169,10 @@ def evaluate_description(descriptions: list[str]) -> CheckResult:
 
 
 def check_description(page: PageContext) -> list[CheckResult]:
-    return [evaluate_description(meta(parse(page.html), "description"))]
+    tree = parse(page.html)
+    node = tree.css_first("head > title")
+    context = ([collapse(node.text())] if node else []) + _headings_text(tree)
+    return [evaluate_description(meta(tree, "description"), context)]
 
 
 # ---------- Main heading
