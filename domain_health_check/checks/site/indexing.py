@@ -273,8 +273,8 @@ def check_sitemap_and_robots(page: PageContext) -> list[CheckResult]:
         if file is not None and file.status not in ANSWERED:
             return [CheckResult(
                 SITE, SITEMAP, Status.WARN,
-                f"Your website answered with an error (status {file.status}) when we asked for {file.url}, so we "
-                "could not check your sitemap.",
+                f"The file {file.url} answered with an error (status {file.status}), so we could not check your "
+                "sitemap.",
                 SITEMAP_EXPLANATION, "Nothing to do based on this report.",
                 [f"robots.txt: {page.robots.url} (status {page.robots.status})" if page.robots else "robots.txt: not read",
                  f"Sitemap: {page.sitemap.url} (status {page.sitemap.status})" if page.sitemap else "Sitemap: not read"],
