@@ -54,7 +54,9 @@ CUSTOMER_FACING = 4  # tiers 1 to 4 cost customers; 5 and 6 are behind the scene
 # What an owner can fix from their website builder or their Google profile, without DNS, server settings or code.
 SELF_FIX = {"Page title", "Meta description", "Image alt text", "Main heading", "Heading order", "Social preview",
             "Google Business Profile", "Profile completeness", "Profile website link", "Reviews"}
-PRICING = ("If you would like us to take care of these, our prices are at https://www.mizangroupllc.com/services, "
+# This report sells Mizan Digital Services, which lives at /digital; /services is the physical and networking
+# division.
+PRICING = ("If you would like us to take care of these, our prices are at https://www.mizangroupllc.com/digital, "
            "and we quote every job in writing first.")
 
 
@@ -83,8 +85,9 @@ def confirmed(report: DomainReport) -> list[CheckResult]:
 
 
 def worth_doing(report: DomainReport) -> list[CheckResult]:
-    """The top three confirmed findings. A finding we could not confirm never gets top billing."""
-    return confirmed(report)[:TOP]
+    """Up to three confirmed, customer-facing findings (tiers 1 to 4). Three is a maximum, not a quota: email and
+    hardening findings are never promoted to fill a slot, and a maybe never gets top billing."""
+    return [r for r in confirmed(report) if tier(r) <= CUSTOMER_FACING][:TOP]
 
 
 def fix_yourself(report: DomainReport) -> list[CheckResult]:

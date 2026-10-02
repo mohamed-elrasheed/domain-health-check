@@ -148,7 +148,7 @@ def test_unreachable_site_leads_the_report_and_is_not_repeated_below():
     ], website_loaded=False, unreachable="We could not reach your website at https://example.com/ at all.")
     md = render_markdown(report)
     block = md.index("## Your website could not be reached")
-    assert block < md.index("## Worth doing")
+    assert block < md.index("## Needs a developer")  # DMARC is tier 5, so there is no Worth doing section
     assert "We could not reach your website at https://example.com/ at all." in md
     assert "## What we could not check" not in md  # the same fact, already the headline
 
@@ -227,11 +227,13 @@ def test_broken_and_customer_facing_beats_everything():
 
 
 def test_a_hedged_finding_never_opens_the_report():
-    report = DomainReport("example.com", NOW, [finding(EMAIL, "DKIM (email signatures)", certain=False),
-                                               finding(WEBSITE, "Content Security Policy")])
-    assert [r.name for r in layout.worth_doing(report)] == ["Content Security Policy"]
+    report = DomainReport("example.com", NOW, [finding(SITE, "Meta description", certain=False),
+                                               finding(EMAIL, "DKIM (email signatures)", certain=False),
+                                               finding(SITE, "Canonical tag")])
+    assert [r.name for r in layout.worth_doing(report)] == ["Canonical tag"]
     md = render_markdown(report)
-    assert "DKIM" not in section(md, "Worth doing")
+    assert "DKIM" not in section(md, "Worth doing") and "Meta description" not in section(md, "Worth doing")
+    assert "### ⚠️ Meta description" in section(md, "Worth checking")
     assert "### ⚠️ DKIM (email signatures)" in section(md, "Worth checking")
     assert md.index("## Worth checking") > md.index("## Needs a developer")
 
@@ -288,3 +290,24 @@ def test_brief_leads_with_why_it_matters_for_the_owner_fixable_checks():
     for explanation in (content.ALT_TEXT_EXPLANATION, content.HEADING_ORDER_EXPLANATION):
         first = explanation.split(". ")[0]
         assert not first.startswith(("Alt text is", "Headings work like")), first
+
+
+def test_top_section_is_never_padded():
+    one = DomainReport("example.com", NOW, [finding(SITE, "Main heading"), finding(EMAIL, "DMARC (anti-spoofing policy)"),
+                                            finding(WEBSITE, "Content Security Policy"), finding(WEBSITE, "DNSSEC")])
+    assert [r.name for r in layout.worth_doing(one)] == ["Main heading"]
+    behind_the_scenes = DomainReport("example.com", NOW, [finding(EMAIL, "DMARC (anti-spoofing policy)"),
+                                                          finding(WEBSITE, "Content Security Policy")])
+    assert layout.worth_doing(behind_the_scenes) == []
+    assert "## Worth doing" not in render_markdown(behind_the_scenes)
+    assert "### ⚠️ DMARC (anti-spoofing policy)" in section(render_markdown(behind_the_scenes), "Needs a developer")
+
+
+def test_pricing_points_at_the_digital_division():
+    assert "https://www.mizangroupllc.com/digital" in layout.PRICING and "/services" not in layout.PRICING
+
+
+def test_alt_text_fix_has_no_invented_example():
+    from domain_health_check.checks.site import content
+    result = content.evaluate_alt_text([("https://example.com/a.jpg", None)] * 3)
+    assert "such as" not in result.fix and "over the phone" in result.fix and "listed under Fix it yourself" in result.fix

@@ -281,9 +281,9 @@ def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
     if described / len(images) < ALT_TEXT_PASS_SHARE:
         return result(
             Status.WARN, f"{len(lacking)} of the {len(images)} images on your home page have no real description.",
-            "In your website builder, open each image listed in the technical details and fill in its alt text "
-            "(sometimes called \"image description\") with a short phrase saying what the picture shows, such as "
-            "\"Technician installing a Wi-Fi router\". Images that are purely decorative can stay blank.",
+            "In your website builder, open each image listed under Fix it yourself and fill in its alt text "
+            "(sometimes called \"image description\") with a short phrase describing the picture the way you would "
+            "describe it to someone over the phone. Images that are purely decorative can stay blank.",
             details + _more(lacking),
         )
     return result(Status.PASS, f"{described} of the {len(images)} images on your home page have a description.",
