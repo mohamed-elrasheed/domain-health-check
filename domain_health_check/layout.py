@@ -75,7 +75,13 @@ def costing_customers(report: DomainReport) -> list[CheckResult]:
     """Confirmed, customer-facing (tiers 1 to 4) findings that are materially wrong (less than half right), most
     points lost first, tier breaking ties. A category is not a cost: a tier-2 finding that is 90% right costs
     almost nothing, a tier-3 finding that is 0% right costs its whole weight. The top section and the one-line
-    reading both come from this list, so they cannot disagree."""
+    reading both come from this list, so they cannot disagree.
+
+    Two measures, two jobs, on purpose. The filter (less than half right) decides what qualifies; points lost
+    decides the order among what qualifies. So a heavy finding at 0.55 right can lose more points than a light
+    one at 0.3 and still be left out. That is intended: this list is "worth doing", and a thing that is mostly
+    right is not worth leading with, however heavy it is. It still appears in Fix it yourself or Needs a
+    developer. Do not drop the filter to make the two measures agree."""
     found = [r for r in confirmed(report) if tier(r) <= CUSTOMER_FACING and credit(r) < 0.5]
     return sorted(found, key=lambda r: (-points_lost(r), _rank(r)))
 

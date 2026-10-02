@@ -59,7 +59,13 @@ opened with two email records while the missing main heading and 31 undescribed 
 At most three findings, ranked by **points lost** (weight × how wrong it is), with the ladder's tier
 breaking ties. A category is not a cost: a tier-2 finding that is 90% right costs almost nothing, a tier-3
 finding that is 0% right costs its whole weight. Only confirmed, customer-facing (tiers 1 to 4) findings that
-are materially wrong (less than half right) qualify, and three is a maximum, not a quota: never pad it. A
+are materially wrong (less than half right) qualify, and three is a maximum, not a quota: never pad it.
+
+The filter and the sort are two different measures doing two different jobs, deliberately. "Less than half
+right" decides what qualifies; points lost decides the order among what qualifies. A heavy finding at 0.55
+right can lose more points than a light one at 0.3 and still be left out. That is intended: this section is
+"worth doing", and a mostly-right thing is not worth leading with however heavy it is. It still appears in
+the fix sections below. The mismatch is not a bug; do not "fix" it by dropping the filter. A
 finding we could not confirm (one that says "may") never appears here; it goes in "Worth checking" near the
 end. The one-line reading counts the same list, so the two cannot disagree. If
 fewer than three things are

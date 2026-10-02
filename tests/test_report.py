@@ -362,3 +362,15 @@ def test_top_section_and_reading_count_the_same_list():
         assert layout.worth_doing(report) == costly[:3]
         sentence = layout.headline(report)[1]
         assert ("costing you customers" in sentence) == bool(costly)
+
+
+def test_filter_and_sort_are_different_measures_on_purpose():
+    # A heavy finding that is mostly right (tier 2, 0.55 right: 1.8 points lost) loses more than a light one that is
+    # mostly wrong (tier 4, 0.3 right: 1.4 points lost), yet only the light one qualifies. Intended: the top section
+    # is "worth doing", and a mostly-right thing is not worth leading with. See costing_customers.
+    heavy_mostly_right = graded(SITE, "Image alt text", 0.55)
+    light_mostly_wrong = graded(SITE, "Page weight", 0.3)
+    assert layout.points_lost(heavy_mostly_right) > layout.points_lost(light_mostly_wrong)
+    report = DomainReport("example.com", NOW, [heavy_mostly_right, light_mostly_wrong])
+    assert [r.name for r in layout.worth_doing(report)] == ["Page weight"]
+    assert "### ⚠️ Image alt text" in section(render_markdown(report), "Fix it yourself")  # not lost, just not first
