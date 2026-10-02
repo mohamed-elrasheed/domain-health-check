@@ -29,7 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="YAML file listing the domains to check (default: domains.yaml)")
     parser.add_argument("-o", "--output", type=Path, default=Path("reports"),
                         help="folder for the reports (default: reports)")
-    parser.add_argument("--pdf", action="store_true", help="also write each report as a PDF")
+    parser.add_argument("--no-pdf", action="store_true",
+                        help="skip the PDF; by default every report is written as Markdown and as a PDF")
     parser.add_argument("--email", action="store_true",
                         help="email each report, PDF attached, to REPORT_RECIPIENT (default SMTP_USERNAME) for "
                              "review. Never to the site owner.")
@@ -79,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         path = write_report(report, args.output)
         print(format_summary(report, color, path))
         any_fail = any_fail or report.overall is Status.FAIL
-        if args.pdf or mail:
+        if not args.no_pdf or mail:
             pdf_path = _write_pdf(report, args.output)
             output_failed = output_failed or pdf_path is None
             if mail and pdf_path:

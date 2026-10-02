@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+import pytest
+
 from domain_health_check import cli, fetcher, runner
 from domain_health_check.checks import http_headers
 from domain_health_check.config import DomainConfig
@@ -20,6 +22,19 @@ def sample_report(*statuses: Status) -> DomainReport:
         for i, s in enumerate(statuses)
     ]
     return DomainReport("example.com", NOW, results)
+
+
+@pytest.fixture(autouse=True)
+def stub_pdf(monkeypatch):
+    """Every run writes a PDF by default; the CLI tests stub the renderer so they do not need Pango.
+    The PDF itself is tested in test_pdf.py."""
+    written = []
+
+    def fake(report, folder):
+        written.append(report.domain)
+        return folder / f"{report.domain}.pdf"
+    monkeypatch.setattr(cli, "write_pdf", fake)
+    return written
 
 
 def test_overall_is_worst_status():
@@ -148,13 +163,16 @@ def test_terminal_marks_not_checked():
     assert "1 pass, 0 warn, 0 fail, 3 not checked" in plain
 
 
-def test_cli_writes_a_pdf_when_asked(tmp_path, monkeypatch):
-    from domain_health_check import cli as cli_module
-    written = []
-    monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
-    monkeypatch.setattr(cli_module, "write_pdf", lambda report, folder: written.append(report.domain) or folder / "x.pdf")
-    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--pdf"]) == 0
-    assert written == ["example.com"]
+def test_cli_writes_a_pdf_by_default(tmp_path, monkeypatch, stub_pdf):
+    monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS))
+    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color"]) == 0
+    assert stub_pdf == ["example.com"]
+
+
+def test_cli_no_pdf_skips_it(tmp_path, monkeypatch, stub_pdf):
+    monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS))
+    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--no-pdf"]) == 0
+    assert stub_pdf == []
 
 
 def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch, capsys):
@@ -163,7 +181,7 @@ def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch,
         raise OSError("cannot load library 'libgobject-2.0-0'")
     monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
     monkeypatch.setattr(cli_module, "write_pdf", no_pango)
-    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--pdf"]) == 2
+    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color"]) == 2
     assert (tmp_path / "example.com-2026-03-14.md").exists()
     assert "PDF output" in capsys.readouterr().err
 

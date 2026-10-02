@@ -202,18 +202,18 @@ domain-health-check                        # check everything in domains.yaml
 domain-health-check example.com            # check one domain without a config file
 domain-health-check -c other.yaml -o out   # different config file / report folder
 domain-health-check --no-color             # plain output (also honours NO_COLOR)
-domain-health-check example.com --pdf      # also write the report as a PDF
+domain-health-check example.com --no-pdf   # Markdown only, no PDF
 domain-health-check example.com --email    # PDF, emailed to you for review (needs SMTP_* in .env)
 python -m domain_health_check --help
 ```
 
-Reports are written to `reports/<domain>-<date>.md`, plus `.pdf` with `--pdf` (gitignored). Only the
+Every report is written to `reports/<domain>-<date>.md` and `.pdf` (gitignored; `--no-pdf` skips the PDF). Only the
 latest report per domain is kept: writing a new one deletes that domain's older reports. A stale scan is
 misleading, and the check is cheap to run again.
 
 ### PDF output
 
-`--pdf` renders the same report as a PDF with WeasyPrint. Both formats are built from the same report
+Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report
 object, so they cannot disagree. WeasyPrint needs the Pango libraries, which pip cannot install:
 
 - **Windows:** install MSYS2, then Pango inside it. The tool finds `C:\msys64\ucrt64\bin` on its own;
