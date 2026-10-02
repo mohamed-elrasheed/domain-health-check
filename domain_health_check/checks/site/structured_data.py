@@ -160,14 +160,20 @@ def evaluate_structured_data(
     if not values:
         return result(Status.PASS, "Your home page structured data has no prices or links for us to compare.",
                       details=details, ran=False)
-    return result(Status.PASS, f"All {_counted(values)} in your home page structured data match the visible page.",
+    verb = "matches" if _distinct(values) == 1 else "match"
+    return result(Status.PASS, f"The {_counted(values)} in your home page structured data {verb} the visible page.",
                   details=details)
 
 
+def _distinct(values: list[Value]) -> int:
+    return len({(v.kind, v.raw) for v in values})
+
+
 def _counted(values: list[Value]) -> str:
-    """"2 prices and 1 link", leaving out a kind there are none of."""
-    prices = sum(v.kind == "price" for v in values)
-    links = len(values) - prices
+    """"2 prices and 1 link", counting a value once however many places repeat it."""
+    distinct = {(v.kind, v.raw) for v in values}
+    prices = sum(kind == "price" for kind, _ in distinct)
+    links = len(distinct) - prices
     parts = []
     if prices:
         parts.append(f"{prices} price{'s' if prices != 1 else ''}")

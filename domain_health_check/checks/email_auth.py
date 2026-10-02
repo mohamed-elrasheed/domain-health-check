@@ -212,6 +212,6 @@ def check_dkim(domain: str, selectors: list[str] | None = None) -> list[CheckRes
     return result(
         Status.WARN,
         "No DKIM key was found under the common selector names. DKIM may still be set up under a different name.",
-        "Ask your email provider which DKIM selector they use and add it to this domain's dkim_selectors "
-        "in domains.yaml. If DKIM isn't set up yet: " + setup_fix[0].lower() + setup_fix[1:],
+        "Ask your email provider which DKIM selector they use and send us the name, so we can confirm it on the "
+        "next check. If DKIM is not set up yet: " + setup_fix[0].lower() + setup_fix[1:],
     )

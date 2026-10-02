@@ -94,6 +94,8 @@ def test_dkim_nothing_on_common_selectors_warns(fake_dns):
     [result] = email_auth.check_dkim("example.com")
     assert result.status is Status.WARN
     assert len([d for d in result.details if d.startswith("Selector checked")]) == len(email_auth.DEFAULT_DKIM_SELECTORS)
+    # The fix goes to a business owner, who has no domains.yaml.
+    assert "domains.yaml" not in result.fix and "send us the name" in result.fix
 
 
 def test_dkim_revoked_key_warns(fake_dns):

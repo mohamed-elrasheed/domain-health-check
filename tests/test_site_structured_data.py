@@ -18,7 +18,7 @@ OFFER = ld_json('{"@context": "https://schema.org", "@type": "Service", "name": 
 def test_mizan_structured_data_matches(mizan_page):
     [result] = structured_data.check_structured_data(mizan_page)
     assert result.status is Status.PASS and result.ran
-    assert "4 links" in result.summary
+    assert result.summary == "The 4 links in your home page structured data match the visible page."
     assert "URL https://www.mizangroupllc.com/tech at block 1: department[0].url: found (page link)" in result.details
 
 
@@ -99,3 +99,10 @@ def test_graph_and_low_high_prices_are_found():
     values, invalid = structured_data.extract_values(
         ['{"@graph": [{"@type": "AggregateOffer", "lowPrice": 10, "highPrice": "20"}]}'], "https://example.com/")
     assert [(v.kind, v.raw) for v in values] == [("price", "10"), ("price", "20")] and not invalid
+
+
+def test_a_url_repeated_in_several_places_counts_once(mizan_page):
+    # Yoast repeats the home URL across @graph entries; the real page read "All 3 links" for one address.
+    repeated = ld_json('{"@graph": [{"url": "https://www.mizangroupllc.com/tech"}, {"url": "https://www.mizangroupllc.com/tech"}]}')
+    [result] = structured_data.check_structured_data(with_body(mizan_page, repeated))
+    assert result.summary.startswith("The 4 links")

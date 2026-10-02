@@ -148,9 +148,12 @@ def evaluate_heading_order(levels: list[int]) -> CheckResult:
 
     if not levels:
         return result(Status.PASS, "Your home page has no headings, so there is no order to check.", ran=False)
-    skips, previous = [], 1  # starting at 1 means the first heading may be an h1 or an h2
+    skips, previous = [], None
     for position, level in enumerate(levels, start=1):
-        if level > previous + 1:
+        if previous is None and level > 2:  # the first heading may be an h1 or an h2
+            skips.append(f"Heading {position} of {len(levels)} is an h{level} at the start of the page, before any "
+                         f"h{level - 1}")
+        elif previous is not None and level > previous + 1:
             skips.append(f"Heading {position} of {len(levels)} is an h{level} directly after an h{previous}")
         previous = level
     details = [f"Order: {' '.join(f'h{level}' for level in levels)}"]
@@ -172,43 +175,62 @@ def check_heading_order(page: PageContext) -> list[CheckResult]:
 # ---------- Image alt text
 
 IMAGE_FILE = re.compile(r"(?i)^[\w\-. ()]+\.(jpe?g|png|gif|webp|svg|avif|bmp|tiff?|heic)$")
+SIZE_SUFFIX = re.compile(r"-\d+x\d+$")  # WordPress names resized copies photo-300x200.jpg
+# Lazy-loading plugins put a placeholder in src and the real address in one of these.
+LAZY_SOURCES = ("data-src", "data-lazy-src", "data-original", "data-lazy")
 
 
-def useful_alt(alt: str | None, src: str) -> bool:
-    """Present, not blank, and not just a file name."""
+def image_address(attributes: dict) -> str:
+    """The real address of an image. A data: URI in src is a lazy-load placeholder, not the picture."""
+    for key in ("src",) + LAZY_SOURCES:
+        value = (attributes.get(key) or "").strip()
+        if value and not value.startswith("data:"):
+            return value
+    return ""
+
+
+def alt_problem(alt: str | None, address: str) -> str | None:
+    """Why alt text is not a real description, or None when it is one."""
     alt = collapse(alt)
-    if not alt or IMAGE_FILE.match(alt):
-        return False
-    stem = urlsplit(src).path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-    return alt.lower() != stem.lower()
+    if not alt:
+        return "no alt text"
+    stem = SIZE_SUFFIX.sub("", urlsplit(address).path.rsplit("/", 1)[-1].rsplit(".", 1)[0])
+    if IMAGE_FILE.match(alt) or (stem and alt.lower() == stem.lower()):
+        return f"alt text is only the file name (\"{alt}\")"
+    return None
+
+
+def useful_alt(alt: str | None, address: str) -> bool:
+    return alt_problem(alt, address) is None
 
 
 def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
-    """images is [(src, alt)] for every <img>, including lazy-loaded ones below the fold."""
+    """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold."""
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
         return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran)
 
     if not images:
         return result(Status.PASS, "Your home page has no images, so there is no alt text to check.", ran=False)
-    missing = [src or "(no address)" for src, alt in images if not useful_alt(alt, src)]
-    described = len(images) - len(missing)
-    details = [f"{described} of {len(images)} images have a useful description. We counted every image in the "
+    problems = [(address, alt_problem(alt, address)) for address, alt in images]
+    lacking = [f"{address or '(no address)'}: {problem}" for address, problem in problems if problem]
+    described = len(images) - len(lacking)
+    details = [f"{described} of {len(images)} images have a real description. We counted every image in the "
                "page, including ones that only load when a visitor scrolls down."]
     if described / len(images) < ALT_TEXT_PASS_SHARE:
         return result(
-            Status.WARN, f"{len(missing)} of the {len(images)} images on your home page have no description.",
+            Status.WARN, f"{len(lacking)} of the {len(images)} images on your home page have no real description.",
             "In your website builder, open each image listed in the technical details and fill in its alt text "
             "(sometimes called \"image description\") with a short phrase saying what the picture shows, such as "
             "\"Technician installing a Wi-Fi router\". Images that are purely decorative can stay blank.",
-            details + [f"No useful alt text: {src}" for src in _more(missing)],
+            details + _more(lacking),
         )
     return result(Status.PASS, f"{described} of the {len(images)} images on your home page have a description.",
-                  details=details + [f"No useful alt text: {src}" for src in _more(missing)])
+                  details=details + _more(lacking))
 
 
 def check_alt_text(page: PageContext) -> list[CheckResult]:
     images = [
-        (node.attributes.get("src") or node.attributes.get("data-src") or "", node.attributes.get("alt"))
+        (image_address(node.attributes), node.attributes.get("alt"))
         for node in parse(page.html).css("img")
         if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
     ]

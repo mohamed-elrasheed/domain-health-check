@@ -146,7 +146,8 @@ def test_images_without_alt_warn_and_are_listed(mizan_page):
     page = with_body(mizan_page, '<img src="https://cdn.test/team.jpg"><img src="https://cdn.test/van.jpg" alt="van.jpg">')
     [result] = content.check_alt_text(page)
     assert result.status is Status.WARN and "2 of the 4" in result.summary
-    assert "No useful alt text: https://cdn.test/team.jpg" in result.details
+    assert "https://cdn.test/team.jpg: no alt text" in result.details
+    assert 'https://cdn.test/van.jpg: alt text is only the file name ("van.jpg")' in result.details
 
 
 def test_noscript_copies_are_not_counted(mizan_page):
@@ -162,3 +163,40 @@ def test_ninety_percent_passes():
 
 def test_no_images_did_not_run():
     assert not content.evaluate_alt_text([]).ran
+
+
+# ---------- Regressions found on a real WordPress page (synthetic reproductions)
+
+PLACEHOLDER = "data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20600%20700%22%3E%3C/svg%3E"
+
+
+def lazy_img(address: str, alt: str | None) -> str:
+    """The markup a WordPress lazy-load plugin delivers: a placeholder src, the real address in data-src."""
+    alt_attr = "" if alt is None else f' alt="{alt}"'
+    return f'<img class="lazy" src="{PLACEHOLDER}" data-src="{address}"{alt_attr}>'
+
+
+def test_file_name_alt_behind_a_lazy_placeholder_is_not_a_description(mizan_page):
+    # The real page had alt="icon1" on data-src=".../icon1.png" and we counted it as described.
+    images = "".join(lazy_img(f"https://www.mizangroupllc.com/uploads/icon{i}.png", f"icon{i}") for i in range(1, 6))
+    [result] = content.check_alt_text(with_body(mizan_page, images))
+    assert result.status is Status.WARN and "5 of the 7" in result.summary
+    assert 'https://www.mizangroupllc.com/uploads/icon1.png: alt text is only the file name ("icon1")' in result.details
+
+
+def test_details_name_the_real_image_not_the_placeholder(mizan_page):
+    [result] = content.check_alt_text(with_body(mizan_page, lazy_img("https://www.mizangroupllc.com/uploads/team.jpg", None) * 3))
+    assert not any("data:image" in d for d in result.details)
+    assert "https://www.mizangroupllc.com/uploads/team.jpg: no alt text" in result.details
+
+
+def test_wordpress_size_suffix_still_counts_as_the_file_name():
+    assert not content.useful_alt("r-img1", "https://example.com/wp-content/uploads/2025/09/r-img1-300x232.jpg")
+    assert content.useful_alt("Hardwood floor in a living room", "https://example.com/uploads/r-img1-300x232.jpg")
+
+
+def test_first_heading_skip_does_not_invent_an_h1():
+    result = content.evaluate_heading_order([3, 3, 2, 2, 3, 2, 4])
+    assert result.status is Status.WARN and "2 places" in result.summary
+    assert "Heading 1 of 7 is an h3 at the start of the page, before any h2" in result.details
+    assert not any("after an h1" in d for d in result.details)
