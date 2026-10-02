@@ -92,6 +92,7 @@ def test_weights_cover_exactly_the_checks_that_exist():
 
 def test_failed_fetch_does_not_lower_the_score(fake_dns, monkeypatch, mizan_page):
     from domain_health_check.checks import rdap, tls
+    fake_dns[("mizangroupllc.com", "MX")] = ["1 smtp.google.com."]  # a domain that uses email
     monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
     monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
 

@@ -1,3 +1,5 @@
+import pytest
+
 from domain_health_check.checks import dns_records, dnssec
 from domain_health_check.models import Status
 
@@ -32,9 +34,23 @@ def test_null_mx_passes(fake_dns):
     assert "doesn't receive email" in result.summary
 
 
-def test_no_mx_fails(fake_dns):
-    # Broken, not a risk: email sent to the domain bounces today.
-    assert dns_records.check_mx("example.com")[0].status is Status.FAIL
+def test_domain_never_set_up_for_mail_is_informational(fake_dns):
+    # No MX, no SPF, no DMARC: the normal signature of a domain that does not use email. Not a finding.
+    [result] = dns_records.check_mx("example.com")
+    assert not result.ran and "not set up to receive email" in result.summary
+    assert result.status is not Status.FAIL
+
+
+@pytest.mark.parametrize("record, name", [
+    (("example.com", "TXT"), "SPF"),
+    (("_dmarc.example.com", "TXT"), "DMARC"),
+])
+def test_partial_mail_setup_without_mx_fails(fake_dns, record, name):
+    # Mail was set up at least in part and now has nowhere to go: broken today, email bounces.
+    fake_dns[record] = ["v=spf1 include:_spf.example.net ~all" if name == "SPF" else "v=DMARC1; p=none"]
+    [result] = dns_records.check_mx("example.com")
+    assert result.status is Status.FAIL and result.ran
+    assert f"even though it has {name} set up" in result.summary
 
 
 def test_dnssec_ds_present(fake_dns):
