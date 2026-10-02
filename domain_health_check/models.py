@@ -42,6 +42,8 @@ class DomainReport:
     domain: str
     checked_at: datetime
     results: list[CheckResult]
+    website_loaded: bool = True  # False: no score is shown, because one would cover DNS and email alone
+    unreachable: str = ""  # set when a visitor cannot reach the site; the report leads with it
 
     # A result that did not run verified nothing, so its status never counts as a pass, a warning or a failure.
 

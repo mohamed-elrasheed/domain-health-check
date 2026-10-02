@@ -61,9 +61,11 @@ class MailerConfig:
 
 
 def _plain_body(domain: str, score: int | None, band: str, counts: dict[str, int],
-                headlines: list[str], filename: str) -> str:
+                headlines: list[str], filename: str, unreachable: str = "") -> str:
     lines = [f"Website health report for {domain}.", ""]
     lines += [f"Score {score} out of 100. {band}" if score is not None else band, ""]
+    if unreachable:
+        lines += [unreachable, ""]
     lines += [
         ", ".join(f"{v} {k}" for k, v in counts.items() if v) + ".",
         "",
@@ -79,13 +81,13 @@ def _plain_body(domain: str, score: int | None, band: str, counts: dict[str, int
 
 
 def build_message(cfg: MailerConfig, domain: str, pdf: Path, *, score: int | None,
-                  band: str, counts: dict[str, int], headlines: list[str]) -> EmailMessage:
+                  band: str, counts: dict[str, int], headlines: list[str], unreachable: str = "") -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = cfg.username
     msg["To"] = cfg.recipient
     # The fixed phrase is what a mail filter matches on. Do not reword it.
     msg["Subject"] = f"Website health report · {domain}" + (f" · {score} out of 100" if score is not None else "")
-    msg.set_content(_plain_body(domain, score, band, counts, headlines, pdf.name))
+    msg.set_content(_plain_body(domain, score, band, counts, headlines, pdf.name, unreachable))
     msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf", filename=pdf.name)
     return msg
 
@@ -96,7 +98,8 @@ def message_for(cfg: MailerConfig, report: DomainReport, pdf: Path) -> EmailMess
     counts = {"checks passed": report.count(Status.PASS), "could be improved": report.count(Status.WARN),
               "need action": report.count(Status.FAIL), "not checked": len(report.not_checked)}
     findings = [f"{r.name}: {r.summary}" for r in layout.worth_doing(report) + layout.also_worth_improving(report)]
-    return build_message(cfg, report.domain, pdf, score=score, band=band, counts=counts, headlines=findings)
+    return build_message(cfg, report.domain, pdf, score=score, band=band, counts=counts, headlines=findings,
+                         unreachable=report.unreachable)
 
 
 class SendFailed(RuntimeError):

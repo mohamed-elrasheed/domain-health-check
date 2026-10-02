@@ -91,4 +91,6 @@ def fake_dns(monkeypatch):
 
     monkeypatch.setattr(dns_utils, "lookup", lookup)
     monkeypatch.setattr(dns_utils, "lookup_txt", lambda name: lookup(name, "TXT"))
+    # records[(name, "NXDOMAIN")] = True makes the domain not exist at all.
+    monkeypatch.setattr(dns_utils, "domain_exists", lambda name: not records.get((name.lower(), "NXDOMAIN")))
     return records

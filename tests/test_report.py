@@ -95,7 +95,7 @@ def test_not_run_never_reads_as_verified():
         CheckResult(SITE, "Site health checks", Status.WARN, "We could not load the page.", "Why site.",
                     "Fix nothing.", ["Error: ConnectError"], ran=False),
         CheckResult(SITE, "Google speed test", Status.FAIL, "Did not run.", "Why test.", ran=False),
-    ])
+    ], website_loaded=False)
     md = render_markdown(report)
     table = section(md, "Everything we checked")
     for name in ("Real-world loading speed", "Site health checks", "Google speed test"):
@@ -159,12 +159,13 @@ def test_no_score_when_the_website_was_not_loaded():
     report = DomainReport("example.com", NOW, [
         result(0, Status.PASS), result(1, Status.PASS),
         CheckResult(SITE, "Site health checks", Status.WARN, "We could not load it.", "Why.", ran=False),
-    ])
-    value, sentence = layout.headline(report)
-    assert value is None
-    assert sentence == "We could not load your website, so this report covers your domain and email only."
+    ], website_loaded=False)
+    assert layout.headline(report) == (None, "Score: not available - we could not load your website.")
+    assert layout.coverage(report) == "This report covers your domain and email only."
     md = render_markdown(report)
-    assert "out of 100" not in md and f"**{sentence}**" in md
+    assert "out of 100" not in md
+    assert "**Score: not available - we could not load your website.** This report covers your domain and email " \
+           "only." in md
 
 
 def test_no_score_but_robots_finding_is_mentioned():
@@ -172,8 +173,30 @@ def test_no_score_but_robots_finding_is_mentioned():
         result(0, Status.PASS),
         CheckResult(SITE, "Search engine blocking", Status.FAIL, "Your robots.txt file returns a server error.", "Why."),
         CheckResult(SITE, "Site health checks", Status.WARN, "We stopped at robots.txt.", "Why.", ran=False),
-    ])
-    assert layout.headline(report) == (
-        None, "We could not load your website, so this report covers your domain and email, plus your robots.txt "
-              "file only.")
+    ], website_loaded=False)
+    assert layout.headline(report)[0] is None
+    assert layout.coverage(report) == "This report covers your domain and email, plus your robots.txt file only."
     assert "Search engine blocking" in section(render_markdown(report), "Worth doing")
+
+
+def test_unreachable_site_leads_the_report_and_is_not_repeated_below():
+    report = DomainReport("example.com", NOW, [
+        result(0, Status.PASS), result(1, Status.WARN),
+        CheckResult(SITE, "Site health checks", Status.WARN, "We could not load https://example.com/.", "Why.",
+                    ran=False),
+    ], website_loaded=False, unreachable="We could not reach your website at https://example.com/ at all.")
+    md = render_markdown(report)
+    block = md.index("## Your website could not be reached")
+    assert block < md.index("## Worth doing")
+    assert "We could not reach your website at https://example.com/ at all." in md
+    assert "## What we could not check" not in md  # the same fact, already the headline
+
+
+def test_pdf_leads_with_the_unreachable_block_too():
+    from domain_health_check import pdf
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS)], website_loaded=False,
+                          unreachable="Your home page answers with a server error (status 503).")
+    html = pdf.render_html(report)
+    assert html.index('class="unreachable"') < html.index("Everything we checked")
+    assert "Score: not available - we could not load your website." in html
+    assert "/100" not in html

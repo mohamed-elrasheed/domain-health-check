@@ -31,6 +31,20 @@ def _resolve(name: str, rdtype: str):
         raise DNSLookupError(f"{rdtype} lookup for {name} failed: {exc}") from exc
 
 
+def domain_exists(name: str) -> bool | None:
+    """False when DNS says the name does not exist at all (NXDOMAIN), True when it does, None when we could not
+    tell. Every other lookup reads NXDOMAIN as "no records", which is why this question is asked separately."""
+    try:
+        dns.resolver.resolve(name, "SOA", lifetime=TIMEOUT_SECONDS)
+    except dns.resolver.NXDOMAIN:
+        return False
+    except dns.resolver.NoAnswer:
+        return True
+    except dns.exception.DNSException:
+        return None
+    return True
+
+
 def lookup(name: str, rdtype: str) -> list[str]:
     """Return every record of `rdtype` at `name` as text, or [] if there are none."""
     answer = _resolve(name, rdtype)

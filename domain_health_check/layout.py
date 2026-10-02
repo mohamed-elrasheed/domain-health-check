@@ -38,21 +38,34 @@ def label(r: CheckResult) -> str:
     return WORD[r.status] if r.ran else NOT_CHECKED
 
 
-def website_not_loaded(report: DomainReport) -> bool:
-    return any(r.name == site.PAGE_LOADED and not r.ran for r in report.results)
+NO_SCORE = "Score: not available - we could not load your website."
 
 
 def headline(report: DomainReport) -> tuple[int | None, str]:
     """(score, one-line reading). No score when nothing ran, and none when the website itself could not be
-    loaded: a number computed over DNS and email alone reads as "my site is fine"."""
-    if website_not_loaded(report):
-        robots_finding = any(r.category == SITE and r.ran for r in report.results)
-        covered = "your domain and email, plus your robots.txt file" if robots_finding else "your domain and email"
-        return None, f"We could not load your website, so this report covers {covered} only."
+    loaded: a number computed over DNS and email alone reads as "my site is fine". Findings still print."""
+    if not report.website_loaded:
+        return None, NO_SCORE
     value = score(report.results)
     if value is None:
         return None, "We could not complete enough checks to give your site a score."
     return value, SENTENCE[reading(value)]
+
+
+def coverage(report: DomainReport) -> str:
+    """The line under a missing score, saying what the report does cover."""
+    if report.website_loaded:
+        return ""
+    if not any(r.ran for r in report.results if r.category != SITE):
+        return ""
+    robots_finding = any(r.category == SITE and r.ran for r in report.results)
+    covered = "your domain and email, plus your robots.txt file" if robots_finding else "your domain and email"
+    return f"This report covers {covered} only."
+
+
+def not_checked(report: DomainReport) -> list[CheckResult]:
+    """Not-run results, minus the not-loaded row when the report already leads with the site being unreachable."""
+    return [r for r in report.not_checked if not (report.unreachable and r.name == site.PAGE_LOADED)]
 
 
 def counts(report: DomainReport) -> str:

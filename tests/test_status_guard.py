@@ -187,3 +187,73 @@ def test_google_is_not_asked_to_test_a_page_we_were_turned_away_from(monkeypatch
 
 def test_a_plain_fetch_error_is_still_a_fetch_error():
     assert issubclass(PageStatusError, FetchError)
+
+
+# ---------- the score gate and the unreachable headline (one test per way a site fails to load)
+
+NO_SCORE = "Score: not available - we could not load your website."
+
+
+def assert_no_score(report):
+    from domain_health_check import layout
+    from domain_health_check.report import render_markdown
+    assert not report.website_loaded
+    assert layout.headline(report) == (None, NO_SCORE)
+    md = render_markdown(report)
+    assert "out of 100" not in md and NO_SCORE in md
+    return md
+
+
+def test_404_home_gives_no_score_and_leads_with_it(report_for):
+    report = report_for(site(home=(404, "<h1>Not found</h1>"), robots=(200, "")))
+    md = assert_no_score(report)
+    assert "answers \"not found\" (status 404)" in report.unreachable
+    assert md.index("## Your website could not be reached") < md.index("## Everything we checked")
+
+
+def test_5xx_home_gives_no_score_and_leads_with_it(report_for):
+    report = report_for(site(home=(503, "<h1>Maintenance</h1>"), robots=(200, "")))
+    assert_no_score(report)
+    assert "server error (status 503" in report.unreachable
+
+
+def test_timeout_gives_no_score_and_leads_with_it(report_for):
+    report = report_for(site(raise_on={"/": lambda r: httpx.ReadTimeout("timed out", request=r)}))
+    assert_no_score(report)
+    assert report.unreachable.startswith("We could not reach your website")
+
+
+def test_robots_5xx_gives_no_score_but_is_not_an_unreachable_site(report_for):
+    report = report_for(site(home=(200, REAL_PAGE), robots=(500, "")))
+    assert_no_score(report)
+    assert report.unreachable == ""  # visitors can reach the site; the robots.txt finding says what is wrong
+
+
+def test_403_to_us_is_not_reported_as_unreachable_for_visitors(report_for):
+    report = report_for(site(home=(403, BLOCK_PAGE), robots=(200, "")))
+    assert_no_score(report)
+    assert report.unreachable == ""  # a 403 usually turns away automated checks, not people
+
+
+def test_nxdomain_is_one_finding_and_nothing_else(fake_dns, monkeypatch):
+    fake_dns[("example.com", "NXDOMAIN")] = True
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: pytest.fail("fetched a page for a domain that does not exist"))
+    report = runner.run_checks(DomainConfig("example.com"), NOW)
+    md = assert_no_score(report)
+    [finding] = [r for r in report.results if r.ran]
+    assert finding.status is Status.FAIL
+    assert finding.summary == "This domain is not registered, or the registration has lapsed."
+    names = {r.name for r in report.results}
+    for restated in ("SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)", "DNSSEC",
+                     "Mail servers (MX)", "Nameservers", "SSL certificate", "Site health checks"):
+        assert restated not in names
+    assert "does not exist in DNS" in report.unreachable and "## Your website could not be reached" in md
+
+
+def test_nxdomain_lookup_failure_is_not_nxdomain(fake_dns, monkeypatch, make_page):
+    monkeypatch.setattr(runner.dns_utils, "domain_exists", lambda name: None)  # could not tell
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: make_page(html=REAL_PAGE))
+    monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
+    monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
+    report = runner.run_checks(DomainConfig("example.com"), NOW)
+    assert report.website_loaded and len(report.results) > 5  # carries on normally

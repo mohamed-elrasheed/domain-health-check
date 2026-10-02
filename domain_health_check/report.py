@@ -60,10 +60,13 @@ def render_markdown(report: DomainReport) -> str:
         "",
         f"*Checked on {report.checked_at:%d %B %Y at %H:%M} UTC*",
         "",
-        (f"**{value} out of 100.** {sentence}" if value is not None else f"**{sentence}**"),
+        (f"**{value} out of 100.** {sentence}" if value is not None
+         else f"**{sentence}** {layout.coverage(report)}".rstrip()),
         "",
         layout.counts(report),
     ]
+    if report.unreachable:  # nothing else in the report matters as much, so it comes first
+        lines += ["", "## Your website could not be reached", "", report.unreachable]
 
     worth = layout.worth_doing(report)
     if worth:
@@ -85,11 +88,12 @@ def render_markdown(report: DomainReport) -> str:
         lines += ["", "## What is already working"]
         for r in passed:
             lines += _summary_only(r)
-    if report.not_checked:
+    skipped = layout.not_checked(report)
+    if skipped:
         lines += ["", "## What we could not check", "",
                   "These were not checked this time, so they are not counted anywhere above. None of them is a "
                   "finding about your website."]
-        for r in report.not_checked:
+        for r in skipped:
             lines += _summary_only(r)
 
     lines += ["", "## What happens next", ""]

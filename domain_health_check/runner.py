@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable
 
-from . import external, fetcher
+from . import dns_utils, external, fetcher
 from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
 from .checks.site import content, delivery, indexing, sharing, structured_data
 from .config import DomainConfig
 from .external import Business, ExternalContext
-from .fetcher import FetchError, PageContext, RobotsDisallowed
+from .fetcher import FetchError, PageContext, PageStatusError, RobotsDisallowed, status_phrase
 from .models import DOMAIN, EMAIL, LOCAL, SITE, WEBSITE, CheckResult, DomainReport, Status
 
 
@@ -67,6 +67,8 @@ def _checks_for(
 
 def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainReport:
     now = now or datetime.now(timezone.utc)
+    if _domain_exists(domain.name) is False:
+        return _unregistered(domain.name, now)
     page = _fetch_page(domain.name)
     ext = _fetch_external(domain, page)
     results: list[CheckResult] = []
@@ -82,7 +84,8 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
                 [f"Error: {type(exc).__name__}: {exc}"],
                 ran=False,
             ))
-    return DomainReport(domain.name, now, results)
+    return DomainReport(domain.name, now, results, website_loaded=isinstance(page, PageContext),
+                        unreachable=_unreachable(page))
 
 
 def _fetch_page(domain: str) -> PageContext | FetchError:
@@ -112,3 +115,54 @@ def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) 
         return external.fetch_external(domain.name, url, skipped, business=business)
     except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
         return ExternalContext(errors={"psi_mobile": f"{type(exc).__name__}"})
+
+
+def _domain_exists(domain: str) -> bool | None:
+    try:
+        return dns_utils.domain_exists(domain)
+    except Exception:  # unknown: carry on and let the individual checks report what they find
+        return None
+
+
+def _unregistered(domain: str, now: datetime) -> DomainReport:
+    """NXDOMAIN: one fact, so one finding. Every DNS, mail and website check would only restate it (no
+    nameservers, no MX, no SPF, no DKIM, no DMARC, no DNSSEC, no website), so none of them is emitted."""
+    finding = CheckResult(
+        DOMAIN, "Domain registration", Status.FAIL,
+        "This domain is not registered, or the registration has lapsed.",
+        "When a domain does not exist in DNS, nobody can reach a website at it and email sent to it cannot be "
+        "delivered.",
+        "If you still own this domain, check with your registrar that it is renewed and pointed at your DNS "
+        "provider. If it has lapsed, renew it quickly, before someone else can register it.",
+        [f"DNS answered NXDOMAIN (no such domain) for {domain}"],
+    )
+    rest = CheckResult(
+        DOMAIN, "Website, DNS and email checks", Status.WARN,
+        "We did not run the website, DNS or email checks, because the domain does not exist in DNS.",
+        "Every one of them depends on the domain resolving, so each would only repeat the finding above.",
+        "Nothing to do until the domain resolves again.",
+        ["Not checked: nameservers, DNSSEC, mail servers (MX), SPF, DKIM, DMARC, SSL certificate, the website"],
+        ran=False,
+    )
+    return DomainReport(domain, now, [finding, rest], website_loaded=False,
+                        unreachable=f"{domain} does not exist in DNS, so nobody can reach a website at it or send it "
+                                    "email.")
+
+
+def _unreachable(page: PageContext | FetchError) -> str:
+    """Why a visitor cannot reach the site, or "" when they can, or when only we were turned away (a 403 or 429
+    usually blocks automated checks, not people) or we stopped at robots.txt by choice."""
+    if isinstance(page, PageContext) or isinstance(page, RobotsDisallowed):
+        return ""
+    if isinstance(page, PageStatusError):
+        if page.stage == "robots":
+            return ""
+        if page.status in (404, 410):
+            return (f"Your home page at {page.where} answers \"not found\" (status {page.status}), so visitors who "
+                    "type your address see an error page.")
+        if page.status >= 500:
+            return (f"Your home page at {page.where} answers with a server error (status {page.status}, "
+                    f"{status_phrase(page.status).lower()}), so visitors see an error instead of your site.")
+        return ""
+    return (f"We could not reach your website at {page.url} at all ({page.reason}). If your visitors cannot either, "
+            "nobody can see your site right now.")

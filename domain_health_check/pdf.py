@@ -60,6 +60,11 @@ strong, b, h1, h2, h3, .name { font-weight: 700; }
 .score .number small { color: #8a9793; font-size: 12pt; font-weight: 500; }
 .score .reading { color: #1f4b47; font-size: 11pt; font-weight: 700; margin: 0 0 2pt; }
 .score .counts { color: #5d6b67; font-size: 8.5pt; margin: 0; }
+.score .coverage { color: #5d6b67; font-size: 9pt; margin: 0 0 2pt; }
+.unreachable { border: 1px solid #ecd2cc; border-left: 3pt solid #8a2f22; background: #fbf3f1;
+               padding: 12pt 18pt; margin: 14pt 0 0; break-inside: avoid; }
+.unreachable h2 { color: #8a2f22; border: 0; margin: 0 0 6pt; padding: 0; font-size: 12pt; }
+.unreachable p { margin: 0; }
 
 h2 { color: #1f4b47; font-size: 13pt; margin: 22pt 0 12pt; padding-bottom: 6pt; border-bottom: 1px solid #e2e6e2;
      break-after: avoid; }
@@ -139,8 +144,12 @@ def render_html(report: DomainReport) -> str:
         f'<p class="domain">{escape(report.domain)}</p>'
         f'<p class="checked">Checked {report.checked_at.day} {report.checked_at:%B %Y at %H:%M} UTC</p></div>',
         f'<div class="score">{number}<div><p class="reading">{escape(sentence)}</p>'
-        f'<p class="counts">{escape(layout.counts(report))}</p></div></div>',
+        + (f'<p class="coverage">{escape(layout.coverage(report))}</p>' if layout.coverage(report) else "")
+        + f'<p class="counts">{escape(layout.counts(report))}</p></div></div>',
     ]
+    if report.unreachable:  # nothing else in the report matters as much, so it comes first
+        parts.append(f'<div class="unreachable"><h2>Your website could not be reached</h2>'
+                     f"<p>{escape(report.unreachable)}</p></div>")
     for heading, results in (("Worth doing", layout.worth_doing(report)),
                              ("Also worth improving", layout.also_worth_improving(report))):
         if results:
@@ -156,10 +165,11 @@ def render_html(report: DomainReport) -> str:
     passed = layout.working(report)
     if passed:
         parts.append("<h2>What is already working</h2>" + "".join(_summary_card(r, "pass") for r in passed))
-    if report.not_checked:
+    skipped = layout.not_checked(report)
+    if skipped:
         parts.append("<h2>What we could not check</h2><p>These were not checked this time, so they are not counted "
                      "anywhere above. None of them is a finding about your website.</p>"
-                     + "".join(_summary_card(r, "skip") for r in report.not_checked))
+                     + "".join(_summary_card(r, "skip") for r in skipped))
 
     steps = "".join(f"<p>{f'<strong>{escape(lead)}</strong> ' if lead else ''}{escape(rest)}</p>"
                     for lead, rest in layout.next_steps(report))
