@@ -146,3 +146,23 @@ def test_terminal_marks_not_checked():
     plain = format_summary(report_with_not_checked(), color=False)
     assert "----  Google speed test" in plain
     assert "1 pass, 0 warn, 0 fail, 3 not checked" in plain
+
+
+def test_cli_writes_a_pdf_when_asked(tmp_path, monkeypatch):
+    from domain_health_check import cli as cli_module
+    written = []
+    monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
+    monkeypatch.setattr(cli_module, "write_pdf", lambda report, folder: written.append(report.domain) or folder / "x.pdf")
+    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--pdf"]) == 0
+    assert written == ["example.com"]
+
+
+def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch, capsys):
+    from domain_health_check import cli as cli_module
+    def no_pango(report, folder):
+        raise OSError("cannot load library 'libgobject-2.0-0'")
+    monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
+    monkeypatch.setattr(cli_module, "write_pdf", no_pango)
+    assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--pdf"]) == 2
+    assert (tmp_path / "example.com-2026-03-14.md").exists()
+    assert "PDF output" in capsys.readouterr().err

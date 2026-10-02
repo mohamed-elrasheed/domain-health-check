@@ -142,8 +142,10 @@ A clean report sent to someone who expected a sales pitch is worth more than a l
 
 ## Formats
 
-Markdown stays canonical. PDF renders **from** the markdown — one source, one renderer. The PDF adds the
-letterhead and nothing else; if the two can disagree, the design is wrong.
+Both formats render **from the `DomainReport` object**, through the same `layout.py` that decides what
+each section says. The PDF adds the letterhead and nothing else; if the two can disagree, the design is
+wrong. An earlier version of this section said the PDF renders from the Markdown. That was wrong:
+regex-parsing Markdown into a PDF silently lost an entire finding.
 
 ## Do not
 

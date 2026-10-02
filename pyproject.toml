@@ -15,16 +15,20 @@ dependencies = [
     "httpx>=0.27",
     "PyYAML>=6.0",
     "selectolax>=0.3.21",
+    "weasyprint>=62",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pypdf>=4"]
 
 [project.scripts]
 domain-health-check = "domain_health_check.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["domain_health_check*"]
+
+[tool.setuptools.package-data]
+domain_health_check = ["assets/*.png", "assets/fonts/*.ttf", "assets/fonts/OFL.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

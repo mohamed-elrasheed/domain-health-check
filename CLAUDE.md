@@ -153,7 +153,9 @@ These produced wrong findings in a real audit. Encode them, do not rediscover th
 - Let a check make its own HTTP request.
 - Flatten `CheckResult`'s four text fields into one.
 - Replace `_checks_for` with a decorator or plugin registry.
-- Write a second report renderer. PDF comes from the markdown `report.py` already produces.
+- Parse one report format to produce another. `report.py` (Markdown) and `pdf.py` both render the
+  `DomainReport` through `layout.py`, so they cannot disagree. Parsing Markdown into a PDF once dropped
+  an entire finding without an error.
 - Add Celery or Redis. FastAPI `BackgroundTasks` plus SQLite is right for this volume; a broker is
   maintenance cost with no payoff.
 - Commit a real `domains.yaml`, or the `reports/` output. `domains.example.yaml` is the one that ships.

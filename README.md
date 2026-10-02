@@ -140,7 +140,7 @@ ourselves.
 
 ## Setup
 
-Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML` and `selectolax`.
+Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML`, `selectolax` and `weasyprint`.
 
 ```powershell
 git clone https://github.com/mohamed-elrasheed/domain-health-check.git
@@ -179,10 +179,28 @@ domain-health-check --no-color             # plain output (also honours NO_COLOR
 python -m domain_health_check --help
 ```
 
-Reports are written to `reports/<domain>-<date>.md` (gitignored).
+Reports are written to `reports/<domain>-<date>.md`, plus `.pdf` with `--pdf` (gitignored). Only the
+latest report per domain is kept: writing a new one deletes that domain's older reports. A stale scan is
+misleading, and the check is cheap to run again.
 
-The exit code is `0` when nothing failed, `1` if any check FAILed, and `2` for a configuration
-error, which makes the tool easy to use from a scheduled task.
+### PDF output
+
+`--pdf` renders the same report as a PDF with WeasyPrint. Both formats are built from the same report
+object, so they cannot disagree. WeasyPrint needs the Pango libraries, which pip cannot install:
+
+- **Windows:** install MSYS2, then Pango inside it. The tool finds `C:\msys64\ucrt64\bin` on its own;
+  if MSYS2 lives elsewhere, set `WEASYPRINT_DLL_DIRECTORIES` in `.env`.
+  ```powershell
+  winget install --id MSYS2.MSYS2 -e
+  C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-pango"
+  ```
+- **macOS:** `brew install pango`
+- **Debian/Ubuntu:** `sudo apt install libpango-1.0-0 libpangoft2-1.0-0`
+
+Without Pango the Markdown report is still written and the run exits with code `2`.
+
+The exit code is `0` when nothing is broken, `1` if any check FAILed, and `2` for a configuration
+error or a requested PDF that could not be written, which makes the tool easy to use from a scheduled task.
 
 ## Sample output
 
@@ -260,7 +278,10 @@ domain_health_check/
   robots.py         robots.txt as RFC 9309 and Google read it, for our access and for Googlebot's
   external.py       outside services fetched once per report (PageSpeed Insights), with a 24-hour cache
   scoring.py        the weighted 0 to 100 score
-  report.py         Markdown report
+  layout.py         what each report section says, shared by both formats
+  report.py         Markdown report, and keeping only the latest per domain
+  pdf.py            PDF report (WeasyPrint), from the same report object
+  assets/           logo and Plus Jakarta Sans (SIL Open Font License)
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper
   checks/

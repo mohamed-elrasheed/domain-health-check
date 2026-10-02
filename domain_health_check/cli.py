@@ -9,6 +9,7 @@ from pathlib import Path
 from . import __version__
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .models import Status
+from .pdf import write_pdf
 from .report import write_report
 from .runner import run_checks
 from .terminal import format_summary, use_color
@@ -26,7 +27,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-c", "--config", type=Path, default=Path("domains.yaml"),
                         help="YAML file listing the domains to check (default: domains.yaml)")
     parser.add_argument("-o", "--output", type=Path, default=Path("reports"),
-                        help="folder for the Markdown reports (default: reports)")
+                        help="folder for the reports (default: reports)")
+    parser.add_argument("--pdf", action="store_true", help="also write each report as a PDF")
     parser.add_argument("--no-color", action="store_true", help="plain terminal output without colours")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
@@ -52,13 +54,29 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     color = use_color(sys.stdout, disabled=args.no_color)
-    any_fail = False
+    any_fail = output_failed = False
     for domain in domains:
         print(f"Checking {domain.name}...", flush=True)
         report = run_checks(domain)
         path = write_report(report, args.output)
         print(format_summary(report, color, path))
         any_fail = any_fail or report.overall is Status.FAIL
+        if args.pdf:
+            pdf_path = _write_pdf(report, args.output)
+            output_failed = output_failed or pdf_path is None
 
     # A non-zero exit code lets scripts and schedulers notice problems.
+    if output_failed:
+        return 2
     return 1 if any_fail else 0
+
+
+def _write_pdf(report, output_dir: Path) -> Path | None:
+    try:
+        path = write_pdf(report, output_dir)
+    except OSError as exc:  # WeasyPrint could not load Pango
+        print(f"  Could not write the PDF: {exc}", file=sys.stderr)
+        print('  See "PDF output" in the README.', file=sys.stderr)
+        return None
+    print(f"  PDF: {path}")
+    return path
