@@ -87,7 +87,7 @@ def test_message_format(pdf_file):
     body = msg.get_body(("plain",)).get_content()
     assert "Score " in body and "out of 100." in body
     assert "1 checks passed, 1 could be improved." in body
-    assert "- DMARC (anti-spoofing policy): No DMARC record was found." in body
+    assert "DMARC" not in body  # email security never leads; the email lists the report's top section only
     assert f"The full report is attached as {pdf_file.name}." in body
     [attachment] = list(msg.iter_attachments())
     assert attachment.get_content_type() == "application/pdf" and attachment.get_filename() == pdf_file.name
@@ -163,3 +163,29 @@ def test_cli_send_failure_exits_2_without_the_password(cli_env, monkeypatch, cap
     assert cli.main(["example.com", "-o", str(cli_env), "--no-color", "--email"]) == 2
     captured = capsys.readouterr()
     assert PASSWORD not in captured.out + captured.err
+
+
+def test_worth_doing_is_the_reports_top_section(pdf_file):
+    from domain_health_check import layout
+    from domain_health_check.models import LOCAL, SITE
+    # Mizan's shape: a mostly-right description and mobile speed, an unfindable profile, hardening gaps.
+    report = DomainReport("example.com", NOW, [
+        CheckResult(SITE, "Meta description", Status.WARN, "Description is 177 characters.", "Why.", "Fix.",
+                    measure=160 / 177),
+        CheckResult(LOCAL, "Google Business Profile", Status.WARN, "We could not find a profile.", "Why.", "Fix."),
+        CheckResult(SITE, "Mobile speed", Status.WARN, "About 4.5 seconds.", "Why.", "Fix.", measure=0.8),
+        CheckResult(WEBSITE, "Content Security Policy", Status.WARN, "No CSP.", "Why.", "Fix."),
+    ])
+    body = mailer.message_for(config(), report, pdf_file).get_body(("plain",)).get_content()
+    bullets = [line for line in body.splitlines() if line.startswith("- ")]
+    assert bullets == [f"- {r.name}: {r.summary}" for r in layout.worth_doing(report)]
+    assert bullets == ["- Google Business Profile: We could not find a profile."]
+    assert "One thing could be costing you customers." in body
+
+
+def test_nothing_worth_doing_means_no_list(pdf_file):
+    report = DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "Content Security Policy", Status.WARN, "No CSP.", "Why.", "Fix."),
+    ])
+    body = mailer.message_for(config(), report, pdf_file).get_body(("plain",)).get_content()
+    assert "Worth doing" not in body and "- " not in body
