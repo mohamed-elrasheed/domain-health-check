@@ -24,6 +24,10 @@ def _checks_for(
         """Site checks need the page itself. When it could not be loaded, check_page_loaded says so once."""
         return lambda: check(page) if isinstance(page, PageContext) else []
 
+    def on_rendered_page(check: Callable[[PageContext], list[CheckResult]]) -> Callable[[], list[CheckResult]]:
+        """Content checks also need text to read. When scripts build it, check_page_rendered says so once."""
+        return lambda: check(page) if isinstance(page, PageContext) and not site.built_by_scripts(page) else []
+
     return [
         (WEBSITE, "SSL/TLS", lambda: tls.check_tls(d, now)),
         (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
@@ -36,14 +40,15 @@ def _checks_for(
         (EMAIL, "DMARC (anti-spoofing policy)", lambda: email_auth.check_dmarc(d)),
         (SITE, "Search engine blocking", lambda: indexing.check_search_blocking(page)),
         (SITE, "Site health checks", lambda: site.check_page_loaded(page)),
-        (SITE, "Page title", on_page(content.check_title)),
-        (SITE, "Meta description", on_page(content.check_description)),
+        (SITE, "Page content checks", lambda: site.check_page_rendered(page)),
+        (SITE, "Page title", on_rendered_page(content.check_title)),
+        (SITE, "Meta description", on_rendered_page(content.check_description)),
         (SITE, "Canonical tag", on_page(indexing.check_canonical)),
-        (SITE, "Main heading", on_page(content.check_main_heading)),
+        (SITE, "Main heading", on_rendered_page(content.check_main_heading)),
         (SITE, "Mobile viewport", on_page(delivery.check_viewport)),
         (SITE, "Structured data matches the page", on_page(structured_data.check_structured_data)),
-        (SITE, "Heading order", on_page(content.check_heading_order)),
-        (SITE, "Image alt text", on_page(content.check_alt_text)),
+        (SITE, "Heading order", on_rendered_page(content.check_heading_order)),
+        (SITE, "Image alt text", on_rendered_page(content.check_alt_text)),
         (SITE, "Social preview", on_page(sharing.check_social_preview)),
         (SITE, "Sitemap and robots", on_page(indexing.check_sitemap_and_robots)),
         (SITE, "Page weight", on_page(delivery.check_page_weight)),
