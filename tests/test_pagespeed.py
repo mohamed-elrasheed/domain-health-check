@@ -24,7 +24,8 @@ def with_category(response: dict, category: str, score) -> dict:
 def test_score_type_varies_and_both_kinds_are_read(psi_mobile):
     categories = psi_mobile["lighthouseResult"]["categories"]
     assert isinstance(categories["performance"]["score"], float) and isinstance(categories["seo"]["score"], int)
-    assert pagespeed.lab_score(psi_mobile, "performance") == 64
+    assert pagespeed.lab_score(psi_mobile, "performance") == 79
+    assert pagespeed.lab_score(psi_mobile, "accessibility") == 100
     assert pagespeed.lab_score(psi_mobile, "seo") == 100
 
 
@@ -74,10 +75,10 @@ def test_origin_data_is_never_presented_as_the_page(psi_mobile):
 def test_mizan_mobile_speed_is_in_the_middle_band(psi_mobile):
     [result] = pagespeed.check_mobile_speed(ExternalContext(psi_mobile=psi_mobile))
     assert result.status is Status.WARN and result.ran
-    assert "64" not in result.summary  # the band, not a precise-sounding number
-    assert "Lighthouse performance score: 64 out of 100 (mobile, one run; scores move a few points between runs)" \
+    assert "79" not in result.summary  # the band, not a precise-sounding number
+    assert "Lighthouse performance score: 79 out of 100 (mobile, one run; scores move a few points between runs)" \
         in result.details
-    assert "Largest Contentful Paint: 5.7 s" in result.details
+    assert "Largest Contentful Paint: 4.8 s" in result.details
     assert "Full report: https://pagespeed.web.dev/analysis?url=https%3A%2F%2Fwww.mizangroupllc.com%2F" in result.details
 
 
@@ -95,9 +96,19 @@ def test_null_score_did_not_run(psi_mobile):
     assert not result.ran
 
 
-def test_missing_categories_in_the_real_response_did_not_run(psi_mobile):
-    # The saved response has no accessibility or best-practices category, so neither can be scored.
+def test_mizan_accessibility_and_best_practices_pass(psi_mobile):
     context = ExternalContext(psi_mobile=psi_mobile)
+    for check in (pagespeed.check_accessibility, pagespeed.check_best_practices):
+        [result] = check(context)
+        assert result.status is Status.PASS and result.ran
+
+
+def test_missing_categories_did_not_run(psi_mobile):
+    # A request without the category parameters returns a response like this one, minus those categories.
+    response = copy.deepcopy(psi_mobile)
+    for category in ("accessibility", "best-practices"):
+        del response["lighthouseResult"]["categories"][category]
+    context = ExternalContext(psi_mobile=response)
     for check in (pagespeed.check_accessibility, pagespeed.check_best_practices):
         [result] = check(context)
         assert not result.ran and "did not produce a score" in result.summary
@@ -159,8 +170,8 @@ def test_full_run_adds_the_speed_rows_and_scores_only_what_ran(fake_dns, monkeyp
     assert [(r.name, r.status, r.ran) for r in report.results][-4:] == [
         ("Real-world loading speed", Status.PASS, False),
         ("Mobile speed", Status.WARN, True),
-        ("Accessibility", Status.WARN, False),
-        ("Best practices", Status.WARN, False),
+        ("Accessibility", Status.PASS, True),
+        ("Best practices", Status.PASS, True),
     ]
     assert asked == ["https://www.mizangroupllc.com/"]  # the final URL, after the redirect
     assert scoring.score(report.results) == scoring.score([r for r in report.results if r.ran])

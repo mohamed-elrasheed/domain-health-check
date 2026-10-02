@@ -71,8 +71,9 @@ def mizan_page() -> PageContext:
 
 @pytest.fixture
 def psi_mobile() -> dict:
-    """A real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile, trimmed. It has the
-    performance and seo categories only, and loadingExperience holds nothing but initial_url."""
+    """A real PageSpeed Insights v5 response for www.mizangroupllc.com, mobile, trimmed. It has
+    all four categories (performance as a float, the others as ints), and loadingExperience holds nothing
+    but initial_url."""
     return json.loads((MIZAN / "psi-mobile.json").read_text(encoding="utf-8"))
 
 
