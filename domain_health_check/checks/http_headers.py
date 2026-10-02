@@ -43,17 +43,15 @@ def evaluate_hsts(value: str | None) -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
         return CheckResult(WEBSITE, "HSTS (always use HTTPS)", status, summary, HSTS_EXPLANATION, fix, list(details))
 
-    fix = (
-        "Ask your web developer or host to add the header "
-        "`Strict-Transport-Security: max-age=31536000; includeSubDomains` to the website."
-    )
+    fix = "Ask your web developer or host to switch on HSTS, so browsers always use the secure version of your site."
+    header = "Header to add: Strict-Transport-Security: max-age=31536000; includeSubDomains"
     if value is None:
-        return result(Status.WARN, "The website doesn't tell browsers to always use HTTPS.", fix)
+        return result(Status.WARN, "The website doesn't tell browsers to always use HTTPS.", fix, [header])
 
     details = [f"Header value: {value}"]
     match = re.search(r"max-age\s*=\s*\"?(\d+)", value, re.IGNORECASE)
     if not match:
-        return result(Status.WARN, "HSTS is present but written incorrectly (no max-age).", fix, details)
+        return result(Status.WARN, "HSTS is present but written incorrectly (no max-age).", fix, details + [header])
     days = int(match.group(1)) // 86_400
     if int(match.group(1)) < HSTS_MIN_SECONDS:
         return result(
@@ -88,9 +86,11 @@ def evaluate_csp(value: str | None, report_only: str | None) -> CheckResult:
 
 def evaluate_content_type_options(value: str | None) -> CheckResult:
     name = "X-Content-Type-Options"
-    fix = "Ask your web developer or host to add the header `X-Content-Type-Options: nosniff`."
+    fix = "Ask your web developer or host to switch on the nosniff protection."
+    header = "Header to add: X-Content-Type-Options: nosniff"
     if value is None:
-        return CheckResult(WEBSITE, name, Status.WARN, "The nosniff protection is not switched on.", XCTO_EXPLANATION, fix)
+        return CheckResult(WEBSITE, name, Status.WARN, "The nosniff protection is not switched on.", XCTO_EXPLANATION,
+                           fix, [header])
     if value.strip().lower() != "nosniff":
         return CheckResult(
             WEBSITE, name, Status.WARN, "The header is present but has an unexpected value.",

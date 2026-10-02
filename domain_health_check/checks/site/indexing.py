@@ -250,8 +250,8 @@ def evaluate_sitemap_and_robots(robots: FetchedFile, sitemap: FetchedFile) -> Ch
     elif sitemap.status == 200 and not any(_same_file(url, sitemap.url) for url in listed):
         problems.append(("Your robots.txt file does not mention your sitemap, so search engines have to find it "
                          "on their own.",
-                         f"Ask your web developer to add the line \"Sitemap: {sitemap.url}\" to your robots.txt "
-                         "file."))
+                         "Ask your web developer to add a line to your robots.txt file pointing to your sitemap."))
+        details.append(f"Line to add to robots.txt: Sitemap: {sitemap.url}")
 
     if problems:
         return result(Status.WARN, problems[0][0], " ".join(fix for _, fix in problems), details)

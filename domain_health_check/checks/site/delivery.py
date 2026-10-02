@@ -41,17 +41,15 @@ def evaluate_viewport(contents: list[str]) -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
         return CheckResult(SITE, VIEWPORT, status, summary, VIEWPORT_EXPLANATION, fix, list(details))
 
-    fix = (
-        "Ask your web developer to add the standard mobile viewport setting, "
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">, to your home page."
-    )
+    fix = "Ask your web developer to add the standard mobile viewport setting to your home page."
+    tag = 'Tag to add in the page head: <meta name="viewport" content="width=device-width, initial-scale=1">'
     if not contents:
         return result(Status.WARN, "Your home page is not set up for phones, so phones show a shrunken desktop "
-                                   "version of it.", fix)
+                                   "version of it.", fix, [tag])
     details = [f"Viewport: {content}" for content in contents]
     if not any(re.search(r"width\s*=\s*device-width", content, re.IGNORECASE) for content in contents):
         return result(Status.WARN, "Your home page has a phone setting, but it does not fit the page to the screen "
-                                   "width.", fix, details)
+                                   "width.", fix, details + [tag])
     return result(Status.PASS, "Your home page is set up to fit phone screens.", details=details)
 
 

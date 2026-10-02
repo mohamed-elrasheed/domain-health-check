@@ -82,20 +82,22 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
     spf = [r for r in txt_records if _is_spf(r)]
     details = [f"SPF record: {r}" for r in spf]
 
-    def result(status: Status, summary: str, fix: str = "") -> CheckResult:
-        return CheckResult(EMAIL, "SPF (approved senders)", status, summary, SPF_EXPLANATION, fix, details)
+    def result(status: Status, summary: str, fix: str = "", how: str = "") -> CheckResult:
+        return CheckResult(EMAIL, "SPF (approved senders)", status, summary, SPF_EXPLANATION, fix,
+                           details + ([how] if how else []))
 
+    ask = "Ask whoever manages your domain"
     if not spf:
         return result(
             Status.WARN, "No SPF record was found.",
-            "Add a TXT record to your domain listing your email provider, ending in -all or ~all. Your email "
-            "provider's help pages give the exact text (for Google Workspace: "
-            "`v=spf1 include:_spf.google.com ~all`).",
+            f"{ask} to add an SPF record listing the services that send email for you, such as your email provider.",
+            "Record to add: a TXT record on the domain, ending in -all or ~all. Your email provider's help pages "
+            "give the exact text; for Google Workspace it is v=spf1 include:_spf.google.com ~all",
         )
     if len(spf) > 1:
         return result(
             Status.WARN, f"There are {len(spf)} SPF records; only one is allowed, so all of them are ignored.",
-            "Merge them into a single SPF record that includes every service that sends email for you.",
+            f"{ask} to merge them into a single SPF record that includes every service that sends email for you.",
         )
 
     record = spf[0]
@@ -103,7 +105,8 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
     if qualifier == "+":
         return result(
             Status.WARN, "The SPF record allows ANY server in the world to send email as you (+all).",
-            "Change `+all` (or a bare `all`) at the end of the SPF record to `-all` or `~all`.",
+            f"{ask} to change the SPF record so it no longer lets every server in the world send email as you.",
+            "Change +all (or a bare all) at the end of the SPF record to -all or ~all.",
         )
     if qualifier == "-":
         return result(Status.PASS, "SPF is set up and rejects email from unlisted servers (-all).")
@@ -112,13 +115,15 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
     if qualifier == "?":
         return result(
             Status.WARN, "SPF is present but takes no position on unlisted servers (?all), so it offers little protection.",
-            "Change `?all` at the end of the SPF record to `~all` or `-all`.",
+            f"{ask} to change the SPF record so email from servers it does not list is marked as suspicious.",
+            "Change ?all at the end of the SPF record to ~all or -all.",
         )
     if "redirect=" in record.lower():
         return result(Status.PASS, "SPF is set up and points to another domain's SPF policy (redirect).")
     return result(
         Status.WARN, "The SPF record doesn't end with an 'all' rule, so unlisted servers aren't blocked.",
-        "Add `~all` or `-all` to the end of the SPF record.",
+        f"{ask} to finish the SPF record with a rule for servers it does not list.",
+        "Add ~all or -all to the end of the SPF record.",
     )
 
 
@@ -132,19 +137,21 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
     dmarc = [r for r in txt_records if r.strip().lower().startswith("v=dmarc1")]
     details = [f"DMARC record: {r}" for r in dmarc]
 
-    def result(status: Status, summary: str, fix: str = "") -> CheckResult:
-        return CheckResult(EMAIL, "DMARC (anti-spoofing policy)", status, summary, DMARC_EXPLANATION, fix, details)
+    def result(status: Status, summary: str, fix: str = "", how: str = "") -> CheckResult:
+        return CheckResult(EMAIL, "DMARC (anti-spoofing policy)", status, summary, DMARC_EXPLANATION, fix,
+                           details + ([how] if how else []))
 
-    start_fix = (
-        "Add a TXT record at _dmarc.<your domain> such as `v=DMARC1; p=none; rua=mailto:dmarc@<your domain>`, "
-        "review the reports for a few weeks, then tighten the policy to p=quarantine and finally p=reject."
-    )
+    start_fix = ("Ask whoever manages your domain to add a DMARC record so other mail servers can tell real email "
+                 "from spoofed email.")
+    start_how = ("Record to add: a TXT record at _dmarc.<your domain>, starting with "
+                 "v=DMARC1; p=none; rua=mailto:dmarc@<your domain>. Review the reports for a few weeks, then tighten "
+                 "the policy to p=quarantine and finally p=reject.")
     if not dmarc:
-        return result(Status.WARN, "No DMARC record was found.", start_fix)
+        return result(Status.WARN, "No DMARC record was found.", start_fix, start_how)
     if len(dmarc) > 1:
         return result(
             Status.WARN, f"There are {len(dmarc)} DMARC records; only one is allowed, so receivers ignore them.",
-            "Delete the extra records so exactly one DMARC record remains.",
+            "Ask whoever manages your domain to delete the extra records so exactly one DMARC record remains.",
         )
 
     tags = parse_tags(dmarc[0])
@@ -158,14 +165,16 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
     if policy == "none":
         return result(
             Status.WARN, "DMARC is in monitoring-only mode (p=none): forged emails are still delivered.",
-            "Once the DMARC reports show all your genuine email passing, change the policy to "
-            "`p=quarantine`, then later `p=reject`.",
+            "Once the DMARC reports show all your genuine email passing, ask whoever manages your domain to tighten "
+            "the policy so forged email goes to spam, and later is refused.",
+            "Change p=none to p=quarantine, then later to p=reject.",
         )
     if policy == "quarantine":
         return result(Status.PASS, "DMARC sends forged emails to spam (p=quarantine).")
     if policy == "reject":
         return result(Status.PASS, "DMARC tells receivers to reject forged emails (p=reject), the strongest setting.")
-    return result(Status.WARN, "The DMARC record has a missing or invalid policy (p=), so it is ignored.", start_fix)
+    return result(Status.WARN, "The DMARC record has a missing or invalid policy (p=), so it is ignored.",
+                  "Ask whoever manages your domain to fix the DMARC record so mail servers can use it.", start_how)
 
 
 def check_dmarc(domain: str) -> list[CheckResult]:

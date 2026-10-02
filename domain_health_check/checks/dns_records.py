@@ -86,7 +86,9 @@ def evaluate_missing_mx(has_spf: bool, has_dmarc: bool) -> CheckResult:
         EMAIL, "Mail servers (MX)", Status.FAIL,
         f"No mail servers are listed, so email to this domain will bounce, even though it has {present} set up.",
         MX_EXPLANATION,
-        "Ask your email provider for the MX records for this domain and add them at your DNS provider. If you have "
-        "stopped using email here, add a \"null MX\" record (priority 0, host \".\") so senders know straight away.",
-        [f"No MX records; {present} present, which suggests email setup has lapsed or was never finished"],
+        "Ask your email provider for the mail server records for this domain, and ask whoever manages your domain to "
+        "add them. If you have stopped using email here, ask them to publish a record saying the domain receives no "
+        "email, so senders know straight away.",
+        [f"No MX records; {present} present, which suggests email setup has lapsed or was never finished",
+         "To say the domain receives no email: a null MX record, priority 0, host \".\""],
     )

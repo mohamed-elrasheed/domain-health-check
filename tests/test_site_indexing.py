@@ -160,7 +160,8 @@ def test_sitemap_not_referenced_from_robots(mizan_page):
     page = replace(mizan_page, robots=replace(mizan_page.robots, text="User-agent: *\nAllow: /\n"))
     [result] = indexing.check_sitemap_and_robots(page)
     assert result.status is Status.WARN and "does not mention your sitemap" in result.summary
-    assert "Sitemap: https://www.mizangroupllc.com/sitemap.xml" in result.fix
+    assert "pointing to your sitemap" in result.fix  # what to ask for; the line itself is in the details
+    assert "Line to add to robots.txt: Sitemap: https://www.mizangroupllc.com/sitemap.xml" in result.details
 
 
 def test_robots_missing(mizan_page):
