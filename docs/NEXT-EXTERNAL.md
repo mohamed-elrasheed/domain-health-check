@@ -70,7 +70,7 @@ bands, so our report agrees with any other tool the client runs.
 ### Caching
 
 PSI is slow and nondeterministic. Cache the raw response per `(domain, strategy)` for 24 hours. The
-cache is also what makes the 30-day re-check honest: it must be a fresh call, not a replay.
+cache is deleted once it expires, so a later report is always a fresh call, not a replay.
 
 ## 2. Google Business Profile
 

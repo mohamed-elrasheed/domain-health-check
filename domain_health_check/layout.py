@@ -18,7 +18,7 @@ Sections, per docs/REPORT-SPEC.md:
 from __future__ import annotations
 
 from .checks import pagespeed, site
-from .models import SITE, CheckResult, DomainReport, Status
+from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, reading, score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action"}
@@ -118,6 +118,8 @@ def about(report: DomainReport) -> str:
                "the robots.txt and sitemap files that search engines read")
     if any(r.ran and r.name in pagespeed.LAB for r in report.results):
         sources += ", plus Google's own PageSpeed Insights test of that page"
+    if any(r.category == LOCAL for r in report.results):
+        sources += ", and a search of Google's public business listings"
     return (f"These results come only from information that is publicly visible to anyone on the internet: {sources}. "
             "Nothing was scanned, probed or logged into. The checks show how things looked at the time above; "
             "settings can change at any time.")

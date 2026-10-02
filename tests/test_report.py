@@ -200,3 +200,11 @@ def test_pdf_leads_with_the_unreachable_block_too():
     assert html.index('class="unreachable"') < html.index("Everything we checked")
     assert "Score: not available - we could not load your website." in html
     assert "/100" not in html
+
+
+def test_about_mentions_the_business_listing_search_when_it_ran():
+    from domain_health_check.models import LOCAL
+    searched = DomainReport("example.com", NOW, [CheckResult(LOCAL, "Google Business Profile", Status.WARN, "s", "e",
+                                                             ran=False)])
+    assert "a search of Google's public business listings" in layout.about(searched)
+    assert "business listings" not in layout.about(report_of(Status.PASS))
