@@ -98,7 +98,8 @@ def message_for(cfg: MailerConfig, report: DomainReport, pdf: Path) -> EmailMess
     counts = {"checks passed": report.count(Status.PASS), "could be improved": report.count(Status.WARN),
               "need action": report.count(Status.FAIL), "for information": report.count(Status.INFO),
               "not checked": len(report.not_checked)}
-    findings = [f"{r.name}: {r.summary}" for r in layout.worth_doing(report) + layout.also_worth_improving(report)]
+    findings = [f"{r.name}: {r.summary}" for r in layout.confirmed(report)]
+    findings += [f"Worth checking, {r.name}: {r.summary}" for r in layout.worth_checking(report)]
     return build_message(cfg, report.domain, pdf, score=score, band=band, counts=counts, headlines=findings,
                          unreachable=report.unreachable)
 

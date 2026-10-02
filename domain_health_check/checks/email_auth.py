@@ -199,8 +199,9 @@ def check_dkim(domain: str, selectors: list[str] | None = None) -> list[CheckRes
     details += [f"DKIM key found: {s}._domainkey.{domain}" for s in found]
     details += [f"Revoked (empty) key: {s}._domainkey.{domain}" for s in revoked]
 
-    def result(status: Status, summary: str, fix: str = "") -> list[CheckResult]:
-        return [CheckResult(EMAIL, "DKIM (email signatures)", status, summary, DKIM_EXPLANATION, fix, details)]
+    def result(status: Status, summary: str, fix: str = "", certain: bool = True) -> list[CheckResult]:
+        return [CheckResult(EMAIL, "DKIM (email signatures)", status, summary, DKIM_EXPLANATION, fix, details,
+                            certain=certain)]
 
     setup_fix = (
         "Turn on DKIM signing in your email provider's admin console (e.g. Google Workspace or Microsoft 365) "
@@ -223,4 +224,5 @@ def check_dkim(domain: str, selectors: list[str] | None = None) -> list[CheckRes
         "No DKIM key was found under the common selector names. DKIM may still be set up under a different name.",
         "Ask your email provider whether DKIM signing is switched on and which selector name it uses. If it is "
         "not set up yet: " + setup_fix[0].lower() + setup_fix[1:],
+        certain=False,  # it may be set up under a name we did not try
     )

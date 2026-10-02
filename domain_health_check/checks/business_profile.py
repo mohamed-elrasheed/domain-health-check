@@ -58,8 +58,9 @@ def _listing_details(external: ExternalContext) -> list[str]:
 # ---------- Google Business Profile
 
 def evaluate_profile(external: ExternalContext) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
-        return CheckResult(LOCAL, PROFILE, status, summary, PROFILE_EXPLANATION, fix, list(details), ran)
+    def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
+               certain: bool = True) -> CheckResult:
+        return CheckResult(LOCAL, PROFILE, status, summary, PROFILE_EXPLANATION, fix, list(details), ran, certain)
 
     if external.place is None:
         why = external.errors.get("place", "")
@@ -79,7 +80,7 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
                 Status.WARN, "We found a Google Business Profile with a similar name, but it does not link to your "
                              f"website{phone}, so we could not confirm it is yours.",
                 f"If that listing is yours, sign in at {MANAGE} and add your website, so customers can tell it is "
-                "you.", [why])
+                "you.", [why], certain=False)  # we do not know the listing is theirs
         if why.startswith("no business name"):
             return result(Status.WARN, "We did not look for your Google Business Profile, because we did not have "
                                        "your business name.", "Nothing to do based on this report.", [why], ran=False)

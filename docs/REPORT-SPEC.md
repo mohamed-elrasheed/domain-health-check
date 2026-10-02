@@ -27,8 +27,9 @@ closing section.
 2. The top three     the three findings most worth acting on
 3. What you can fix yourself
 4. What needs a developer
-5. Everything we checked        full results, grouped by category
-6. What happens next
+5. Worth checking    findings we could not confirm, in honest wording
+6. Everything we checked        full results, grouped by category
+7. What happens next
 ```
 
 Sections 3 and 4 are a re-cut of the same findings, not new content. A finding appears in exactly one of
@@ -41,7 +42,23 @@ preamble about who we are. That goes in the email, not the report.
 
 ### 2. The top three
 
-Three findings, maximum. Chosen by weight (below), then by severity. If fewer than three things are
+**The owner-cost ladder.** Rank findings by what the problem costs the business. Within a tier, confirmed
+before uncertain, then broken before risky.
+
+1. Customers cannot reach the site: unreachable, certificate warning, 5xx, search engines blocked.
+2. Google cannot understand the site: main heading, description, title, alt text, heading order, canonical,
+   sitemap.
+3. Customers cannot find the business locally: Google Business Profile missing, not findable, not linked.
+4. The site is slow enough that people leave: largest contentful paint, page weight.
+5. Email can be spoofed: SPF, DKIM, DMARC, MX.
+6. Hardening: HSTS, CSP, nosniff, DNSSEC.
+
+Weight still decides the score. It was the wrong proxy for what to read first: on a real report it
+opened with two email records while the missing main heading and 31 undescribed images sat below them.
+
+Three confirmed findings, maximum, chosen by the owner-cost ladder below, not by score weight. A finding we
+could not confirm (one that says "may") never appears here; it goes in "Worth checking" near the end. If
+fewer than three things are
 wrong, show fewer. If nothing is wrong, this section says so plainly and the report is short — see
 "When nothing is wrong".
 
@@ -120,9 +137,10 @@ must not be tuned to come out high so the owner feels good. If a site is in good
 and we have still demonstrated competence. Manufacturing a problem is the one thing that cannot be
 walked back.
 
-Band the number for the one-line reading: 90+ "in good shape", 70–89 "a few things worth fixing",
-50–69 "several things need attention", below 50 "needs work in a few areas". Plain descriptions, no
-grades, no colours, no emoji.
+The one-line reading tracks what was found, not the score band: fifteen warnings is not "a few". When
+something is broken it says how many things are. When nothing is, it says so plainly ("Nothing on your
+site is broken. Here is what is costing you customers."), which is more credible than a manufactured
+failure and true. Plain descriptions, no grades, no colours, no emoji.
 
 ## When nothing is wrong
 

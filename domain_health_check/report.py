@@ -49,6 +49,14 @@ def _finding(r: CheckResult) -> list[str]:
     return lines + _details(r.details)
 
 
+def _brief(r: CheckResult) -> list[str]:
+    """The top of the report: two or three sentences and what to do, no technical detail."""
+    lines = ["", f"### {_icon(r)} {r.name}", "", layout.brief(r)]
+    if r.fix:
+        lines += ["", f"**What to do:** {r.fix}"]
+    return lines
+
+
 def _summary_only(r: CheckResult) -> list[str]:
     return ["", f"### {_icon(r)} {r.name}", "", r.summary, "", f"*Why it matters:* {r.explanation}"] + _details(r.details)
 
@@ -72,11 +80,26 @@ def render_markdown(report: DomainReport) -> str:
     if worth:
         lines += ["", "## Worth doing"]
         for r in worth:
+            lines += _brief(r)
+    yourself = layout.fix_yourself(report)
+    if yourself:
+        lines += ["", "## Fix it yourself", "",
+                  "You can do these from your website builder or your Google Business Profile, without a developer."]
+        for r in yourself:
             lines += _finding(r)
-    more = layout.also_worth_improving(report)
-    if more:
-        lines += ["", "## Also worth improving"]
-        for r in more:
+    developer = layout.needs_developer(report)
+    if developer:
+        lines += ["", "## Needs a developer", "",
+                  "These involve your domain settings, your server or your site's code. Pass them to whoever looks "
+                  "after your website and email."]
+        for r in developer:
+            lines += _finding(r)
+        lines += ["", layout.PRICING]
+    checking = layout.worth_checking(report)
+    if checking:
+        lines += ["", "## Worth checking", "",
+                  "We could not confirm these, so they may turn out to be fine. They are worth a quick check."]
+        for r in checking:
             lines += _finding(r)
 
     lines += ["", "## Everything we checked", "", "| Area | Check | Result | What we found |", "|---|---|---|---|"]

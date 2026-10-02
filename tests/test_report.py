@@ -29,31 +29,6 @@ def section(md: str, heading: str) -> str:
     return md.split(f"## {heading}")[1].split("\n## ")[0]
 
 
-def test_header_has_domain_date_score_and_reading():
-    report = report_of(Status.PASS, Status.WARN, Status.FAIL)
-    md = render_markdown(report)
-    assert md.startswith("# Website health report: example.com")
-    assert "*Checked on 14 March 2026 at 09:30 UTC*" in md
-    value = scoring.score(report.results)
-    assert f"**{value} out of 100.** {layout.SENTENCE[scoring.reading(value)]}" in md
-    assert "1 checks passed · 1 could be improved · 1 need action" in md
-
-
-def test_worth_doing_is_top_three_by_weight_then_severity_and_nothing_is_dropped():
-    # Weights: alt text 1, HSTS 2, title 2, social 1, heading order 1; DMARC 3.
-    report = report_of(Status.PASS, Status.WARN, Status.WARN, Status.WARN, Status.FAIL, Status.WARN, Status.WARN)
-    md = render_markdown(report)
-    worth = section(md, "Worth doing")
-    shown = [line.split(" ", 2)[2] for line in worth.splitlines() if line.startswith("### ")]
-    # DMARC weighs 3; title and HSTS weigh 2, and the title FAIL comes before the HSTS WARN.
-    assert shown == ["DMARC (anti-spoofing policy)", "Page title", "HSTS (always use HTTPS)"]
-    more = section(md, "Also worth improving")
-    for name in ("Image alt text", "Social preview", "Heading order"):
-        assert name in more
-    for r in report.results:  # every finding appears in the table, passes included
-        assert f"| {r.name} |" in section(md, "Everything we checked")
-
-
 def test_cells_and_details_are_escaped_and_details_are_visible():
     md = render_markdown(report_of(Status.WARN))
     assert "Found thing 0 \\| with pipe." in md
@@ -80,12 +55,6 @@ def test_next_steps_wording_follows_what_was_found():
     assert "Nothing here is urgent" in section(render_markdown(report_of(Status.WARN)), "What happens next")
     broken = section(render_markdown(report_of(Status.FAIL, Status.WARN)), "What happens next")
     assert "broken today" in broken and "Want us to handle it?" in broken
-
-
-def test_clean_report_is_short():
-    md = render_markdown(report_of(Status.PASS, Status.PASS))
-    assert "## Worth doing" not in md and "## Also worth improving" not in md
-    assert "Your site is in good shape." in md
 
 
 def test_not_run_never_reads_as_verified():
@@ -137,14 +106,6 @@ def test_same_day_pdf_is_kept(tmp_path):
     report = report_of(Status.PASS)
     tmp_path.joinpath(output_path(report, tmp_path, ".pdf").name).write_bytes(b"%PDF")
     assert prune_older(report, tmp_path) == []
-
-
-@pytest.mark.parametrize("statuses, sentence", [
-    ((Status.PASS,), "Your site is in good shape."),
-    ((Status.FAIL,), "Your site needs work in a few areas."),
-])
-def test_headline_sentence(statuses, sentence):
-    assert layout.headline(report_of(*statuses))[1] == sentence
 
 
 def test_no_score_when_nothing_ran():
@@ -223,3 +184,99 @@ def test_information_is_its_own_state():
     assert "1 checks passed · 0 could be improved · 0 need action · 1 for information" in md
     from domain_health_check import pdf
     assert '<span class="pill info">For information</span>' in pdf.render_html(report)
+
+
+# ---------- the owner-cost ladder, the two fix sections and "Worth checking"
+
+def finding(category, name, status=Status.WARN, certain=True, fix="Do the thing."):
+    return CheckResult(category, name, status, f"{name} finding.", f"Why {name} matters. More detail.", fix,
+                       [f"{name} detail"], certain=certain)
+
+
+def flooring_like() -> DomainReport:
+    """The shape of a real small-business report: nothing broken, fifteen warnings, email gaps weighted highest."""
+    return DomainReport("example.com", NOW, [
+        finding(EMAIL, "DKIM (email signatures)", certain=False),
+        finding(EMAIL, "DMARC (anti-spoofing policy)"),
+        finding(WEBSITE, "HSTS (always use HTTPS)"),
+        finding(WEBSITE, "Content Security Policy"),
+        finding(SITE, "Meta description"),
+        finding(SITE, "Main heading"),
+        finding(SITE, "Image alt text"),
+        finding(SITE, "Page weight"),
+        finding("Google Business Profile", "Google Business Profile"),
+        CheckResult(WEBSITE, "SSL certificate", Status.PASS, "Valid.", "Why."),
+    ])
+
+
+def test_ladder_puts_what_costs_customers_first():
+    assert [r.name for r in layout.worth_doing(flooring_like())] == ["Main heading", "Meta description",
+                                                                     "Image alt text"]
+
+
+def test_tier_order_then_ladder_order():
+    names = [r.name for r in layout.confirmed(flooring_like())]
+    assert names == ["Main heading", "Meta description", "Image alt text", "Google Business Profile", "Page weight",
+                     "DMARC (anti-spoofing policy)", "HSTS (always use HTTPS)", "Content Security Policy"]
+
+
+def test_broken_and_customer_facing_beats_everything():
+    report = flooring_like()
+    report.results.append(finding(WEBSITE, "SSL certificate", Status.FAIL))
+    assert layout.worth_doing(report)[0].name == "SSL certificate"
+
+
+def test_a_hedged_finding_never_opens_the_report():
+    report = DomainReport("example.com", NOW, [finding(EMAIL, "DKIM (email signatures)", certain=False),
+                                               finding(WEBSITE, "Content Security Policy")])
+    assert [r.name for r in layout.worth_doing(report)] == ["Content Security Policy"]
+    md = render_markdown(report)
+    assert "DKIM" not in section(md, "Worth doing")
+    assert "### ⚠️ DKIM (email signatures)" in section(md, "Worth checking")
+    assert md.index("## Worth checking") > md.index("## Needs a developer")
+
+
+def test_every_confirmed_finding_is_in_exactly_one_fix_section():
+    report = flooring_like()
+    yourself = {r.name for r in layout.fix_yourself(report)}
+    developer = {r.name for r in layout.needs_developer(report)}
+    assert yourself == {"Main heading", "Meta description", "Image alt text", "Google Business Profile"}
+    assert not yourself & developer
+    assert yourself | developer == {r.name for r in layout.confirmed(report)}
+    md = render_markdown(report)
+    assert "### ⚠️ Main heading" in section(md, "Fix it yourself")
+    assert "### ⚠️ DMARC (anti-spoofing policy)" in section(md, "Needs a developer")
+    assert layout.PRICING in section(md, "Needs a developer")
+
+
+def test_top_three_are_brief_with_no_technical_detail():
+    worth = section(render_markdown(flooring_like()), "Worth doing")
+    assert "Main heading finding. Why Main heading matters." in worth
+    assert "More detail" not in worth and "Technical details" not in worth and "**What to do:** Do the thing." in worth
+
+
+@pytest.mark.parametrize("results, sentence", [
+    ([], "Nothing on your site is broken, and everything we checked looks good."),
+    (["Content Security Policy"], "Nothing on your site is broken. A few behind-the-scenes settings could be stronger."),
+    (["Content Security Policy", "DNSSEC", "HSTS (always use HTTPS)", "DMARC (anti-spoofing policy)"],
+     "Nothing on your site is broken. 4 behind-the-scenes settings could be stronger."),
+    (["Main heading"], "Nothing on your site is broken. One thing could be costing you customers."),
+    (["Main heading", "Meta description", "Image alt text", "DNSSEC"],
+     "Nothing on your site is broken. Here is what is costing you customers."),
+])
+def test_reading_tracks_what_was_found(results, sentence):
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS)] + [finding(SITE, n) for n in results])
+    assert layout.headline(report)[1] == sentence
+
+
+def test_reading_says_plainly_when_something_is_broken():
+    report = DomainReport("example.com", NOW, [result(0, Status.FAIL), finding(SITE, "Main heading")])
+    value, sentence = layout.headline(report)
+    assert value is not None and sentence == "One thing on your site is broken today."
+    assert f"**{value} out of 100.** {sentence}" in render_markdown(report)
+
+
+def test_hedged_findings_do_not_count_as_costing_customers():
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS),
+                                               finding(SITE, "Meta description", certain=False)])
+    assert layout.headline(report)[1] == "Nothing on your site is broken, and everything we checked looks good."

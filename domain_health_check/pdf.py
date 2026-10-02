@@ -74,6 +74,9 @@ h2 { color: #1f4b47; font-size: 13pt; margin: 22pt 0 12pt; padding-bottom: 6pt; 
 .card.pass { border-left-color: #bccfc1; }
 .card.skip { border-left-color: #d8ddd8; }
 .card .body { padding: 13pt 18pt 4pt; }
+.card.brief .summary { font-size: 10.5pt; }
+p.intro { color: #5d6b67; font-size: 9pt; margin: -4pt 0 12pt; }
+p.pricing { color: #5d6b67; font-size: 9pt; margin: 4pt 0 0; }
 .card h3 { color: #1f4b47; font-size: 11pt; margin: 0 0 8pt; break-after: avoid; }
 .card .summary { margin: 0 0 8pt; }
 .card.pass .summary, .card.skip .summary { font-size: 10.5pt; }
@@ -130,6 +133,13 @@ def _finding(r: CheckResult) -> str:
             f'<p class="label">Why it matters</p><p>{escape(r.explanation)}</p>{fix}</div>{_details(r)}</div>')
 
 
+def _brief(r: CheckResult) -> str:
+    """The top of the report: two or three sentences and what to do, no technical detail."""
+    fix = f'<p class="label">What to do</p><p>{escape(r.fix)}</p>' if r.fix else ""
+    return (f'<div class="card finding brief"><div class="body"><h3>{_pill(r)}{escape(r.name)}</h3>'
+            f'<p class="summary">{escape(layout.brief(r))}</p>{fix}</div></div>')
+
+
 def _summary_card(r: CheckResult, kind: str) -> str:
     return (f'<div class="card {kind}"><div class="body"><h3>{_pill(r)}{escape(r.name)}</h3>'
             f'<p class="summary">{escape(r.summary)}</p><p class="explanation">{escape(r.explanation)}</p></div>'
@@ -151,10 +161,22 @@ def render_html(report: DomainReport) -> str:
     if report.unreachable:  # nothing else in the report matters as much, so it comes first
         parts.append(f'<div class="unreachable"><h2>Your website could not be reached</h2>'
                      f"<p>{escape(report.unreachable)}</p></div>")
-    for heading, results in (("Worth doing", layout.worth_doing(report)),
-                             ("Also worth improving", layout.also_worth_improving(report))):
+    worth = layout.worth_doing(report)
+    if worth:
+        parts.append("<h2>Worth doing</h2>" + "".join(_brief(r) for r in worth))
+    sections = [
+        ("Fix it yourself", "You can do these from your website builder or your Google Business Profile, without a "
+                            "developer.", layout.fix_yourself(report), ""),
+        ("Needs a developer", "These involve your domain settings, your server or your site's code. Pass them to "
+                              "whoever looks after your website and email.", layout.needs_developer(report),
+         f'<p class="pricing">{escape(layout.PRICING)}</p>'),
+        ("Worth checking", "We could not confirm these, so they may turn out to be fine. They are worth a quick check.",
+         layout.worth_checking(report), ""),
+    ]
+    for heading, intro, results, closing in sections:
         if results:
-            parts.append(f"<h2>{heading}</h2>" + "".join(_finding(r) for r in results))
+            parts.append(f'<h2>{heading}</h2><p class="intro">{escape(intro)}</p>'
+                         + "".join(_finding(r) for r in results) + closing)
 
     rows = "".join(
         f'<tr><td>{escape(r.category)}</td><td class="name">{escape(r.name)}</td><td>{_pill(r)}</td>'

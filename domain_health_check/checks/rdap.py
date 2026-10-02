@@ -111,7 +111,7 @@ def evaluate_registration(data: dict, now: datetime) -> CheckResult:
             "The registry doesn't publish an expiry date for this domain.",
             EXPLANATION,
             "Log in to your registrar's control panel to confirm the renewal date and that auto-renew is on.",
-            details,
+            details, certain=False,
         )
 
     days_left = (expiry - now).days
@@ -139,15 +139,16 @@ def check_registration(domain: str, now: datetime | None = None) -> list[CheckRe
     except urllib.error.HTTPError as exc:
         summary = ("The registry has no record of this domain." if exc.code == 404
                    else "The registry's lookup service returned an error.")
-        return [CheckResult(DOMAIN, NAME, Status.WARN, summary, EXPLANATION, unknown_fix, [f"HTTP {exc.code}"])]
+        return [CheckResult(DOMAIN, NAME, Status.WARN, summary, EXPLANATION, unknown_fix, [f"HTTP {exc.code}"],
+                            certain=False)]
     except RDAPUnavailable as exc:
         return [CheckResult(
             DOMAIN, NAME, Status.WARN, "This domain's registry doesn't offer an automated lookup.",
-            EXPLANATION, unknown_fix, [str(exc)],
+            EXPLANATION, unknown_fix, [str(exc)], certain=False,
         )]
     except (urllib.error.URLError, OSError, ValueError) as exc:
         return [CheckResult(
             DOMAIN, NAME, Status.WARN, "We couldn't reach the registry to check the expiry date.",
-            EXPLANATION, unknown_fix, [f"Error: {getattr(exc, 'reason', exc)}"],
+            EXPLANATION, unknown_fix, [f"Error: {getattr(exc, 'reason', exc)}"], certain=False,
         )]
     return [evaluate_registration(data, now)]

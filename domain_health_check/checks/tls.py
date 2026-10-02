@@ -132,7 +132,7 @@ def check_tls(domain: str, now: datetime | None = None) -> list[CheckResult]:
             CERT_EXPLANATION,
             "Ask your web host to check the HTTPS configuration; the server may only offer outdated "
             "encryption that modern software refuses to use.",
-            [f"TLS error: {exc}"],
+            [f"TLS error: {exc}"], certain=False,  # it failed for us; a browser may still connect
         )]
     except OSError as exc:
         # Includes timeouts and "connection refused". Some domains simply don't host a website.
@@ -142,6 +142,6 @@ def check_tls(domain: str, now: datetime | None = None) -> list[CheckResult]:
             CERT_EXPLANATION,
             "If this domain is meant to have a website, ask your web host why it isn't reachable over "
             "HTTPS. If it's only used for email, you can ignore this.",
-            [f"Connection error: {exc}"],
+            [f"Connection error: {exc}"], certain=False,
         )]
     return [evaluate_certificate(cert, now), evaluate_tls_version(version)]

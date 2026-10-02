@@ -98,8 +98,8 @@ PLACEHOLDER_SUMMARY = {
 # ---------- Page title
 
 def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True) -> CheckResult:
+        return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details), certain=certain)
 
     fix = (
         "In your website builder, open the home page settings and look for \"SEO title\" or \"page title\". "
@@ -115,7 +115,8 @@ def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -
         return result(Status.WARN, "Your home page title is just your web address.", fix, details)
     kind = placeholder(title, list(context), min_terms=2)
     if kind:
-        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="title"), fix, details)
+        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="title"), fix, details,
+                      certain=kind == "template")  # no shared words is a maybe; a demo phrase is not
     if len(title) < TITLE_MIN:
         return result(Status.WARN, f"Your home page title is very short ({len(title)} characters).", fix, details)
     if len(title) > TITLE_MAX:
@@ -139,8 +140,9 @@ def check_title(page: PageContext) -> list[CheckResult]:
 # ---------- Meta description
 
 def evaluate_description(descriptions: list[str], context: list[str] = ()) -> CheckResult:
-    def result(status: Status, summary: str, fix: str = "", details=()) -> CheckResult:
-        return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details))
+    def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True) -> CheckResult:
+        return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details),
+                           certain=certain)
 
     fix = (
         "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
@@ -157,7 +159,8 @@ def evaluate_description(descriptions: list[str], context: list[str] = ()) -> Ch
         details.append(f"Note: the page has {len(descriptions)} description tags; we measured the first.")
     kind = placeholder(description, list(context))
     if kind:
-        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="description"), fix, details)
+        return result(Status.WARN, PLACEHOLDER_SUMMARY[kind].format(what="description"), fix, details,
+                      certain=kind == "template")
     if len(description) < DESCRIPTION_MIN:
         return result(Status.WARN, f"Your home page description is short ({len(description)} characters), so it "
                                    "may not tell searchers enough.", fix, details)

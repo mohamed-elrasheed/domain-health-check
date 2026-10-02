@@ -42,7 +42,7 @@ def test_every_result_is_in_the_document():
 def test_same_findings_and_closing_as_the_markdown():
     report = full_report()
     html, md = pdf.render_html(report), render_markdown(report)
-    for r in layout.worth_doing(report) + layout.also_worth_improving(report):
+    for r in layout.confirmed(report) + layout.worth_checking(report):
         assert r.name in html and r.name in md
     for lead, rest in layout.next_steps(report):
         assert rest in html and rest in md
@@ -97,3 +97,11 @@ def test_real_pdf_contains_every_finding():
     for r in report.results:
         assert r.name in text, f"{r.name} is missing from the PDF"
     assert f"Page {len(reader.pages)} of {len(reader.pages)}" in text
+
+
+
+def test_pdf_has_the_same_sections_as_the_markdown():
+    report = full_report()
+    html, md = pdf.render_html(report), render_markdown(report)
+    for heading in ("Worth doing", "Fix it yourself", "Needs a developer"):
+        assert (f"<h2>{heading}</h2>" in html) == (f"## {heading}" in md)

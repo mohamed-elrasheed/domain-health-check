@@ -36,6 +36,7 @@ class CheckResult:
     fix: str = ""  # what to do about it (empty when there is nothing to do)
     details: list[str] = field(default_factory=list)  # technical specifics for an IT provider
     ran: bool = True  # False when there was nothing we could measure; the score leaves these out
+    certain: bool = True  # False when the finding is a maybe; it never opens the report
 
 
 @dataclass
