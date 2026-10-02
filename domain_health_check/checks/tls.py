@@ -20,7 +20,11 @@ from datetime import datetime, timezone
 from ..models import WEBSITE, CheckResult, Status
 
 WARN_DAYS = 30
-FAIL_DAYS = 7
+# OpenSSL verify codes for the two certificate problems that break the site outright.
+BROKEN_CERT_CODES = {
+    10: "The certificate has expired, so browsers block the website with a security warning.",
+    62: "The certificate is for a different domain name, so browsers block the website with a security warning.",
+}
 TIMEOUT_SECONDS = 10
 
 CERT_EXPLANATION = (
@@ -70,11 +74,9 @@ def evaluate_certificate(cert: dict, now: datetime) -> CheckResult:
     def result(status: Status, summary: str, fix: str = "") -> CheckResult:
         return CheckResult(WEBSITE, "SSL certificate", status, summary, CERT_EXPLANATION, fix, details)
 
-    if days_left < 0:
+    if days_left < 0:  # broken: browsers show a full-page warning
         return result(Status.FAIL, f"The certificate expired {-days_left} days ago.", CERT_FIX)
-    if days_left < FAIL_DAYS:
-        return result(Status.FAIL, f"The certificate expires in {days_left} days.", CERT_FIX)
-    if days_left < WARN_DAYS:
+    if days_left < WARN_DAYS:  # not broken yet, however close
         return result(
             Status.WARN,
             f"The certificate expires in {days_left} days.",
@@ -94,7 +96,7 @@ def evaluate_tls_version(version: str | None) -> CheckResult:
     if version == "TLSv1.2":
         return result(Status.PASS, "Uses TLS 1.2, which is still considered secure.")
     return result(
-        Status.FAIL,
+        Status.WARN,
         f"Uses an outdated protocol ({version or 'unknown'}).",
         "Ask your web host to enable TLS 1.2 and 1.3 and switch off TLS 1.0 and 1.1.",
     )
@@ -105,16 +107,22 @@ def check_tls(domain: str, now: datetime | None = None) -> list[CheckResult]:
     try:
         cert, version = fetch_tls_info(domain)
     except ssl.SSLCertVerificationError as exc:
-        # Expired, self-signed, wrong hostname, missing intermediate certificate...
         reason = getattr(exc, "verify_message", None) or str(exc)
+        code = getattr(exc, "verify_code", None)
+        if code in BROKEN_CERT_CODES:  # expired, or issued for a different name: browsers block the site
+            return [CheckResult(
+                WEBSITE, "SSL certificate", Status.FAIL,
+                BROKEN_CERT_CODES[code], CERT_EXPLANATION, CERT_FIX, [f"Reason given: {reason}"],
+            )]
+        # Self-signed, untrusted issuer, missing intermediate certificate: some browsers may still connect.
         return [CheckResult(
-            WEBSITE, "SSL certificate", Status.FAIL,
-            "Browsers would reject this website's certificate.",
+            WEBSITE, "SSL certificate", Status.WARN,
+            "Browsers may reject this website's certificate.",
             CERT_EXPLANATION, CERT_FIX, [f"Reason given: {reason}"],
         )]
     except ssl.SSLError as exc:
         return [CheckResult(
-            WEBSITE, "SSL certificate", Status.FAIL,
+            WEBSITE, "SSL certificate", Status.WARN,
             "A secure (HTTPS) connection could not be set up.",
             CERT_EXPLANATION,
             "Ask your web host to check the HTTPS configuration; the server may only offer outdated "

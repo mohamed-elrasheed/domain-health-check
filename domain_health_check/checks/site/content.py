@@ -63,7 +63,7 @@ def evaluate_title(title: str | None, final_url: str) -> CheckResult:
         "\"Smith Plumbing, 24-hour plumber in Austin\"."
     )
     if not title:
-        return result(Status.FAIL, "Your home page has no title.", fix)
+        return result(Status.WARN, "Your home page has no title.", fix)
 
     details = [f"Title: {title}", f"Length: {len(title)} characters"]
     host = (urlsplit(final_url).hostname or "").removeprefix("www.")

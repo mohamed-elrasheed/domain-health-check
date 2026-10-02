@@ -18,7 +18,7 @@ def test_mizan_viewport_passes(mizan_page):
 
 def test_missing_viewport_fails(mizan_page):
     [result] = delivery.check_viewport(edited(mizan_page, VIEWPORT, ""))
-    assert result.status is Status.FAIL
+    assert result.status is Status.WARN
 
 
 def test_fixed_width_viewport_warns(mizan_page):

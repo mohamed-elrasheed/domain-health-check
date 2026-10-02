@@ -63,7 +63,8 @@ Read the key from the environment. Never commit it.
 **Do not score Lighthouse's `seo` category.** Step 2 already checks titles, descriptions, canonicals
 and viewport directly. Counting both double-weights the same findings and inflates the score's swing.
 
-Bands: 90 and above good, 50 to 89 could be improved, below 50 needs action. These are Google's own
+Bands: 90 and above good, below 90 could be improved (a slow page is never broken, so never a FAIL; see
+CLAUDE.md). Below 50 is Google's lowest band and the wording says so. These are Google's own
 bands, so our report agrees with any other tool the client runs.
 
 ### Caching

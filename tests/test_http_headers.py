@@ -11,7 +11,7 @@ from domain_health_check.models import Status
     ("max-age=86400", Status.WARN),
     ("max-age=0", Status.WARN),
     ("includeSubDomains", Status.WARN),
-    (None, Status.FAIL),
+    (None, Status.WARN),  # missing HSTS is a risk, not breakage
 ])
 def test_hsts(value, expected):
     assert http_headers.evaluate_hsts(value).status is expected

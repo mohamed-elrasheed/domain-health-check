@@ -32,7 +32,8 @@ ACCESSIBILITY = "Accessibility"
 BEST_PRACTICES = "Best practices"
 TEST_RAN = "Google speed test"
 
-FIELD_CATEGORIES = {"FAST": Status.PASS, "AVERAGE": Status.WARN, "SLOW": Status.FAIL}
+# Speed is never broken, only slower than it could be, so nothing here is a FAIL.
+FIELD_CATEGORIES = {"FAST": Status.PASS, "AVERAGE": Status.WARN, "SLOW": Status.WARN}
 SPEED_AUDITS = ["first-contentful-paint", "largest-contentful-paint", "total-blocking-time",
                 "cumulative-layout-shift", "speed-index", "interactive"]
 VARIES = "one run; scores move a few points between runs"
@@ -51,10 +52,10 @@ LAB = {
         "Google's PageSpeed Insights loads your home page on a simulated mid-range phone and rates how quickly it "
         "becomes usable. Slow pages lose visitors, and speed is a small factor in Google rankings. The score moves "
         "a little every time the test runs, so the band matters more than the exact number.",
-        {Status.PASS: "Google's lab test puts your home page in its top speed band on phones.",
-         Status.WARN: "Google's lab test puts your home page in its middle speed band on phones, so it could load "
+        {"top": "Google's lab test puts your home page in its top speed band on phones.",
+         "middle": "Google's lab test puts your home page in its middle speed band on phones, so it could load "
                       "faster.",
-         Status.FAIL: "Google's lab test puts your home page in its lowest speed band on phones, so it likely feels "
+         "lowest": "Google's lab test puts your home page in its lowest speed band on phones, so it likely feels "
                       "slow to visitors on a phone."},
     ),
     ACCESSIBILITY: (
@@ -62,20 +63,20 @@ LAB = {
         "Google's automated accessibility test checks things such as text contrast, image descriptions and button "
         "labels, which matter to visitors with impaired vision and to anyone on a small screen. An automated test "
         "catches only some problems, so a top score is a good sign rather than a guarantee.",
-        {Status.PASS: "Google's automated accessibility test puts your home page in its top band.",
-         Status.WARN: "Google's automated accessibility test puts your home page in its middle band, so a few things "
+        {"top": "Google's automated accessibility test puts your home page in its top band.",
+         "middle": "Google's automated accessibility test puts your home page in its middle band, so a few things "
                       "could be easier to use for people with disabilities.",
-         Status.FAIL: "Google's automated accessibility test puts your home page in its lowest band, so parts of it "
+         "lowest": "Google's automated accessibility test puts your home page in its lowest band, so parts of it "
                       "are likely hard to use for people with disabilities."},
     ),
     BEST_PRACTICES: (
         "best-practices",
         "Google's best-practices test looks for common technical issues, such as errors in the browser, outdated "
         "code libraries and images shown at the wrong size.",
-        {Status.PASS: "Google's best-practices test puts your home page in its top band.",
-         Status.WARN: "Google's best-practices test puts your home page in its middle band, so a few technical "
+        {"top": "Google's best-practices test puts your home page in its top band.",
+         "middle": "Google's best-practices test puts your home page in its middle band, so a few technical "
                       "details could be tidied up.",
-         Status.FAIL: "Google's best-practices test puts your home page in its lowest band, so several technical "
+         "lowest": "Google's best-practices test puts your home page in its lowest band, so several technical "
                       "details need attention."},
     ),
 }
@@ -89,11 +90,15 @@ def lab_score(response: dict | None, category: str) -> int | None:
     return round(score * 100)
 
 
-def band(score: int) -> Status:
+def band(score: int) -> str:
     """Google's own bands, so our report agrees with any other tool the owner runs."""
     if score >= 90:
-        return Status.PASS
-    return Status.WARN if score >= 50 else Status.FAIL
+        return "top"
+    return "middle" if score >= 50 else "lowest"
+
+
+def band_status(name: str) -> Status:
+    return Status.PASS if name == "top" else Status.WARN
 
 
 def report_link(response: dict) -> str:
@@ -124,10 +129,10 @@ def evaluate_field_speed(loading: dict | None, origin: dict | None) -> CheckResu
     status = FIELD_CATEGORIES[category]
     fix = ("Ask your web developer to look at the measurements in the technical details. Google's PageSpeed "
            "Insights report for your home page shows what to change first.")
-    if status is Status.PASS:
+    if category == "FAST":
         return result(status, "Google's data from real visitors using Chrome shows your home page loads quickly.",
                       details=details)
-    if status is Status.WARN:
+    if category == "AVERAGE":
         return result(status, "Google's data from real visitors using Chrome shows your home page loads at an "
                               "average speed, with room to be faster.", fix, details)
     return result(status, "Google's data from real visitors using Chrome shows your home page loads slowly for many "
@@ -147,12 +152,12 @@ def evaluate_lab(name: str, score: int | None, details: list[str]) -> CheckResul
     category, explanation, summaries = LAB[name]
     if score is None:
         return CheckResult(SITE, name, Status.WARN, f"Google's test did not produce a score for {name.lower()} this time.",
-                           explanation, "Nothing to do. We will run it again on the next check.", details, ran=False)
-    status = band(score)
+                           explanation, "Nothing to do.", details, ran=False)
+    status = band_status(band(score))
     fix = "" if status is Status.PASS else (
         "Ask your web developer to open Google's PageSpeed Insights report for your home page, linked in the "
         "technical details, and work through its suggestions.")
-    return CheckResult(SITE, name, status, summaries[status], explanation, fix,
+    return CheckResult(SITE, name, status, summaries[band(score)], explanation, fix,
                        [f"Lighthouse {category} score: {score} out of 100 (mobile, {VARIES})"] + details)
 
 
@@ -194,6 +199,6 @@ def check_speed_test_ran(external: ExternalContext) -> list[CheckResult]:
         SITE, TEST_RAN, Status.WARN, "Google's speed test did not run this time, so speed is not part of this report.",
         "These checks come from Google's PageSpeed Insights, and this time it did not produce a result. The "
         "technical details say why. This is not a finding about your website.",
-        "Nothing to do. We will run it again on the next check.",
+        "Nothing to do.",
         [f"{source}: {why}" for source, why in external.errors.items()], ran=False,
     )]

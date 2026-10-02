@@ -28,7 +28,7 @@ def check_nameservers(domain: str) -> list[CheckResult]:
     details = [f"Nameserver: {ns}" for ns in servers]
     if not servers:
         return [CheckResult(
-            DOMAIN, "Nameservers", Status.FAIL, "No nameservers were found for this domain.", NS_EXPLANATION,
+            DOMAIN, "Nameservers", Status.WARN, "No nameservers were found for this domain.", NS_EXPLANATION,
             "Check with your registrar that the domain is active and points to your DNS provider's nameservers.",
         )]
     if len(servers) == 1:
@@ -57,7 +57,7 @@ def check_mx(domain: str) -> list[CheckResult]:
         )]
     if not records:
         return [CheckResult(
-            EMAIL, "Mail servers (MX)", Status.WARN, "No mail servers are listed, so email to this domain will bounce.",
+            EMAIL, "Mail servers (MX)", Status.FAIL, "No mail servers are listed, so email to this domain will bounce.",
             MX_EXPLANATION,
             "If you use email on this domain, add the MX records your email provider gives you. If you "
             "don't, add a \"null MX\" record (priority 0, host \".\") so senders know straight away.",

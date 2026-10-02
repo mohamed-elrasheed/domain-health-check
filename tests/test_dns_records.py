@@ -14,8 +14,8 @@ def test_one_nameserver_warns(fake_dns):
     assert dns_records.check_nameservers("example.com")[0].status is Status.WARN
 
 
-def test_no_nameservers_fail(fake_dns):
-    assert dns_records.check_nameservers("example.com")[0].status is Status.FAIL
+def test_no_nameservers_warns(fake_dns):
+    assert dns_records.check_nameservers("example.com")[0].status is Status.WARN
 
 
 def test_mx_records_sorted_by_priority(fake_dns):
@@ -32,8 +32,9 @@ def test_null_mx_passes(fake_dns):
     assert "doesn't receive email" in result.summary
 
 
-def test_no_mx_warns(fake_dns):
-    assert dns_records.check_mx("example.com")[0].status is Status.WARN
+def test_no_mx_fails(fake_dns):
+    # Broken, not a risk: email sent to the domain bounces today.
+    assert dns_records.check_mx("example.com")[0].status is Status.FAIL
 
 
 def test_dnssec_ds_present(fake_dns):

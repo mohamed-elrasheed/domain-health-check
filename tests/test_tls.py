@@ -22,7 +22,7 @@ def cert_expiring_in(days: int) -> dict:
     (30, Status.PASS),
     (29, Status.WARN),
     (7, Status.WARN),
-    (6, Status.FAIL),
+    (6, Status.WARN),   # about to expire is not yet broken
     (-3, Status.FAIL),
 ])
 def test_certificate_expiry_thresholds(days, expected):
@@ -38,7 +38,7 @@ def test_certificate_reports_issuer():
 
 
 @pytest.mark.parametrize("version, expected", [
-    ("TLSv1.3", Status.PASS), ("TLSv1.2", Status.PASS), ("TLSv1.1", Status.FAIL), (None, Status.FAIL),
+    ("TLSv1.3", Status.PASS), ("TLSv1.2", Status.PASS), ("TLSv1.1", Status.WARN), (None, Status.WARN),
 ])
 def test_tls_version(version, expected):
     assert tls.evaluate_tls_version(version).status is expected
@@ -51,15 +51,25 @@ def test_check_tls_success(monkeypatch):
     assert all(r.status is Status.PASS for r in results)
 
 
-def test_verification_failure_is_fail(monkeypatch):
+def _verification_error(code, message):
     def fail(domain):
         err = ssl.SSLCertVerificationError("certificate verify failed")
-        err.verify_message = "Hostname mismatch, certificate is not valid for 'example.com'."
+        err.verify_code, err.verify_message = code, message
         raise err
-    monkeypatch.setattr(tls, "fetch_tls_info", fail)
+    return fail
+
+
+@pytest.mark.parametrize("code, message, status", [
+    (62, "Hostname mismatch, certificate is not valid for 'example.com'.", Status.FAIL),  # broken
+    (10, "certificate has expired", Status.FAIL),                                        # broken
+    (18, "self-signed certificate", Status.WARN),
+    (20, "unable to get local issuer certificate", Status.WARN),  # often a missing intermediate
+])
+def test_verification_failure(monkeypatch, code, message, status):
+    monkeypatch.setattr(tls, "fetch_tls_info", _verification_error(code, message))
     [result] = tls.check_tls("example.com", NOW)
-    assert result.status is Status.FAIL
-    assert "Hostname mismatch" in result.details[0]
+    assert result.status is status
+    assert message in result.details[0]
 
 
 def test_connection_failure_is_warn(monkeypatch):

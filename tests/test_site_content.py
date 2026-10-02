@@ -21,11 +21,11 @@ def test_mizan_title_passes(mizan_page):
 def test_svg_title_in_the_body_is_not_the_page_title(mizan_page):
     # The page has a second <title> inside an SVG. Without the head one, there is no page title.
     [result] = content.check_title(edited(mizan_page, TITLE, ""))
-    assert result.status is Status.FAIL
+    assert result.status is Status.WARN and "no title" in result.summary
 
 
 @pytest.mark.parametrize("title, status, phrase", [
-    ("", Status.FAIL, "no title"),
+    ("", Status.WARN, "no title"),
     ("Home", Status.WARN, "very short"),
     ("www.mizangroupllc.com", Status.WARN, "just your web address"),
     ("mizangroupllc.com", Status.WARN, "just your web address"),

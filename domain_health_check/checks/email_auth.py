@@ -87,14 +87,14 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
 
     if not spf:
         return result(
-            Status.FAIL, "No SPF record was found.",
+            Status.WARN, "No SPF record was found.",
             "Add a TXT record to your domain listing your email provider, ending in -all or ~all. Your email "
             "provider's help pages give the exact text (for Google Workspace: "
             "`v=spf1 include:_spf.google.com ~all`).",
         )
     if len(spf) > 1:
         return result(
-            Status.FAIL, f"There are {len(spf)} SPF records; only one is allowed, so all of them are ignored.",
+            Status.WARN, f"There are {len(spf)} SPF records; only one is allowed, so all of them are ignored.",
             "Merge them into a single SPF record that includes every service that sends email for you.",
         )
 
@@ -102,7 +102,7 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
     qualifier = _all_qualifier(record)
     if qualifier == "+":
         return result(
-            Status.FAIL, "The SPF record allows ANY server in the world to send email as you (+all).",
+            Status.WARN, "The SPF record allows ANY server in the world to send email as you (+all).",
             "Change `+all` (or a bare `all`) at the end of the SPF record to `-all` or `~all`.",
         )
     if qualifier == "-":
@@ -140,10 +140,10 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
         "review the reports for a few weeks, then tighten the policy to p=quarantine and finally p=reject."
     )
     if not dmarc:
-        return result(Status.FAIL, "No DMARC record was found.", start_fix)
+        return result(Status.WARN, "No DMARC record was found.", start_fix)
     if len(dmarc) > 1:
         return result(
-            Status.FAIL, f"There are {len(dmarc)} DMARC records; only one is allowed, so receivers ignore them.",
+            Status.WARN, f"There are {len(dmarc)} DMARC records; only one is allowed, so receivers ignore them.",
             "Delete the extra records so exactly one DMARC record remains.",
         )
 
@@ -165,7 +165,7 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
         return result(Status.PASS, "DMARC sends forged emails to spam (p=quarantine).")
     if policy == "reject":
         return result(Status.PASS, "DMARC tells receivers to reject forged emails (p=reject), the strongest setting.")
-    return result(Status.FAIL, "The DMARC record has a missing or invalid policy (p=), so it is ignored.", start_fix)
+    return result(Status.WARN, "The DMARC record has a missing or invalid policy (p=), so it is ignored.", start_fix)
 
 
 def check_dmarc(domain: str) -> list[CheckResult]:
@@ -206,12 +206,12 @@ def check_dkim(domain: str, selectors: list[str] | None = None) -> list[CheckRes
         )
     if configured:
         return result(
-            Status.FAIL, f"No DKIM key was found for the configured selector(s): {', '.join(selectors)}.",
+            Status.WARN, f"No DKIM key was found for the configured selector(s): {', '.join(selectors)}.",
             setup_fix,
         )
     return result(
         Status.WARN,
         "No DKIM key was found under the common selector names. DKIM may still be set up under a different name.",
-        "Ask your email provider which DKIM selector they use and send us the name, so we can confirm it on the "
-        "next check. If DKIM is not set up yet: " + setup_fix[0].lower() + setup_fix[1:],
+        "Ask your email provider whether DKIM signing is switched on and which selector name it uses. If it is "
+        "not set up yet: " + setup_fix[0].lower() + setup_fix[1:],
     )

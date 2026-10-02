@@ -128,6 +128,11 @@ correctly, which means Google can surface prices a business no longer charges.
 - Plain English. No jargon in `summary` or `explanation` without a one-line gloss; jargon belongs in `details`.
 - `fix` is addressed to the owner and tells them what to ask for, not how to do it themselves.
 - Do not manufacture urgency. A WARN that is cosmetic should read as cosmetic.
+- **FAIL means broken today, never a risk.** Only: a certificate that has expired or is for another
+  name, a domain expiring within 30 days, no MX records, and noindex or robots.txt blocking Google.
+  Everything else is WARN, including missing HSTS, CSP, nosniff, DNSSEC, SPF and DMARC, and every
+  speed band. A report with risks and nothing broken says zero need action.
+- Never promise to run the checks again. Re-checks belong to the paid care plan, not the free report.
 - No em-dashes, no exclamation marks, American English. Team voice ("we"), never "I".
 
 ## Measurement traps

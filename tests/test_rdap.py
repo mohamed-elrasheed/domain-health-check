@@ -52,6 +52,8 @@ def test_fetch_rdap_builds_url(monkeypatch):
 @pytest.mark.parametrize("expiry, expected", [
     ("2027-01-01T00:00:00Z", Status.PASS),
     ("2026-02-15T00:00:00Z", Status.WARN),   # 45 days
+    ("2026-02-01T00:00:00Z", Status.WARN),   # 31 days: a risk, not yet breaking
+    ("2026-01-26T00:00:00Z", Status.FAIL),   # 25 days: inside a month it is about to break
     ("2026-01-10T00:00:00Z", Status.FAIL),   # 9 days
     ("2025-12-01T00:00:00Z", Status.FAIL),   # already expired
 ])

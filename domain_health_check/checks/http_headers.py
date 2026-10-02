@@ -48,7 +48,7 @@ def evaluate_hsts(value: str | None) -> CheckResult:
         "`Strict-Transport-Security: max-age=31536000; includeSubDomains` to the website."
     )
     if value is None:
-        return result(Status.FAIL, "The website doesn't tell browsers to always use HTTPS.", fix)
+        return result(Status.WARN, "The website doesn't tell browsers to always use HTTPS.", fix)
 
     details = [f"Header value: {value}"]
     match = re.search(r"max-age\s*=\s*\"?(\d+)", value, re.IGNORECASE)

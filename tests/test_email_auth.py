@@ -12,19 +12,19 @@ from domain_health_check.models import Status
     (["v=spf1 redirect=_spf.example.com"], Status.PASS),
     (["v=spf1 include:_spf.example.com ?all"], Status.WARN),
     (["v=spf1 include:_spf.example.com"], Status.WARN),
-    (["v=spf1 +all"], Status.FAIL),
-    (["v=spf1 a mx all"], Status.FAIL),               # a bare "all" means +all
+    (["v=spf1 +all"], Status.WARN),
+    (["v=spf1 a mx all"], Status.WARN),               # a bare "all" means +all
     (["V=SPF1 MX -ALL"], Status.PASS),                 # case-insensitive
-    (["google-site-verification=abc"], Status.FAIL),   # no SPF at all
-    ([], Status.FAIL),
-    (["v=spf1 -all", "v=spf1 include:x.example.com ~all"], Status.FAIL),  # two records
+    (["google-site-verification=abc"], Status.WARN),   # no SPF at all
+    ([], Status.WARN),
+    (["v=spf1 -all", "v=spf1 include:x.example.com ~all"], Status.WARN),  # two records
 ])
 def test_spf(records, expected):
     assert email_auth.evaluate_spf(records).status is expected
 
 
 def test_spf_ignores_lookalike_prefix():
-    assert email_auth.evaluate_spf(["v=spf10 -all"]).status is Status.FAIL
+    assert email_auth.evaluate_spf(["v=spf10 -all"]).status is Status.WARN
 
 
 def test_check_spf_reads_domain_txt(fake_dns):
@@ -40,19 +40,19 @@ def test_check_spf_reads_domain_txt(fake_dns):
     ("v=DMARC1; p=reject; rua=mailto:d@example.com", Status.PASS),
     ("v=DMARC1; p=quarantine; rua=mailto:d@example.com", Status.PASS),
     ("v=DMARC1; p=none; rua=mailto:d@example.com", Status.WARN),
-    ("v=DMARC1; rua=mailto:d@example.com", Status.FAIL),
-    ("v=DMARC1; p=bogus", Status.FAIL),
+    ("v=DMARC1; rua=mailto:d@example.com", Status.WARN),
+    ("v=DMARC1; p=bogus", Status.WARN),
 ])
 def test_dmarc_policy(record, expected):
     assert email_auth.evaluate_dmarc([record]).status is expected
 
 
-def test_dmarc_missing_fails():
-    assert email_auth.evaluate_dmarc([]).status is Status.FAIL
+def test_dmarc_missing_warns():
+    assert email_auth.evaluate_dmarc([]).status is Status.WARN
 
 
-def test_dmarc_duplicate_fails():
-    assert email_auth.evaluate_dmarc(["v=DMARC1; p=reject", "v=DMARC1; p=none"]).status is Status.FAIL
+def test_dmarc_duplicate_warns():
+    assert email_auth.evaluate_dmarc(["v=DMARC1; p=reject", "v=DMARC1; p=none"]).status is Status.WARN
 
 
 def test_dmarc_notes_missing_reports_and_partial_pct():
@@ -78,9 +78,9 @@ def test_dkim_found_on_configured_selector(fake_dns):
     assert "google" in result.summary
 
 
-def test_dkim_configured_selector_missing_fails(fake_dns):
+def test_dkim_configured_selector_missing_warns(fake_dns):
     [result] = email_auth.check_dkim("example.com", ["selector1"])
-    assert result.status is Status.FAIL
+    assert result.status is Status.WARN
 
 
 def test_dkim_falls_back_to_common_selectors(fake_dns):
@@ -95,7 +95,7 @@ def test_dkim_nothing_on_common_selectors_warns(fake_dns):
     assert result.status is Status.WARN
     assert len([d for d in result.details if d.startswith("Selector checked")]) == len(email_auth.DEFAULT_DKIM_SELECTORS)
     # The fix goes to a business owner, who has no domains.yaml.
-    assert "domains.yaml" not in result.fix and "send us the name" in result.fix
+    assert "domains.yaml" not in result.fix and "which selector name it uses" in result.fix
 
 
 def test_dkim_revoked_key_warns(fake_dns):

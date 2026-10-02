@@ -30,7 +30,7 @@ TIMEOUT_SECONDS = 15
 
 # Losing a domain is far worse than a lapsed certificate, so warn earlier.
 WARN_DAYS = 60
-FAIL_DAYS = 14
+FAIL_DAYS = 30  # inside a month the renewal is no longer a risk, it is about to break
 
 NAME = "Domain registration"
 EXPLANATION = (

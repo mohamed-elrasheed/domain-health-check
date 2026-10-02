@@ -5,6 +5,9 @@ for each one, suitable for handing to a non-technical client. It produces the fr
 [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital).
 
 Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why it matters and what to do about it.
+FAIL means something is broken today, never just a risk: an expired certificate or one issued for another
+name, a domain expiring within 30 days, no mail servers, or a site telling Google not to list it. Everything
+else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 
 > **Scope.** We only run these checks on domains submitted through the form at
 > [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent.
@@ -22,9 +25,9 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 
 | Check | PASS | WARN | FAIL |
 |---|---|---|---|
-| **SSL certificate**: expiry, hostname match, issuer | valid for 30+ days | expires in under 30 days, or site unreachable | expires in under 7 days, expired, wrong hostname, or untrusted |
-| **TLS version** | TLS 1.2 or 1.3 | | older than TLS 1.2 |
-| **HSTS** | `max-age` of at least 180 days | short `max-age` or malformed | header missing |
+| **SSL certificate**: expiry, hostname match, issuer | valid for 30+ days | expires in under 30 days, untrusted issuer, or site unreachable | expired, or issued for a different name |
+| **TLS version** | TLS 1.2 or 1.3 | older than TLS 1.2 | |
+| **HSTS** | `max-age` of at least 180 days | missing, short `max-age` or malformed | |
 | **Content-Security-Policy** | present | missing, or report-only | |
 | **X-Content-Type-Options** | `nosniff` | missing or other value | |
 
@@ -44,8 +47,8 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 
 | Check | PASS | WARN | FAIL |
 |---|---|---|---|
-| **Domain registration** (RDAP) | 60+ days until expiry | under 60 days, or no data available | under 14 days, or expired |
-| **Nameservers** (NS) | two or more | only one | none |
+| **Domain registration** (RDAP) | 60+ days until expiry | under 60 days, or no data available | under 30 days, or expired |
+| **Nameservers** (NS) | two or more | only one, or none | |
 | **DNSSEC** (DS record) | DS record present | not enabled | |
 
 - **RDAP (Registration Data Access Protocol).** The modern, JSON-based replacement for WHOIS. The
@@ -63,10 +66,10 @@ Every check returns **PASS**, **WARN** or **FAIL**, with an explanation of why i
 
 | Check | PASS | WARN | FAIL |
 |---|---|---|---|
-| **MX** | mail servers listed, or a "null MX" | no MX records | |
-| **SPF** | one record ending `-all` or `~all` (or using `redirect=`) | `?all`, or no `all` | missing, more than one record, or `+all` |
-| **DKIM** | a key found on a selector | only revoked keys, or none found on the common selectors | none found on the selectors you configured |
-| **DMARC** | `p=quarantine` or `p=reject` | `p=none` | missing, duplicated, or invalid |
+| **MX** | mail servers listed, or a "null MX" | | no MX records |
+| **SPF** | one record ending `-all` or `~all` (or using `redirect=`) | `?all`, no `all`, missing, more than one record, or `+all` | |
+| **DKIM** | a key found on a selector | only revoked keys, or none found | |
+| **DMARC** | `p=quarantine` or `p=reject` | `p=none`, missing, duplicated, or invalid | |
 
 - **MX records.** Where to deliver email for the domain. A "null MX" (`0 .`) is the correct way to
   say a domain never receives mail.
@@ -90,11 +93,11 @@ left out of the score rather than passed.
 | Check | PASS | WARN | FAIL |
 |---|---|---|---|
 | **Search engine blocking** | no `noindex`, and robots.txt lets Googlebot in | | `noindex` in the page or `X-Robots-Tag`, or robots.txt blocks Googlebot from `/` |
-| **Page title** | 15 to 60 characters | too short, too long, or just the domain | missing |
+| **Page title** | 15 to 60 characters | missing, too short, too long, or just the domain | |
 | **Meta description** | 70 to 160 characters | missing, too short or too long | |
 | **Canonical tag** | present and on the same site | missing, relative, or another site | |
 | **Main heading** | exactly one non-empty `h1` | none, several, or empty | |
-| **Mobile viewport** | `width=device-width` | present without it | missing |
+| **Mobile viewport** | `width=device-width` | missing, or present without it | |
 | **Structured data matches the page** | every JSON-LD price is in the page text and every same-site URL is linked or in the sitemap | a value that is not, or invalid JSON-LD | |
 | **Heading order** | no level skipped | an `h3` before an `h2`, and so on | |
 | **Image alt text** | 90% or more of `<img>` have a real description | below 90% | |
@@ -122,10 +125,10 @@ ourselves.
 
 | Check | PASS | WARN | FAIL | Not run |
 |---|---|---|---|---|
-| **Real-world loading speed** | Chrome field data `FAST` | `AVERAGE` | `SLOW` | Google publishes no field data for the page (the usual case for a small business) |
-| **Mobile speed** | Lighthouse performance 90+ | 50 to 89 | below 50 | score null or missing |
-| **Accessibility** | Lighthouse accessibility 90+ | 50 to 89 | below 50 | score null or missing |
-| **Best practices** | Lighthouse best-practices 90+ | 50 to 89 | below 50 | score null or missing |
+| **Real-world loading speed** | Chrome field data `FAST` | `AVERAGE` or `SLOW` | | Google publishes no field data for the page (the usual case for a small business) |
+| **Mobile speed** | Lighthouse performance 90+ | below 90 | | score null or missing |
+| **Accessibility** | Lighthouse accessibility 90+ | below 90 | | score null or missing |
+| **Best practices** | Lighthouse best-practices 90+ | below 90 | | score null or missing |
 
 - Bands are Google's own, so the report agrees with any other tool the owner runs. Lab scores move
   a few points between runs, so summaries name the band and the number stays in the details.
@@ -200,8 +203,8 @@ example.com
   PASS  Mail servers (MX)             2 mail server(s) are listed.
   PASS  SPF (approved senders)        SPF is set up and flags email from unlisted servers as suspicious (~all).
   PASS  DKIM (email signatures)       DKIM signing keys are published (selector: google).
-  FAIL  DMARC (anti-spoofing policy)  No DMARC record was found.
-  8 pass, 3 warn, 1 fail
+  WARN  DMARC (anti-spoofing policy)  No DMARC record was found.
+  8 pass, 4 warn, 0 fail
   Report: reports\example.com-2026-09-27.md
 ```
 
@@ -214,16 +217,16 @@ An excerpt from the matching Markdown report:
 
 ## Summary
 
-**1 item(s) need action soon**, and 3 could be improved.
+**No urgent problems.** 4 item(s) could be improved.
 
 | Area | Check | Result | What we found |
 |---|---|---|---|
-| Email security | DMARC (anti-spoofing policy) | ❌ Needs action | No DMARC record was found. |
+| Email security | DMARC (anti-spoofing policy) | ⚠️ Could be improved | No DMARC record was found. |
 ...
 
 ## What to fix
 
-### ❌ DMARC (anti-spoofing policy)
+### ⚠️ DMARC (anti-spoofing policy)
 
 **What we found:** No DMARC record was found.
 

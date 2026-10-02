@@ -46,7 +46,7 @@ def evaluate_viewport(contents: list[str]) -> CheckResult:
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">, to your home page."
     )
     if not contents:
-        return result(Status.FAIL, "Your home page is not set up for phones, so phones show a shrunken desktop "
+        return result(Status.WARN, "Your home page is not set up for phones, so phones show a shrunken desktop "
                                    "version of it.", fix)
     details = [f"Viewport: {content}" for content in contents]
     if not any(re.search(r"width\s*=\s*device-width", content, re.IGNORECASE) for content in contents):

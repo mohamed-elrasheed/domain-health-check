@@ -248,7 +248,7 @@ def check_sitemap_and_robots(page: PageContext) -> list[CheckResult]:
         return [CheckResult(
             SITE, SITEMAP, Status.WARN, "We could not read your sitemap, so we could not check it.",
             SITEMAP_EXPLANATION,
-            "Nothing to do based on this report. We will try again on the next check.",
+            "Nothing to do based on this report.",
             [f"robots.txt: {page.robots.url if page.robots else 'not read'}",
              "Sitemap: not read (robots.txt does not allow it, or it could not be reached)"],
             ran=False,

@@ -49,7 +49,7 @@ def test_no_field_data_scores_nothing(psi_mobile):
     assert scoring.score([result]) is None
 
 
-@pytest.mark.parametrize("category, status", [("FAST", Status.PASS), ("AVERAGE", Status.WARN), ("SLOW", Status.FAIL)])
+@pytest.mark.parametrize("category, status", [("FAST", Status.PASS), ("AVERAGE", Status.WARN), ("SLOW", Status.WARN)])
 def test_field_categories(psi_mobile, category, status):
     response = copy.deepcopy(psi_mobile)
     response["loadingExperience"].update({
@@ -84,7 +84,7 @@ def test_mizan_mobile_speed_is_in_the_middle_band(psi_mobile):
 
 @pytest.mark.parametrize("score, status", [
     (1, Status.PASS), (0.9, Status.PASS), (0.895, Status.PASS),  # rounds to 90
-    (0.89, Status.WARN), (0.5, Status.WARN), (0.49, Status.FAIL), (0, Status.FAIL),
+    (0.89, Status.WARN), (0.5, Status.WARN), (0.49, Status.WARN), (0, Status.WARN),  # slow is never broken
 ])
 def test_google_bands(psi_mobile, score, status):
     [result] = pagespeed.check_mobile_speed(ExternalContext(psi_mobile=with_category(psi_mobile, "performance", score)))
