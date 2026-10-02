@@ -23,6 +23,11 @@ class ExternalContext:
 never a failure. Per `REPORT-SPEC.md`, a check that could not run is excluded from both sides of the
 score. A missing API key must not cost the client points.
 
+
+Weights in the tables below are superseded: every check now takes its weight from its tier on the
+owner-cost ladder (`ladder.py`, described in REPORT-SPEC.md). Speed checks are tier 4 (weight 2),
+best practices tier 6 (1), and all four Business Profile checks tier 3 (3).
+
 ## 1. PageSpeed Insights
 
 `GET https://www.googleapis.com/pagespeedonline/v5/runPagespeed`

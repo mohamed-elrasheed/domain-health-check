@@ -152,9 +152,9 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 | Check | Weight | PASS | WARN | Not run |
 |---|---|---|---|---|
 | **Google Business Profile** | 3 | a confirmed listing marked open | closed; not findable by name and place; or a similar listing that does not link back | no business name given, or the API did not answer |
-| **Profile completeness** | 2 | website, phone and opening hours all listed | any missing | |
-| **Profile website link** | 2 | links to the domain we checked | missing, or another site | |
-| **Reviews** | 1 | 5 or more | fewer | |
+| **Profile completeness** | 3 | website, phone and opening hours all listed | any missing | |
+| **Profile website link** | 3 | links to the domain we checked | missing, or another site | |
+| **Reviews** | 3 | 5 or more | fewer | |
 
 - **A wrong match is worse than none.** A listing is used only when its name closely matches and its
   website is on the submitted domain, or its phone is the submitted number. A search for one real

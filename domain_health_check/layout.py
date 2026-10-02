@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from .checks import pagespeed, site
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
+from .ladder import CUSTOMER_FACING, LADDER, TIER
 from .scoring import score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action",
@@ -31,25 +32,6 @@ NOT_CHECKED = "Not checked"
 TOP = 3
 NO_SCORE = "Score: not available - we could not load your website."
 
-# The owner-cost ladder. Within a tier, the order listed is the order shown.
-LADDER = [
-    # 1. Customers cannot reach the site.
-    ["Search engine blocking", "SSL certificate", "Domain registration"],
-    # 2. Google cannot understand the site.
-    ["Main heading", "Meta description", "Page title", "Image alt text", "Heading order", "Canonical tag",
-     "Sitemap and robots", "Structured data matches the page", "Social preview"],
-    # 3. Customers cannot find the business locally.
-    ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews"],
-    # 4. The site is slow enough that people leave.
-    ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility"],
-    # 5. Email can be spoofed.
-    ["DMARC (anti-spoofing policy)", "SPF (approved senders)", "DKIM (email signatures)", "Mail servers (MX)"],
-    # 6. Hardening.
-    ["HSTS (always use HTTPS)", "Content Security Policy", "X-Content-Type-Options", "DNSSEC", "TLS version",
-     "Nameservers", "Best practices"],
-]
-TIER = {name: (tier, position) for tier, names in enumerate(LADDER, start=1) for position, name in enumerate(names)}
-CUSTOMER_FACING = 4  # tiers 1 to 4 cost customers; 5 and 6 are behind the scenes
 
 # What an owner can fix from their website builder or their Google profile, without DNS, server settings or code.
 SELF_FIX = {"Page title", "Meta description", "Image alt text", "Main heading", "Heading order", "Social preview",

@@ -16,11 +16,11 @@ def result(name: str, status: Status, ran: bool = True) -> CheckResult:
 
 def test_weighted_formula():
     results = [
-        result("SSL certificate", Status.PASS),     # 3 of 3
-        result("DNSSEC", Status.WARN),              # 1 of 2
-        result("Image alt text", Status.FAIL),      # 0 of 1
+        result("SSL certificate", Status.PASS),     # tier 1: 5 of 5
+        result("DNSSEC", Status.WARN),              # tier 6: 0.5 of 1
+        result("Image alt text", Status.FAIL),      # tier 2: 0 of 4
     ]
-    assert scoring.score(results) == round(100 * 4 / 6)
+    assert scoring.score(results) == round(100 * 5.5 / 10)
 
 
 def test_checks_that_did_not_run_are_left_out_of_both_sides():
@@ -48,7 +48,21 @@ def test_one_alt_tag_cannot_drown_a_certificate():
 
 def test_dkim_weighs_the_same_as_spf_and_dmarc():
     names = ["SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)"]
-    assert {scoring.WEIGHTS[n] for n in names} == {3}
+    assert {scoring.WEIGHTS[n] for n in names} == {1}
+
+
+def test_weights_follow_the_ladder():
+    from domain_health_check.ladder import LADDER, TIER_WEIGHT
+    for tier, names in enumerate(LADDER, start=1):
+        assert {scoring.WEIGHTS[n] for n in names} == {TIER_WEIGHT[tier]}
+    assert [TIER_WEIGHT[t] for t in range(1, 7)] == sorted(TIER_WEIGHT.values(), reverse=True)  # never rises
+
+
+def test_email_records_cannot_outweigh_a_missing_main_heading():
+    h1 = scoring.WEIGHTS["Main heading"]
+    for name in ("DKIM (email signatures)", "DMARC (anti-spoofing policy)", "SPF (approved senders)",
+                 "HSTS (always use HTTPS)", "DNSSEC"):
+        assert scoring.WEIGHTS[name] < h1
 
 
 @pytest.mark.parametrize("value, text", [

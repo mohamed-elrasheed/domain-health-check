@@ -217,7 +217,8 @@ def test_reviews_count_only_never_the_rating():
 
 
 def test_weights():
-    assert [scoring.WEIGHTS[n] for n in (bp.PROFILE, bp.COMPLETENESS, bp.WEBSITE_LINK, bp.REVIEWS)] == [3, 2, 2, 1]
+    # Tier 3 of the ladder: customers cannot find the business locally.
+    assert [scoring.WEIGHTS[n] for n in (bp.PROFILE, bp.COMPLETENESS, bp.WEBSITE_LINK, bp.REVIEWS)] == [3, 3, 3, 3]
 
 
 def test_runner_passes_the_business_from_the_config(monkeypatch):

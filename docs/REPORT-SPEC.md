@@ -117,11 +117,20 @@ certificate.
 **Weights** live in a map keyed by check name, in `scoring.py` — not on `CheckResult`. Checks stay
 ignorant of scoring; a check should never know what it is worth.
 
-| Weight | Meaning | Examples |
+Each check's weight is its tier on the owner-cost ladder (see "The top three"), so the score and the
+order of the report rank problems the same way. The ladder lives in `ladder.py` and is read by both.
+
+| Tier | Weight | What it costs the owner |
 |---|---|---|
-| 3 | Costs money, loses mail, or breaks trust | certificate expired or expiring soon, no SPF, no DMARC, domain expiring, no MX |
-| 2 | Real but not urgent | HSTS missing, DNSSEC off, single nameserver, no canonical, missing title or meta description |
-| 1 | Polish | CSP, X-Content-Type-Options, alt text, Open Graph tags, page weight |
+| 1 | 5 | Customers cannot reach the site |
+| 2 | 4 | Google cannot understand the site |
+| 3 | 3 | Customers cannot find the business locally |
+| 4 | 2 | The site is slow enough that people leave |
+| 5 | 1 | Email can be spoofed |
+| 6 | 1 | Hardening |
+
+An earlier table weighted email records at 3 and a missing main heading at 1. That was the same wrong
+proxy the old ordering used.
 
 ```
 earned  = sum(weight × {PASS: 1.0, WARN: 0.5, FAIL: 0.0}[status])
