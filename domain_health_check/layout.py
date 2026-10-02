@@ -24,7 +24,7 @@ from __future__ import annotations
 from .checks import pagespeed, site
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .ladder import CUSTOMER_FACING, LADDER, TIER
-from .scoring import credit, score
+from .scoring import WEIGHTS, credit, score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action",
         Status.INFO: "For information"}
@@ -66,10 +66,23 @@ def confirmed(report: DomainReport) -> list[CheckResult]:
     return [r for r in _findings(report) if r.certain]
 
 
+def points_lost(r: CheckResult) -> float:
+    """What a finding is costing, in one figure: its weight, which tracks the ladder, times how wrong it is."""
+    return WEIGHTS.get(r.name, 1) * (1 - credit(r))
+
+
+def costing_customers(report: DomainReport) -> list[CheckResult]:
+    """Confirmed, customer-facing (tiers 1 to 4) findings that are materially wrong (less than half right), most
+    points lost first, tier breaking ties. A category is not a cost: a tier-2 finding that is 90% right costs
+    almost nothing, a tier-3 finding that is 0% right costs its whole weight. The top section and the one-line
+    reading both come from this list, so they cannot disagree."""
+    found = [r for r in confirmed(report) if tier(r) <= CUSTOMER_FACING and credit(r) < 0.5]
+    return sorted(found, key=lambda r: (-points_lost(r), _rank(r)))
+
+
 def worth_doing(report: DomainReport) -> list[CheckResult]:
-    """Up to three confirmed, customer-facing findings (tiers 1 to 4). Three is a maximum, not a quota: email and
-    hardening findings are never promoted to fill a slot, and a maybe never gets top billing."""
-    return [r for r in confirmed(report) if tier(r) <= CUSTOMER_FACING][:TOP]
+    """At most three, and never padded: a mild finding, a maybe, or an email or hardening item never takes a slot."""
+    return costing_customers(report)[:TOP]
 
 
 def fix_yourself(report: DomainReport) -> list[CheckResult]:
@@ -117,7 +130,7 @@ def headline(report: DomainReport) -> tuple[int | None, str]:
     found = confirmed(report)
     # "Costing you customers" only for customer-facing findings that are materially wrong (less than half right):
     # a description 17 characters too long is not costing anyone customers, a missing one is.
-    costly = [r for r in found if tier(r) <= CUSTOMER_FACING and credit(r) < 0.5]
+    costly = costing_customers(report)
     if len(costly) >= 3:
         return value, "Nothing on your site is broken. Here is what is costing you customers."
     if costly:

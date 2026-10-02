@@ -320,3 +320,45 @@ def test_costing_customers_only_counts_findings_that_are_materially_wrong():
     assert layout.headline(report)[1] == "Nothing on your site is broken. A few small things could be better."
     report.results.append(finding("Google Business Profile", "Google Business Profile"))  # binary, credit 0.25
     assert layout.headline(report)[1] == "Nothing on your site is broken. One thing could be costing you customers."
+
+
+# ---------- the top section ranks by points lost, and shares its list with the reading
+
+def graded(category, name, measure):
+    return CheckResult(category, name, Status.WARN, f"{name} finding.", "Why. More.", "Fix.", measure=measure)
+
+
+def test_mizan_shape_puts_the_unfindable_profile_first_and_drops_the_mild_ones():
+    report = DomainReport("example.com", NOW, [
+        result(0, Status.PASS),
+        graded(SITE, "Meta description", 0.9),                       # tier 2, 0.4 points lost
+        graded(SITE, "Mobile speed", 0.8),                           # tier 4, 0.4 points lost
+        finding("Google Business Profile", "Google Business Profile"),  # tier 3, binary: 2.25 points lost
+    ])
+    assert [r.name for r in layout.worth_doing(report)] == ["Google Business Profile"]
+    assert layout.headline(report)[1] == "Nothing on your site is broken. One thing could be costing you customers."
+
+
+def test_a_category_is_not_a_cost():
+    # A tier-2 finding a third right loses more than a tier-3 binary absence; a tier-2 one 40% right loses less.
+    report = DomainReport("example.com", NOW, [
+        finding("Google Business Profile", "Google Business Profile"),   # 3 x 0.75 = 2.25
+        graded(SITE, "Social preview", 1 / 3),                          # 4 x 0.67 = 2.67
+        graded(SITE, "Image alt text", 0.45),                           # 4 x 0.55 = 2.2
+    ])
+    assert [r.name for r in layout.worth_doing(report)] == ["Social preview", "Google Business Profile",
+                                                            "Image alt text"]
+
+
+def test_equal_points_lost_falls_back_to_the_ladder():
+    report = DomainReport("example.com", NOW, [finding(SITE, "Image alt text"), finding(SITE, "Meta description"),
+                                               finding(SITE, "Main heading")])
+    assert [r.name for r in layout.worth_doing(report)] == ["Main heading", "Meta description", "Image alt text"]
+
+
+def test_top_section_and_reading_count_the_same_list():
+    for report in (flooring_like(), DomainReport("example.com", NOW, [graded(SITE, "Mobile speed", 0.8)])):
+        costly = layout.costing_customers(report)
+        assert layout.worth_doing(report) == costly[:3]
+        sentence = layout.headline(report)[1]
+        assert ("costing you customers" in sentence) == bool(costly)

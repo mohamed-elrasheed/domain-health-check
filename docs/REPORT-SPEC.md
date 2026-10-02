@@ -56,8 +56,12 @@ before uncertain, then broken before risky.
 Weight still decides the score. It was the wrong proxy for what to read first: on a real report it
 opened with two email records while the missing main heading and 31 undescribed images sat below them.
 
-Three confirmed findings, maximum, chosen by the owner-cost ladder below, not by score weight. A finding we
-could not confirm (one that says "may") never appears here; it goes in "Worth checking" near the end. If
+At most three findings, ranked by **points lost** (weight × how wrong it is), with the ladder's tier
+breaking ties. A category is not a cost: a tier-2 finding that is 90% right costs almost nothing, a tier-3
+finding that is 0% right costs its whole weight. Only confirmed, customer-facing (tiers 1 to 4) findings that
+are materially wrong (less than half right) qualify, and three is a maximum, not a quota: never pad it. A
+finding we could not confirm (one that says "may") never appears here; it goes in "Worth checking" near the
+end. The one-line reading counts the same list, so the two cannot disagree. If
 fewer than three things are
 wrong, show fewer. If nothing is wrong, this section says so plainly and the report is short — see
 "When nothing is wrong".
