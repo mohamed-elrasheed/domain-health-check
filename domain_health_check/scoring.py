@@ -54,6 +54,11 @@ WEIGHTS: dict[str, int] = {
     "Mobile speed": 1,
     "Accessibility": 1,
     "Best practices": 1,
+    # Google Business Profile. No profile costs a local business more customers than every header combined.
+    "Google Business Profile": 3,
+    "Profile completeness": 2,
+    "Profile website link": 2,
+    "Reviews": 1,  # the count only; the star rating is never scored
 }
 
 CREDIT = {Status.PASS: 1.0, Status.WARN: 0.5, Status.FAIL: 0.0}

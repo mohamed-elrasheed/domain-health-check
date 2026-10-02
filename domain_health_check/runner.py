@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from . import external, fetcher
-from .checks import dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
+from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
 from .checks.site import content, delivery, indexing, sharing, structured_data
 from .config import DomainConfig
-from .external import ExternalContext
+from .external import Business, ExternalContext
 from .fetcher import FetchError, PageContext, RobotsDisallowed
-from .models import DOMAIN, EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
+from .models import DOMAIN, EMAIL, LOCAL, SITE, WEBSITE, CheckResult, DomainReport, Status
 
 
 def _checks_for(
@@ -58,13 +58,17 @@ def _checks_for(
         (SITE, "Mobile speed", lambda: pagespeed.check_mobile_speed(ext)),
         (SITE, "Accessibility", lambda: pagespeed.check_accessibility(ext)),
         (SITE, "Best practices", lambda: pagespeed.check_best_practices(ext)),
+        (LOCAL, "Google Business Profile", lambda: business_profile.check_profile(ext)),
+        (LOCAL, "Profile completeness", lambda: business_profile.check_completeness(ext)),
+        (LOCAL, "Profile website link", lambda: business_profile.check_website_link(ext, d)),
+        (LOCAL, "Reviews", lambda: business_profile.check_reviews(ext)),
     ]
 
 
 def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainReport:
     now = now or datetime.now(timezone.utc)
     page = _fetch_page(domain.name)
-    ext = _fetch_external(domain.name, page)
+    ext = _fetch_external(domain, page)
     results: list[CheckResult] = []
     for category, name, check in _checks_for(domain, now, page, ext):
         try:
@@ -92,7 +96,7 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
 
 
-def _fetch_external(domain: str, page: PageContext | FetchError) -> ExternalContext:
+def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) -> ExternalContext:
     """Outside services, once per report. We never ask Google to load a page we could not, or were asked
     not to, load ourselves. Like the page fetch, a failure here is reported by the checks, never raised."""
     if isinstance(page, RobotsDisallowed):
@@ -101,7 +105,10 @@ def _fetch_external(domain: str, page: PageContext | FetchError) -> ExternalCont
         url, skipped = None, f"not run, because we could not load the home page ({page.reason})"
     else:
         url, skipped = page.final_url, ""
+    if isinstance(domain, str):
+        domain = DomainConfig(domain)
+    business = Business(domain.business_name, domain.city, domain.phone) if domain.business_name else None
     try:
-        return external.fetch_external(domain, url, skipped)
+        return external.fetch_external(domain.name, url, skipped, business=business)
     except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
         return ExternalContext(errors={"psi_mobile": f"{type(exc).__name__}"})

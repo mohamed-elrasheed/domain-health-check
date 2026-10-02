@@ -214,7 +214,7 @@ def test_full_run_adds_the_speed_rows_and_scores_only_what_ran(fake_dns, monkeyp
     monkeypatch.setattr(fetcher, "fetch_page", lambda d: mizan_page)
     asked = []
     monkeypatch.setattr(runner.external, "fetch_external",
-                        lambda d, url, skipped: asked.append(url) or ExternalContext(psi_mobile=three_runs))
+                        lambda d, url, skipped, **kw: asked.append(url) or ExternalContext(psi_mobile=three_runs))
     report = runner.run_checks(DomainConfig("mizangroupllc.com"), datetime(2026, 10, 1, tzinfo=timezone.utc))
     assert [(r.name, r.status, r.ran) for r in report.results][-4:] == [
         ("Real-world loading speed", Status.PASS, False),

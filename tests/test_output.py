@@ -166,3 +166,12 @@ def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch,
     assert cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--pdf"]) == 2
     assert (tmp_path / "example.com-2026-03-14.md").exists()
     assert "PDF output" in capsys.readouterr().err
+
+
+def test_cli_passes_form_details(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "run_checks", lambda d: seen.append(d) or sample_report(Status.PASS))
+    cli.main(["example.com", "-o", str(tmp_path), "--no-color", "--business-name", " Example Plumbing ",
+              "--city", "Springfield", "--phone", "555-010-0100"])
+    assert seen == [DomainConfig("example.com", business_name="Example Plumbing", city="Springfield",
+                                 phone="555-010-0100")]

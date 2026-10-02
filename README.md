@@ -143,6 +143,27 @@ ourselves.
 - A timeout, an API error or a skipped test is one "Google speed test" row that did not run, and is
   left out of the score.
 
+### Google Business Profile (optional, from Google Places)
+
+Runs only when `PLACES_API_KEY` is set and the business name is known (`--business-name`, or
+`business_name` in `domains.yaml`). The `/digital` form submits it as `business-name`, with the optional
+`city` beside it; the phone number arrives in one of the form's unnamed `field-N` slots.
+
+| Check | Weight | PASS | WARN | Not run |
+|---|---|---|---|---|
+| **Google Business Profile** | 3 | a confirmed listing marked open | closed, or status not stated | no listing could be confirmed as theirs |
+| **Profile completeness** | 2 | website, phone and opening hours all listed | any missing | |
+| **Profile website link** | 2 | links to the domain we checked | missing, or another site | |
+| **Reviews** | 1 | 5 or more | fewer | |
+
+- **A wrong match is worse than none.** A listing is used only when its name closely matches and its
+  website is on the submitted domain, or its phone is the submitted number. A search for one real
+  business returned a different one with a near-identical name; a shared word is never enough.
+- When no listing can be confirmed, that is one "not checked" row. We cannot tell "no profile" from "a
+  profile we could not match", so we never claim the business has none.
+- The star rating is never requested, scored or shown. Field masks are billed by their most expensive
+  field: the search asks only for ids and names, and details are fetched for at most three name matches.
+
 ## Setup
 
 Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML`, `selectolax` and `weasyprint`.

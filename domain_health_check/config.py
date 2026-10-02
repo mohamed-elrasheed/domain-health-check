@@ -23,6 +23,11 @@ class ConfigError(Exception):
 class DomainConfig:
     name: str
     dkim_selectors: list[str] = field(default_factory=list)
+    # From the /digital form, for finding the Google Business Profile. The form submits them as
+    # business-name (required) and city (optional); the phone is one of its unnamed field-N slots.
+    business_name: str = ""
+    city: str = ""
+    phone: str = ""
 
 
 def normalize_domain(value: object) -> str:
@@ -52,7 +57,13 @@ def _parse_entry(entry: object) -> DomainConfig:
         if "name" not in entry:
             raise ConfigError(f"Each domain entry needs a 'name': {entry!r}")
         domain = normalize_domain(entry["name"])
-        return DomainConfig(domain, _parse_selectors(domain, entry.get("dkim_selectors")))
+        extra = {}
+        for key in ("business_name", "city", "phone"):
+            value = entry.get(key, "")
+            if not isinstance(value, (str, int)):
+                raise ConfigError(f"{key} for {domain} must be text")
+            extra[key] = str(value).strip()
+        return DomainConfig(domain, _parse_selectors(domain, entry.get("dkim_selectors")), **extra)
     raise ConfigError(f"Unexpected entry in 'domains': {entry!r}")
 
 

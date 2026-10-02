@@ -11,6 +11,7 @@ WEBSITE = "Website security"
 DOMAIN = "Domain & DNS"
 EMAIL = "Email security"
 SITE = "Site health"
+LOCAL = "Google Business Profile"
 
 
 class Status(str, Enum):

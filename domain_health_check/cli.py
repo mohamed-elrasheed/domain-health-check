@@ -33,6 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--email", action="store_true",
                         help="email each report, PDF attached, to REPORT_RECIPIENT (default SMTP_USERNAME) for "
                              "review. Never to the site owner.")
+    parser.add_argument("--business-name", default="",
+                        help="the business-name from the /digital form, to find its Google Business Profile")
+    parser.add_argument("--city", default="", help="the city from the /digital form")
+    parser.add_argument("--phone", default="", help="the phone number from the /digital form")
     parser.add_argument("--no-color", action="store_true", help="plain terminal output without colours")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
@@ -51,7 +55,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.domains:
-            domains = [DomainConfig(normalize_domain(d)) for d in args.domains]
+            domains = [DomainConfig(normalize_domain(d), business_name=args.business_name.strip(),
+                                    city=args.city.strip(), phone=args.phone.strip()) for d in args.domains]
         else:
             domains = load_config(args.config)
     except ConfigError as exc:
