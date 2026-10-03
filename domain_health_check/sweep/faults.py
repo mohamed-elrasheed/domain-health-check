@@ -22,7 +22,7 @@ from .models import Fault, Page, Robots, Visit
 RANK = (
     "nxdomain",  # the listed address leads nowhere
     "certificate",  # visitors get a browser security warning
-    "robots-error",  # robots.txt answers 5xx or 429, so Google stops crawling
+    "robots-error",  # robots.txt answers 5xx, so Google stops crawling
     "google-blocked",  # robots.txt keeps Google off the home page
     "staging-link",  # a live link points at a temporary development address
     "placeholder",  # template placeholders showing on the live page
@@ -138,7 +138,9 @@ def certificate(url: str, detail: str) -> Fault:
 
 
 def evaluate_robots(robots: Robots) -> list[Fault]:
-    if robots.status == 429 or robots.status >= 500:
+    """A 5xx robots.txt and a Disallow that keeps Google off the home page. A 429 is not here: it answers the
+    client that asked, so all it shows is that the site rate-limited us, not what it tells Google."""
+    if robots.status >= 500:
         return [Fault("robots-error", f"Their robots.txt file answers with a server error (HTTP {robots.status}), "
                                       "and Google stops crawling the whole site while it does.",
                       quote=f"HTTP {robots.status}")]
@@ -225,41 +227,62 @@ SRCSETS = ("srcset", "data-srcset")
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)")
 PHOTO = re.compile(r"(?i)\.(jpe?g|webp|png)(\b|$)")
 STOCK_FOLDERS = {"stock", "stock-photos", "stock-images", "demo", "demos", "demo-content", "demo-data",
-                 "demo-images", "dummy", "dummy-content", "dummy-images", "sample-data"}
+                 "demo-images", "dummy", "dummy-content", "dummy-images", "sample-data",
+                 "getty", "istock", "shutterstock", "adobestock"}  # builder libraries, e.g. /isteam/getty/<id>
 PLACEHOLDER_FOLDERS = {"placeholder", "placeholders"}
 WIX_STOCK = ("11062b_", "nsplsh_")  # Wix's own media library and its Unsplash imports
 
 
+# Not a picture of anything: fonts, icons, logos, spacers, maps.
+NOT_A_PICTURE = re.compile(r"(?i)(\.(svg|gif|ico|woff2?|ttf|otf|eot)$|logo|icon|favicon|sprite|spacer|blank|"
+                           r"transparent)")
+
+
+def picture_key(url: str) -> str:
+    """One key per picture, however many sizes it is served in: no query, and no resizing instructions
+    (builders put them after "/:/" or "/v1/")."""
+    parts = urlsplit(url)
+    path = re.split(r"/:/|/v1/", parts.path, maxsplit=1)[0]
+    return f"{(parts.hostname or '').lower()}{path}"
+
+
+def _not_a_picture(url: str) -> bool:
+    parts = urlsplit(url)
+    return bool(NOT_A_PICTURE.search(parts.path.rstrip("/").rsplit("/", 1)[-1])) or \
+        (parts.hostname or "").endswith("maps.googleapis.com")
+
+
 def images(tree: HTMLParser, page_url: str) -> list[list[str]]:
-    """Every image on the page, each as the real addresses it can load from: the lazy-load attributes
-    before src (a data: URI in src is a placeholder, not the picture), every size in its srcset, and the
-    sources of its <picture>. A CSS background image is one image. Counted per image, not per address."""
-    def resolve(values) -> list[str]:
-        out = []
-        for value in values:
-            value = (value or "").strip()
-            if value and not value.startswith("data:"):
-                out.append(urljoin(page_url, value))
-        return out
+    """Every distinct picture on the page, each as the addresses it loads from. For an <img> that means the
+    lazy-load attributes before src (a data: URI in src is a placeholder, not the picture), every size in its
+    srcset and the sources of its <picture>. Backgrounds count too, from style attributes and from <style>
+    blocks, where builders put their hero images. The same picture at several sizes counts once."""
+    pictures: dict[str, list[str]] = {}
+
+    def add(values) -> None:
+        resolved = [urljoin(page_url, v.strip()) for v in values if v and v.strip() and
+                    not v.strip().startswith("data:")]
+        resolved = [u for u in resolved if not _not_a_picture(u)]
+        if resolved:
+            known = pictures.setdefault(picture_key(resolved[0]), [])
+            known.extend(u for u in resolved if u not in known)
 
     def srcset(node: Node) -> list[str]:
         return [c.strip().split(" ")[0] for key in SRCSETS for c in (node.attributes.get(key) or "").split(",")
                 if c.strip()]
 
-    found: list[list[str]] = []
     for img in tree.css("img"):
         lazy = [img.attributes.get(k) for k in IMAGE_SOURCES[1:] if img.attributes.get(k)]
-        addresses = lazy[:1] or [img.attributes.get("src")]
-        addresses += srcset(img)
+        addresses = (lazy[:1] or [img.attributes.get("src")]) + srcset(img)
         if img.parent is not None and img.parent.tag == "picture":
             addresses += [a for source in img.parent.css("source") for a in srcset(source)]
-        resolved = list(dict.fromkeys(resolve(addresses)))
-        if resolved:
-            found.append(resolved)
-    for node in tree.css("[style]"):
-        found.extend([address] for address in resolve(
-            m.group(1) for m in CSS_URL.finditer(node.attributes.get("style") or "")))
-    return found
+        add(addresses)
+    css = [node.attributes.get("style") or "" for node in tree.css("[style]")]
+    css += [node.text() for node in tree.css("style")]
+    for block in css:
+        for match in CSS_URL.finditer(block):
+            add([match.group(1)])
+    return list(pictures.values())
 
 
 def _vendor_demo_host(url: str, page_url: str) -> str | None:
@@ -282,20 +305,36 @@ def _stock(url: str) -> bool:
         s.startswith(WIX_STOCK) and PHOTO.search(s) for s in segments)
 
 
+def _some_of(n: int, total: int) -> tuple[str, str]:
+    """("2 of the 5 images on the home page", "are"), with "all" and "the one" where they read better."""
+    if total == 1:
+        return "The one image on the home page", "is"
+    if n == total:
+        return f"All {total} images on the home page", "are"
+    return f"{n} of the {total} images on the home page", "is" if n == 1 else "are"
+
+
 def demo_images(tree: HTMLParser, page_url: str) -> Fault | None:
+    """Pictures the owner never replaced. Any image served from the theme vendor's own demo site counts:
+    nobody chooses to hotlink a vendor's demo server. A builder's stock library is different, since owners
+    pick a stock picture on purpose, so it counts only when stock makes up at least half the pictures."""
     every = images(tree, page_url)
-    demo_hosts = [next(h for h in hits if h) for hits in
-                  ([_vendor_demo_host(a, page_url) for a in image] for image in every) if any(hits)]
-    if demo_hosts:
-        name = max(set(demo_hosts), key=demo_hosts.count)
-        return Fault("demo-images", f"The home page is still showing the theme vendor's demo pictures, "
-                                    f"{len(demo_hosts)} of its {len(every)} images served from {name}.",
+    demo = []
+    for image in every:
+        found = next((h for h in (_vendor_demo_host(a, page_url) for a in image) if h), None)
+        if found:
+            demo.append(found)
+    if demo:
+        name = max(set(demo), key=demo.count)
+        subject, verb = _some_of(len(demo), len(every))
+        return Fault("demo-images", f"{subject} {verb} still served from the theme vendor's demo site, {name}.",
                      quote=name)
     stock = [next(a for a in image if _stock(a)) for image in every if any(_stock(a) for a in image)]
-    if stock:
-        example = _shorten(hosts.host(stock[0]) + urlsplit(stock[0]).path)
-        return Fault("demo-images", f"{len(stock)} of the {len(every)} images on the home page are the website "
-                                    f"builder's stock pictures, for example \"{example}\".", quote=stock[0])
+    if stock and 2 * len(stock) >= len(every):
+        subject, verb = _some_of(len(stock), len(every))
+        example = _shorten(picture_key(stock[0]))
+        return Fault("demo-images", f"{subject} {verb} from the website builder's stock library, for example "
+                                    f"\"{example}\".", quote=stock[0])
     return None
 
 
@@ -336,37 +375,31 @@ def staging_links(tree: HTMLParser, page_url: str) -> Fault | None:
     return None
 
 
-# Form tools that submit with a script, whatever the action attribute says.
-SCRIPTED_FORM = re.compile(
-    r"(?i)wpcf7|wpforms|gform|elementor|hs-form|hbspt|ninja|nf-form|formidable|frm_|fluentform|forminator|"
-    r"w-form|wix|sqs|squarespace|mc4wp|mailchimp|jotform|et_pb|fusion-form|caldera|happyforms|kadence|ajax|"
-    r"netlify|formspree|getform|wsform|contact-form|data-wf-|turnstile")
-
-
-def _attributes(node: Node) -> str:
-    return " ".join(f"{k}={v or ''}" for k, v in node.attributes.items())
-
-
 def dead_contact_form(tree: HTMLParser, page_url: str) -> Fault | None:
-    """A contact form (it asks for a message or an email address) whose action is missing, empty, "#",
-    or this same page by GET. A form that posts back to its own page is a normal server-side pattern and is
-    left alone, as is any form a known form tool submits with a script."""
+    """A contact form (it asks for a message or an email address) with nowhere to send it: no action, an
+    empty one, "#", or this same page by GET, on a page that runs no script at all.
+
+    The last condition is the one that makes this provable. Website builders (Squarespace, GoDaddy, Wix,
+    Webflow, Duda) and most hand-built forms submit with a script and carry no action, so in a rendered page
+    a missing action is normal and proves nothing. Only when there is no script to pick the form up does the
+    markup decide where a message goes. A form that posts back to its own page is a normal server-side
+    pattern and is left alone."""
+    if tree.css_first("script"):
+        return None
     for form in tree.css("form"):
         if not form.css_first("textarea, input[type=email]"):
             continue
         if (form.attributes.get("role") or "").lower() == "search" or form.css_first("input[type=search]"):
             continue
-        wrapper = _attributes(form.parent) if form.parent is not None else ""
-        if "onsubmit" in form.attributes or SCRIPTED_FORM.search(f"{_attributes(form)} {wrapper}"):
-            continue
         if "action" not in form.attributes:
             return Fault("contact-form", "The contact form on the home page has no address to send messages to: "
-                                         "its form tag has no action at all.", quote="<form>", selector="form")
+                                         "its form tag has no action at all, and the page runs no script that "
+                                         "could send it.", quote="<form>", selector="form")
         action = (form.attributes.get("action") or "").strip()
         method = (form.attributes.get("method") or "get").strip().lower()
         if action in ("", "#") or action.startswith("#") or (method == "get" and _same_page(
                 urljoin(page_url, action), page_url)):
             return Fault("contact-form", "The contact form on the home page has no address to send messages to: "
-                                         f"its form tag reads action=\"{action}\".", quote=f"action=\"{action}\"",
-                         selector="form")
+                                         f"its form tag reads action=\"{action}\", and the page runs no script that "
+                                         "could send it.", quote=f"action=\"{action}\"", selector="form")
     return None

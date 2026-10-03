@@ -13,9 +13,9 @@ site is fine, and the reason decides what Mo does next. Failure kinds:
     unverified     a certificate our client could not verify but a browser might accept
     timeout        no answer in time, on every attempt
     connection     refused, reset or otherwise unreachable, on every attempt
-    blocked        the site answered 401, 403 or 429: a filter that turns away automated visitors
+    blocked        the site answered 401, 403 or 429 (robots.txt included): it turned us away
     status         the home page answered some other error status
-    robots         robots.txt answered 5xx or 429, so RFC 9309 says load nothing
+    robots         robots.txt answered 5xx, so RFC 9309 says load nothing
     disallowed     robots.txt asks us by name, or everyone, not to load the home page
     redirects      too many redirects
     error          anything else
@@ -173,7 +173,10 @@ def check_status(status: int, where: str) -> None:
 
 def robots_gate(robots: Robots, url: str) -> LoadFailure | None:
     """Whether robots.txt lets us load the home page. RFC 9309: 4xx means no rules; 5xx means load nothing."""
-    if robots.status == 429 or robots.status >= 500:
+    if robots.status == 429:  # rate limited: aimed at us, says nothing about Google, and means stop
+        return LoadFailure("blocked", f"{robots.url} answered HTTP 429 (Too Many Requests), so we did not load "
+                                      "the page")
+    if robots.status >= 500:
         return LoadFailure("robots", f"{robots.url} answered HTTP {robots.status} ({phrase(robots.status)}), so "
                                      "we did not load the page")
     if 400 <= robots.status < 500:

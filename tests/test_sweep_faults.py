@@ -107,14 +107,40 @@ def test_builder_host_is_found_on_the_live_address():
 def test_theme_vendor_demo_images():
     [fault] = found("demo-images.html")
     assert fault.code == "demo-images"
-    assert "3 of its 4 images served from cleaning.sometheme.example" in fault.sentence
+    # The logo is not a picture of anything; the background in a style attribute is.
+    assert fault.sentence == ("All 3 images on the home page are still served from the theme vendor's demo site, "
+                              "cleaning.sometheme.example.")
 
 
 def test_builder_stock_images_resolve_the_real_source():
     # The first image's src is a lazy-load placeholder; its real address is in data-srcset.
     [fault] = found("stock-images.html")
     assert fault.code == "demo-images"
-    assert fault.sentence.startswith("3 of the 3 images on the home page are the website builder's stock pictures")
+    # Two sizes of one picture count once.
+    assert fault.sentence.startswith("All 3 images on the home page are from the website builder's stock library")
+
+
+def test_builder_getty_library_is_stock_and_owner_uploads_are_not():
+    tree = HTMLParser('<body><img src="https://img1.builder-cdn.example/isteam/getty/1234567/:/rs=w:600">'
+                      '<img src="https://img1.builder-cdn.example/isteam/ip/0f0e-site-id/shop.jpg/:/rs=w:600"></body>')
+    fault = faults.demo_images(tree, "https://www.example.com/")
+    assert fault.sentence.startswith("1 of the 2 images on the home page is from the website builder's stock")
+
+
+def test_one_stock_picture_among_the_owners_photos_is_not_a_fault():
+    tree = HTMLParser('<body><img src="https://img1.builder-cdn.example/isteam/getty/1/:/rs=w:600">'
+                      + "".join(f'<img src="/uploads/shop-{n}.jpg">' for n in range(3)) + "</body>")
+    assert faults.demo_images(tree, "https://www.example.com/") is None
+
+
+def test_a_hero_image_in_a_style_block_counts():
+    style = ('@media (max-width: 450px){.hero{background-image:url("//img1.builder-cdn.example/isteam/getty/77/:/'
+             'rs=w:450")}} @media (min-width: 451px){.hero{background-image:url("//img1.builder-cdn.example/'
+             'isteam/getty/77/:/rs=w:1200")}}')
+    tree = HTMLParser(f'<html><head><style>{style}</style></head><body><div class="hero"></div>'
+                      '<img src="/uploads/logo.png"></body></html>')
+    fault = faults.demo_images(tree, "https://www.example.com/")
+    assert fault.sentence.startswith("The one image on the home page is from the website builder's stock library")
 
 
 def test_own_uploads_are_not_stock():
@@ -144,7 +170,7 @@ def test_staging_hosts(url, staging):
 
 
 def test_dead_contact_form():
-    # The newsletter form also posts to "#", but a known form tool submits it with a script.
+    # A page with no script at all: nothing can pick the form up, so its markup decides where a message goes.
     [fault] = found("contact-form.html")
     assert fault.code == "contact-form"
     assert fault.quote == 'action="#"'
@@ -156,16 +182,24 @@ def test_dead_contact_form():
     ('<form action="/" method="get"><textarea></textarea></form>', True),  # the same page, by GET
     ('<form action="/" method="post"><textarea></textarea></form>', False),  # server-side, a normal pattern
     ('<form action="https://forms.example.net/f/123"><textarea></textarea></form>', False),
-    ('<form action="#" class="wpforms-form"><textarea></textarea></form>', False),
-    ('<form action="#" onsubmit="send(event)"><textarea></textarea></form>', False),
     ('<form action="#"><input type="text" name="q"></form>', False),  # not a contact form
-    # A Webflow form: no action, method get, submitted by Webflow's script. The wrapper says so.
-    ('<div class="w-form"><form method="get" data-name="Contact"><textarea></textarea></form></div>', False),
-    ('<form method="get" data-wf-page-id="1" data-wf-element-id="2"><textarea></textarea></form>', False),
+    ('<form role="search"><input type="email"></form>', False),
 ])
-def test_contact_forms(form, dead):
+def test_contact_forms_on_a_page_without_scripts(form, dead):
     tree = HTMLParser(f"<body>{form}</body>")
     assert (faults.dead_contact_form(tree, "https://www.example.com/") is not None) is dead
+
+
+@pytest.mark.parametrize("form", [
+    # How website builders and hand-built pages ship forms: no action, submitted by a script.
+    '<div class="w-form"><form method="get" data-name="Contact"><textarea></textarea></form></div>',
+    '<form class="react-form-contents" novalidate><input type="email"><textarea></textarea></form>',
+    '<form data-ux="Form"><textarea></textarea></form>',
+    '<form id="quote" novalidate><input type="email"></form>',
+])
+def test_a_form_on_a_page_with_any_script_is_not_judged(form):
+    tree = HTMLParser(f"<body>{form}<script>document.getElementById('x')</script></body>")
+    assert faults.dead_contact_form(tree, "https://www.example.com/") is None
 
 
 def test_no_viewport():
@@ -190,8 +224,9 @@ def test_robots_server_error():
     assert fault.code == "robots-error" and "(HTTP 500)" in fault.sentence
 
 
-def test_robots_429_counts_as_a_server_error():
-    assert [f.code for f in faults.evaluate_robots(robots("", 429))] == ["robots-error"]
+def test_robots_429_is_not_a_fault_for_them():
+    # A 429 answers whoever asked. It shows the site rate-limited us, not what it tells Google.
+    assert faults.evaluate_robots(robots("", 429)) == []
 
 
 def test_disallow_that_covers_the_home_page():

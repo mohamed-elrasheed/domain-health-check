@@ -136,6 +136,12 @@ def test_robots_server_error_is_weak_and_the_page_is_not_loaded():
     assert [r.url.path for r in seen] == ["/robots.txt"]  # RFC 9309: a 5xx robots.txt means load nothing
 
 
+def test_robots_rate_limiting_us_is_unver_and_honored():
+    result, seen, _ = sweep(["https://www.example.com/"], {"/robots.txt": httpx.Response(429)})
+    assert result.verdict == "unver" and result.visits[0].failure == "blocked"
+    assert [r.url.path for r in seen] == ["/robots.txt"]
+
+
 def test_robots_that_blocks_everyone_is_weak_and_honored():
     routes = {"/robots.txt": httpx.Response(200, text=(SYNTHETIC / "robots-disallow-home.txt").read_text())}
     result, seen, _ = sweep(["https://www.example.com/"], routes)
