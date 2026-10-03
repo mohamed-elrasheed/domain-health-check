@@ -220,6 +220,40 @@ Every report is written to `reports/<domain>-<date>.md` and `.pdf` (gitignored; 
 latest report per domain is kept: writing a new one deletes that domain's older reports. A stale scan is
 misleading, and the check is cheap to run again.
 
+### Sweep (our own prospecting)
+
+`sweep` is a separate command with its own entry point, not a mode of the report. It reads a lead list,
+classifies each business, and writes the result for us alone:
+
+```powershell
+pip install -e ".[sweep]"; playwright install chromium     # once, for screenshots
+domain-health-check-sweep leads.json                        # every lead
+domain-health-check-sweep leads.json --trade barber         # one trade: auto, barber, cleaning, landscaping, food
+domain-health-check-sweep leads.json --only some-lead-id    # specific leads
+domain-health-check-sweep leads.json --no-browser           # HTML as delivered, no screenshots
+```
+
+| Verdict | Meaning |
+|---|---|
+| `none` | No site they own. A Facebook page, a booking link, a delivery app or a directory listing does not count. |
+| `weak` | A site of their own with a specific, nameable fault. |
+| `unver` | Every attempt failed or was blocked. The reason is recorded, because it decides what to do next. |
+| `good` | Leave them alone. |
+
+A `weak` verdict comes with the single most damaging fault, as one sentence quoting the page: a domain that does
+not exist, a certificate warning, a robots.txt that answers with a server error or keeps Google off the home page,
+a live link to a staging address, template placeholders on the page, no mobile layout, a free builder subdomain,
+the template's demo or stock pictures, a contact form with nowhere to send, or a copyright year two or more years
+behind.
+
+Each business costs one visit: robots.txt, then the home page, which `sweep` honors, loads once in a browser at
+phone width, photographs at 390 by 844 and again at 1280 wide, and closes. Nothing else is requested, nothing is
+sent, and no report or PDF is written. Output goes to `sweep-output/<lead-id>/` (gitignored). The lead list and
+everything under `sweep-output/` describe real businesses and must never be committed.
+
+The two modes are kept apart in code: `tests/test_sweep_wall.py` fails if anything `sweep` imports can reach
+registry, DNS, TLS, report, PDF or mail code, and runs a sweep in a fresh interpreter to check what actually loaded.
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report

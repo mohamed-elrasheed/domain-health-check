@@ -20,9 +20,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pypdf>=4"]
+# sweep loads each page in a real browser so it can photograph it. Then: playwright install chromium
+sweep = ["playwright>=1.45"]
 
 [project.scripts]
 domain-health-check = "domain_health_check.cli:main"
+domain-health-check-sweep = "domain_health_check.sweep.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["domain_health_check*"]

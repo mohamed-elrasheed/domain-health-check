@@ -1,0 +1,5 @@
+User-agent: domain-health-check
+Disallow: /
+
+User-agent: *
+Allow: /

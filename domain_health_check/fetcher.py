@@ -24,9 +24,7 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 
 from . import robots as robots_txt
-
-USER_AGENT = "domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)"
-ROBOTS_TOKEN = "domain-health-check"  # the product token robots.txt groups match against
+from .identity import ROBOTS_TOKEN, USER_AGENT  # noqa: F401 (re-exported: fetcher owns the report's fetch)
 TIMEOUT_SECONDS = 10  # per connect / read, as httpx measures it
 TOTAL_SECONDS = 30  # one download, including redirects and a slow trickle of bytes
 MAX_REDIRECTS = 5
