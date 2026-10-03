@@ -20,3 +20,12 @@ dist/
 
 # Real third-party integration targets stay on the machine that runs them.
 tests/integration/sites.txt
+
+# Prospecting. Real businesses never go in this public repo: not the lead list, not their pages,
+# not screenshots of their sites, and not the script that measures sweep against the hand verdicts.
+leads.json
+sweep-output/
+scripts/check_against_leads.py
+
+# Records of every report run under --authorized. Local only.
+logs/
