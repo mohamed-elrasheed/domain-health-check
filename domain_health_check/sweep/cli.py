@@ -94,6 +94,7 @@ def write(result: SweepResult, out: Path) -> None:
     for visit in data["visits"]:  # the page itself stays out of the record; the verdict quotes what matters
         if visit["page"]:
             visit["page"].pop("html")
+            visit["page"].pop("visible_text")
     (folder / "result.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 

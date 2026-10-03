@@ -39,12 +39,34 @@ def test_placeholders_quote_the_code_and_count_it():
     assert '"{{placeholder_hero_banner}}" and "{{placeholder_intro_copy}}", in 5 places in all' in fault.sentence
 
 
+def test_hidden_placeholders_are_not_shown_to_visitors():
+    # In the page, but the browser displayed none of it (display: none). Delivered is not seen.
+    html = (SYNTHETIC / "placeholders.html").read_text(encoding="utf-8")
+    shown = "Home About Example Service Center Oil changes and inspections. \u00a9 2026 Example Service Center"
+    hidden = Page("https://www.example.com/", "https://www.example.com/", 200, [], html, True, shown)
+    assert faults.evaluate_page(hidden, YEAR) == []
+    displayed = Page("https://www.example.com/", "https://www.example.com/", 200, [], html, True,
+                     shown + " {{placeholder_hero_banner}}")
+    [fault] = faults.evaluate_page(displayed, YEAR)
+    assert fault.sentence.endswith(': "{{placeholder_hero_banner}}".')
+
+
+def test_a_hidden_copyright_line_is_not_read():
+    html = (SYNTHETIC / "stale-copyright.html").read_text(encoding="utf-8")
+    page = Page("https://www.example.com/", "https://www.example.com/", 200, [], html, True,
+                "Example Barbers Walk-ins welcome.")
+    assert faults.evaluate_page(page, YEAR) == []
+
+
 def test_vendor_labels_count_in_text_and_in_alt_text():
     [fault] = found("vendor-labels.html")
     assert fault.code == "placeholder"
     assert '"Cat-Landing" and "Core Page"' in fault.sentence
+    assert "still shows the template's own labels" in fault.sentence
     tree = HTMLParser('<body><img src="a.jpg" alt="Main Dish Image"></body>')
-    assert faults.placeholders(tree, rendered=False).quote == "Main Dish Image"
+    in_alt = faults.placeholders(tree, rendered=False)
+    assert in_alt.quote == "Main Dish Image"
+    assert "in its hidden image and link descriptions" in in_alt.sentence  # never implies it is on screen
 
 
 def test_vendor_labels_match_the_whole_string_only():

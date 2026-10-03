@@ -57,7 +57,7 @@ class Sweeper:
             try:
                 with self.browser.open(url) as opened:
                     visit.page = opened.page
-                    visit.faults = evaluate_visit(visit, self.year)
+                    visit.faults = confirm_on_screen(visit, self.year, opened.on_screen)
                     if self.out is not None:
                         visit.screenshots = opened.capture(self.out / lead_id,
                                                            visit.faults[0] if visit.faults else None)
@@ -68,6 +68,22 @@ class Sweeper:
                         failure.detail = f"{failure.detail} (on all {n} attempts)"
                     raise
                 self.pacer.pause(5.0)
+
+
+def confirm_on_screen(visit: Visit, year: int, on_screen) -> list:
+    """Evaluate the visit, then check every fault that says visitors see something against what the browser
+    actually shows. Text that is in the page but covered, clipped or hidden is set aside and the visit is
+    evaluated again without it, until every remaining claim has been confirmed. A string in the HTML
+    proves delivery, not effect."""
+    hidden: set[str] = set()
+    confirmed: set[str] = set()
+    while True:
+        found = evaluate_visit(visit, year, frozenset(hidden))
+        pending = [f for f in found if f.on_screen and f.quote not in confirmed]
+        if not pending:
+            return found
+        claim = pending[0]
+        (confirmed if on_screen(claim.quote) else hidden).add(claim.quote)
 
 
 def _normalize(url: str) -> str:

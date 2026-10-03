@@ -13,6 +13,7 @@ class Fault:
     sentence: str  # one sentence Mo can read aloud on a call, quoting what we found
     quote: str = ""  # the exact string found on the page, when there is one
     selector: str = ""  # CSS for the element that shows it, used to photograph the evidence
+    on_screen: bool = False  # the sentence says visitors see quote; a browser confirms it before it stands
 
 
 @dataclass
@@ -31,6 +32,7 @@ class Page:
     redirect_chain: list[tuple[str, int]]
     html: str  # the DOM after scripts ran when rendered is True, otherwise the HTML as delivered
     rendered: bool = False
+    visible_text: str = ""  # what the browser displayed, at phone and at desktop width; rendered pages only
 
 
 @dataclass

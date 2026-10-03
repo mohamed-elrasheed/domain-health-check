@@ -34,6 +34,46 @@ NET_ERRORS = {
 }
 
 
+def _displayed_text(tab) -> str:
+    """The text the browser actually displays (innerText leaves out anything hidden), at phone width and
+    then at desktop width, since a menu collapsed on a phone is shown on a desktop. Widening the window
+    re-lays the page out; it does not request it again."""
+    read = "document.body ? document.body.innerText : ''"
+    phone = tab.evaluate(read)
+    tab.set_viewport_size(DESKTOP)
+    tab.wait_for_timeout(300)
+    desktop = tab.evaluate(read)
+    tab.set_viewport_size(PHONE)
+    tab.wait_for_timeout(300)
+    return f"{phone}\n{desktop}"
+
+
+# Whether some text is on screen for a visitor: the first element holding it that is visible by CSS, has a
+# size, can be scrolled into view, and is the topmost thing at its own centre, so not covered by another
+# section, not clipped away and not parked off-canvas. Leaves the window scrolled to it when found.
+ON_SCREEN = """
+(needle) => {
+  const lower = needle.toLowerCase();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (!node.textContent.toLowerCase().includes(lower)) continue;
+    const el = node.parentElement;
+    if (!el) continue;
+    if (el.checkVisibility && !el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) continue;
+    el.scrollIntoView({block: "center", inline: "center"});
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+    const top = document.elementFromPoint(x, y);
+    if (top && (top === el || el.contains(top) || top.contains(el))) return true;
+  }
+  return false;
+}
+"""
+
+
 class BrowserUnavailable(RuntimeError):
     pass
 
@@ -44,6 +84,20 @@ class Opened:
     def __init__(self, tab, page: Page):
         self._tab = tab
         self.page = page
+
+    def on_screen(self, text: str) -> bool:
+        """Whether a visitor can see text, at phone width or, failing that, at desktop width."""
+        try:
+            if self._tab.evaluate(ON_SCREEN, text):
+                return True
+            self._tab.set_viewport_size(DESKTOP)
+            self._tab.wait_for_timeout(300)
+            return bool(self._tab.evaluate(ON_SCREEN, text))
+        except Exception:  # a page we cannot measure has not shown us anything
+            return False
+        finally:
+            self._tab.set_viewport_size(PHONE)
+            self._tab.wait_for_timeout(300)
 
     def capture(self, folder: Path, fault: Fault | None) -> list[str]:
         """phone.png (390 by 844, as first seen), evidence.png (the fault in view, at phone width, when we
@@ -60,13 +114,17 @@ class Opened:
 
         self._tab.evaluate("window.scrollTo(0, 0)")
         shot("phone.png")
-        if fault and (fault.selector or fault.quote):
+        if fault and fault.on_screen:
             try:
-                target = (self._tab.locator(fault.selector) if fault.selector
-                          else self._tab.get_by_text(fault.quote, exact=False)).first
-                target.scroll_into_view_if_needed(timeout=3000)
+                if self._tab.evaluate(ON_SCREEN, fault.quote):  # scrolls to the copy a visitor can see
+                    shot("evidence.png")
+            except Exception:  # the phone shot still stands
+                pass
+        elif fault and fault.selector:
+            try:
+                self._tab.locator(fault.selector).first.scroll_into_view_if_needed(timeout=3000)
                 shot("evidence.png")
-            except Exception:  # not visible on screen (alt text, say); the phone shot still stands
+            except Exception:  # not on screen; the phone shot still stands
                 pass
         self._tab.set_viewport_size(DESKTOP)
         self._tab.wait_for_timeout(800)
@@ -133,7 +191,8 @@ class Browser:
                 answer = hop.response()
                 chain.insert(0, (hop.url, answer.status if answer else 0))
                 hop = hop.redirected_from
-            page = Page(url, response.url, response.status, chain, tab.content(), rendered=True)
+            page = Page(url, response.url, response.status, chain, tab.content(), rendered=True,
+                        visible_text=_displayed_text(tab))
             yield Opened(tab, page)
         finally:
             context.close()

@@ -284,3 +284,43 @@ def test_only_a_definite_no_such_name_counts_as_nxdomain(errno, kind):
             raise httpx.ConnectError("lookup failed") from cause
     except httpx.ConnectError as exc:
         assert load.classify(exc, "https://www.example.com/").kind == kind
+
+
+# ---------- what visitors actually see
+
+def rendered_visit(html: str) -> Visit:
+    """A rendered page with no displayed-text record, so every text node is a candidate and on_screen decides."""
+    url = "https://www.example.com/"
+    return Visit(url, page=Page(url, url, 200, [], html, rendered=True))
+
+
+def test_template_code_the_browser_cannot_see_is_set_aside():
+    from domain_health_check.sweep.run import confirm_on_screen
+    html = (SYNTHETIC / "placeholders.html").read_text(encoding="utf-8")
+    asked: list[str] = []
+    found = confirm_on_screen(rendered_visit(html), 2026, lambda text: asked.append(text) or False)
+    assert [f.code for f in found] == []  # all hidden: nothing claims visitors see it
+    assert "{{placeholder_hero_banner}}" in asked
+
+
+def test_template_code_the_browser_confirms_stands():
+    from domain_health_check.sweep.run import confirm_on_screen
+    html = (SYNTHETIC / "placeholders.html").read_text(encoding="utf-8")
+    [fault] = confirm_on_screen(rendered_visit(html), 2026, lambda text: True)
+    assert fault.code == "placeholder" and fault.on_screen
+
+
+def test_only_the_code_on_screen_is_quoted():
+    from domain_health_check.sweep.run import confirm_on_screen
+    html = (SYNTHETIC / "placeholders.html").read_text(encoding="utf-8")
+    [fault] = confirm_on_screen(rendered_visit(html), 2026, lambda text: text == "{{placeholder_footer_slot}}")
+    assert fault.quote == "{{placeholder_footer_slot}}" and "hero_banner" not in fault.sentence
+
+
+def test_covered_vendor_labels_are_not_claimed():
+    from domain_health_check.sweep.run import confirm_on_screen
+    html = (SYNTHETIC / "vendor-labels.html").read_text(encoding="utf-8")
+    found = confirm_on_screen(rendered_visit(html), 2026, lambda text: False)
+    # The nav labels are covered; the one in alt text is still real, and its sentence says it is hidden.
+    [fault] = found
+    assert fault.quote == "Main Dish Image" and not fault.on_screen and "hidden" in fault.sentence

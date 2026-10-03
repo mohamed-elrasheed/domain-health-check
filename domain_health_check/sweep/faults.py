@@ -38,8 +38,9 @@ def rank(fault: Fault) -> int:
     return RANK.index(fault.code)
 
 
-def evaluate_visit(visit: Visit, year: int) -> list[Fault]:
-    """Every fault one visit shows, most damaging first."""
+def evaluate_visit(visit: Visit, year: int, hidden: frozenset[str] = frozenset()) -> list[Fault]:
+    """Every fault one visit shows, most damaging first. hidden holds strings a browser found in the page but
+    not on screen (covered, clipped, scrolled out of reach); they never count as something visitors see."""
     faults: list[Fault] = []
     if visit.failure == "nxdomain":
         faults.append(nxdomain(visit.url))
@@ -48,20 +49,23 @@ def evaluate_visit(visit: Visit, year: int) -> list[Fault]:
     if visit.robots:
         faults.extend(evaluate_robots(visit.robots))
     if visit.page and hosts.kind(visit.page.final_url) != "third-party":
-        faults.extend(evaluate_page(visit.page, year))
+        faults.extend(evaluate_page(visit.page, year, hidden))
     return sorted(faults, key=rank)
 
 
-def evaluate_page(page: Page, year: int) -> list[Fault]:
+def evaluate_page(page: Page, year: int, hidden: frozenset[str] = frozenset()) -> list[Fault]:
     tree = HTMLParser(page.html)
+    # What the browser actually displayed, when we have it. Text that is in the page but hidden (display:
+    # none, a collapsed block) is delivered, not seen, and a sentence that says visitors see it must be true.
+    shown = collapse(page.visible_text) if page.rendered and page.visible_text else None
     found = [
         staging_links(tree, page.final_url),
-        placeholders(tree, page.rendered),
+        placeholders(tree, page.rendered, shown, hidden),
         missing_viewport(tree),
         builder_host(page.final_url),
         demo_images(tree, page.final_url),
         dead_contact_form(tree, page.final_url),
-        stale_copyright(visible_text(tree), year),
+        stale_copyright(shown if shown is not None else visible_text(tree), year),
     ]
     return sorted((f for f in found if f), key=rank)
 
@@ -87,18 +91,19 @@ def visible_text(tree: HTMLParser) -> str:
     return collapse(visible.body.text(separator=" ")) if visible.body else ""
 
 
-def _readable_strings(tree: HTMLParser) -> list[str]:
-    """Every piece of text a visitor can see or a screen reader reads: text nodes, then alt, title and
-    aria-label values. Scripts and styles are left out, so template code inside them never counts."""
+def _readable_strings(tree: HTMLParser, shown: str | None = None) -> tuple[list[str], list[str]]:
+    """(text a visitor sees, alt/title/aria-label values a screen reader or search engine reads). Scripts and
+    styles are left out, so template code inside them never counts. Given shown, the text the browser
+    displayed, a text node counts only if it appears there: hidden text is not text a visitor sees."""
     visible = _visible_tree(tree)
     if visible.body is None:
-        return []
+        return [], []
     texts = [collapse(node.text(deep=False)) for node in visible.body.traverse(include_text=True)
              if node.tag == "-text"]
-    for node in visible.body.traverse():
-        for name in READABLE_ATTRIBUTES:
-            texts.append(collapse(node.attributes.get(name)))
-    return [t for t in texts if t]
+    shown = shown.lower() if shown is not None else None  # text-transform changes case, not content
+    texts = [t for t in texts if t and (shown is None or t.lower() in shown)]
+    labels = [collapse(node.attributes.get(name)) for node in visible.body.traverse() for name in READABLE_ATTRIBUTES]
+    return texts, [t for t in labels if t]
 
 
 def _same_page(url: str, page_url: str) -> bool:
@@ -172,21 +177,31 @@ LOREM = re.compile(r"(?i)\blorem ipsum\b[^.]{0,40}")
 CLIENT_TEMPLATES = re.compile(r"(?i)\b(ng-app|ng-version|v-cloak|v-app|x-data|data-ng-[a-z]+)\b")
 
 
-def placeholders(tree: HTMLParser, rendered: bool) -> Fault | None:
-    strings = _readable_strings(tree)
+def placeholders(tree: HTMLParser, rendered: bool, shown: str | None = None,
+                 hidden: frozenset[str] = frozenset()) -> Fault | None:
+    texts, labels_read = _readable_strings(tree, shown)
+    strings = texts + labels_read
     curly_allowed = rendered or not CLIENT_TEMPLATES.search(tree.html or "")
-    curly = [m for s in strings for m in CURLY.findall(s)] if curly_allowed else []
+    # The sentence says visitors see this code, so only displayed text counts, never an attribute.
+    curly = [m for s in texts for m in CURLY.findall(s) if m not in hidden] if curly_allowed else []
     if curly:
         distinct = list(dict.fromkeys(curly))
         shown = " and ".join(f"\"{c}\"" for c in distinct[:2])
         more = f", in {len(curly)} places in all" if len(curly) > min(len(distinct), 2) else ""
         return Fault("placeholder", f"The live home page shows unfinished template code to visitors: {shown}{more}.",
-                     quote=distinct[0])
-    labels = list(dict.fromkeys(s for s in strings if s.lower() in VENDOR_LABELS))
+                     quote=distinct[0], on_screen=True)
+    displayed = list(dict.fromkeys(s for s in texts if s.lower() in VENDOR_LABELS and s not in hidden))
+    labels = displayed or list(dict.fromkeys(s for s in labels_read if s.lower() in VENDOR_LABELS))
+    labels = [label for label in labels if label not in hidden] if displayed else labels
     if labels:
-        shown = " and ".join(f"\"{label}\"" for label in labels[:2])
+        quoted = " and ".join(f"\"{label}\"" for label in labels[:2])
         noun = "labels" if len(labels) > 1 else "label"
-        return Fault("placeholder", f"The live home page still carries the template's own {noun} {shown}.",
+        if displayed:
+            return Fault("placeholder", f"The live home page still shows the template's own {noun} {quoted}.",
+                         quote=labels[0], on_screen=True)
+        # Only in alt, title or aria-label: real, but not on screen, and the sentence must not imply it is.
+        return Fault("placeholder", f"The live home page still carries the template's own {noun} {quoted} in "
+                                    "its hidden image and link descriptions, which screen readers read aloud.",
                      quote=labels[0])
     lorem = next((m.group(0).strip() for s in strings for m in [LOREM.search(s)] if m), None)
     if lorem:
