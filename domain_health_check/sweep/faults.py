@@ -31,6 +31,7 @@ RANK = (
     "demo-images",  # the template's demo or stock pictures
     "contact-form",  # a contact form with nowhere to send messages
     "stale-copyright",  # copyright year two or more years behind
+    "hidden-label",  # a template label only in alt, title or aria-label: real, but nobody sees it
 )
 
 
@@ -200,7 +201,7 @@ def placeholders(tree: HTMLParser, rendered: bool, shown: str | None = None,
             return Fault("placeholder", f"The live home page still shows the template's own {noun} {quoted}.",
                          quote=labels[0], on_screen=True)
         # Only in alt, title or aria-label: real, but not on screen, and the sentence must not imply it is.
-        return Fault("placeholder", f"The live home page still carries the template's own {noun} {quoted} in "
+        return Fault("hidden-label", f"The live home page still carries the template's own {noun} {quoted} in "
                                     "its hidden image and link descriptions, which screen readers read aloud.",
                      quote=labels[0])
     lorem = next((m.group(0).strip() for s in strings for m in [LOREM.search(s)] if m), None)

@@ -323,4 +323,4 @@ def test_covered_vendor_labels_are_not_claimed():
     found = confirm_on_screen(rendered_visit(html), 2026, lambda text: False)
     # The nav labels are covered; the one in alt text is still real, and its sentence says it is hidden.
     [fault] = found
-    assert fault.quote == "Main Dish Image" and not fault.on_screen and "hidden" in fault.sentence
+    assert fault.code == "hidden-label" and fault.quote == "Main Dish Image" and "hidden" in fault.sentence
