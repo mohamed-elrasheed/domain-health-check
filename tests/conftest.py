@@ -35,6 +35,14 @@ def no_network(monkeypatch):
     monkeypatch.setattr(cli, "ENV_FILE", Path(__file__).parent / "no-such.env")
 
 
+@pytest.fixture(autouse=True)
+def authorization_log(tmp_path, monkeypatch) -> Path:
+    """Where --authorized runs are logged during a test, so no test writes to the real log."""
+    path = tmp_path / "logs" / "report-authorizations.log"
+    monkeypatch.setattr(cli, "AUTHORIZATION_LOG", path)
+    return path
+
+
 @pytest.fixture
 def make_page():
     """Builds a PageContext as if the fetch had succeeded. Override any field by keyword."""

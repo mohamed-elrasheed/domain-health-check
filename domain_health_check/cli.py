@@ -7,13 +7,18 @@ import smtplib
 import sys
 from pathlib import Path
 
-from . import __version__, mailer
+from . import __version__, consent, mailer
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .models import Status
 from .pdf import write_pdf
 from .report import write_report
 from .runner import run_checks
 from .terminal import format_summary, use_color
+
+
+ENV_FILE = Path(".env")  # API keys, never committed; see .env.example
+SMTP_FACTORY = smtplib.SMTP  # replaced in tests, so they never open a socket
+AUTHORIZATION_LOG = Path("logs") / "report-authorizations.log"  # local only, gitignored
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,13 +43,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="the business-name from the /digital form, to find its Google Business Profile")
     parser.add_argument("--city", default="", help="the city from the /digital form")
     parser.add_argument("--phone", default="", help="the phone number from the /digital form")
+    parser.add_argument("--authorized", action="store_true",
+                        help="confirm each domain was submitted through the /digital form. No submissions are "
+                             "recorded yet, so every report needs this, and every use is logged to "
+                             f"{AUTHORIZATION_LOG}")
     parser.add_argument("--no-color", action="store_true", help="plain terminal output without colours")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
 
-ENV_FILE = Path(".env")  # API keys, never committed; see .env.example
-SMTP_FACTORY = smtplib.SMTP  # replaced in tests, so they never open a socket
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,6 +70,16 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+
+    # A report runs only for a domain someone submitted through /digital. Refuse before anything is fetched.
+    unrecorded = [d.name for d in domains if not consent.recorded_submission(d.name)]
+    if unrecorded and not args.authorized:
+        print(f"Error: no /digital submission is recorded for {', '.join(unrecorded)}. Reports run only for "
+              "domains submitted through the form. If you have seen the submission, run again with "
+              f"--authorized; every use is logged to {AUTHORIZATION_LOG}.", file=sys.stderr)
+        return 2
+    if unrecorded:
+        consent.log_authorized(unrecorded, AUTHORIZATION_LOG)
 
     mail = None
     if args.email:  # check before running anything, not after a three-minute run
