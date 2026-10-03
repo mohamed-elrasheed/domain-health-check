@@ -9,8 +9,12 @@ FAIL means something is broken today, never just a risk: a certificate error tha
 security warning, a domain expiring within 30 days, no mail servers, or a site telling Google not to list it. Everything
 else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 
-> **Scope.** We only run these checks on domains submitted through the form at
-> [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent.
+> **Scope.** Full reports run only on domains submitted through the form at
+> [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital); the submission is the consent, and a
+> report is never sent to anyone who did not ask for one. Separately, `sweep` looks at the publicly visible
+> home page of a local business while we research prospects for our own services. That is the same single
+> page view any visitor or search engine makes, its result goes to us and never to the business, and it
+> never produces or sends a report.
 > Each report touches public DNS and registry (RDAP) records, one TLS handshake, and a single page
 > view: the home page plus the `robots.txt` and sitemap files search engines read, the same footprint
 > as one ordinary visitor. It honors `robots.txt` and never opens the sitemaps a sitemap index lists.

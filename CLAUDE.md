@@ -9,13 +9,21 @@ and what to do about it.
 
 ## Scope policy — not negotiable
 
-**Only ever audit a domain that someone submitted through the form on /digital.** Consent comes from the
-submission. Never run this against a domain picked off a prospect list.
+Two modes. The wall between them is the point.
+
+**`report` — consent only.** Only ever produce a report for a domain someone submitted through the form on
+/digital. Consent comes from the submission. A report is never sent to anyone who did not ask for one, and a
+human reviews every one before it goes out.
+
+**`sweep` — our own prospecting.** Loads the publicly visible home page of a local business and classifies it
+(no site / weak site / could not open / fine) for our own lead list. Same footprint as one visitor. Its output
+goes to us and never to the business. It must not call the report path, write a report, or send anything.
+`sweep` is research; `report` is a deliverable. Keep them separable in code, and keep that provable in tests.
 
 | Allowed | Detail |
 |---|---|
-| Registry and DNS | RDAP, DNS records, MX, SPF/DKIM/DMARC, CT logs, TLS handshake. Never touches their web server. |
-| One page view | GET the homepage, `robots.txt`, `sitemap.xml`. Same footprint as any visitor. |
+| Registry and DNS (`report` only) | RDAP, DNS records, MX, SPF/DKIM/DMARC, CT logs, TLS handshake. Never touches their web server. |
+| One page view (both modes) | GET the homepage, `robots.txt`, `sitemap.xml`. Same footprint as any visitor. |
 
 Never, without written authorization: port scans, directory or path probing, vulnerability checks,
 anything touching a login, or multi-page crawling. That is not an audit.
@@ -171,6 +179,10 @@ These produced wrong findings in a real audit. Encode them, do not rediscover th
   Someone submitting their address to a form is not consenting to their page being published in a
   public repository. The same goes for commit messages and test comments: never name another domain or
   describe its findings.
+- **The same rule governs previews.** A proposal page we generate for a prospect carries their name and may
+  show a screenshot of their current site. It lives on our own domain, is marked as a proposal rather than
+  their site, carries `noindex` and a `robots.txt` disallow, and its link goes to that business and nobody
+  else. Never commit a prospect's page content or screenshot to the repository.
 - **We keep the most recent report per domain and nothing older.** A stale scan is misleading, and holding
   data we have no use for is a liability. If someone wants a current picture we run it again; the check
   is cheap. `write_report` and `write_pdf` delete a domain's older reports, and cached PageSpeed
