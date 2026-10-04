@@ -19,6 +19,7 @@ from .terminal import format_summary, use_color
 ENV_FILE = Path(".env")  # API keys, never committed; see .env.example
 SMTP_FACTORY = smtplib.SMTP  # replaced in tests, so they never open a socket
 AUTHORIZATION_LOG = Path("logs") / "report-authorizations.log"  # local only, gitignored
+LEADS_FILE = Path("leads.json")  # sweep's lead list, gitignored; a report never runs on anything in it
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,6 +71,20 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+
+    # The lead list is consent-free by definition: refuse anything on it, before anything else, flag or not.
+    try:
+        listed = consent.lead_domains(LEADS_FILE)
+    except consent.LeadListUnreadable as exc:
+        print(f"Error: cannot check the lead list, so no report runs ({exc}). The report refuses any domain on "
+              f"{LEADS_FILE}; it must be readable at the repository root.", file=sys.stderr)
+        return 2
+    for d in domains:
+        match = consent.on_lead_list(d.name, listed)
+        if match:
+            print(f"Error: {d.name} is on the lead list (as {match}). The lead list is consent-free by "
+                  "definition, so no report runs for it, with or without --authorized.", file=sys.stderr)
+            return 2
 
     # A report runs only for a domain someone submitted through /digital. Refuse before anything is fetched.
     unrecorded = [d.name for d in domains if not consent.recorded_submission(d.name)]

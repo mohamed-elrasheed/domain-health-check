@@ -47,6 +47,16 @@ def no_previews_repository(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def lead_list(tmp_path, monkeypatch) -> Path:
+    """An empty lead list for the report's lead-list check, so no test reads the real one."""
+    path = tmp_path / "lead-list" / "leads.json"
+    path.parent.mkdir()
+    path.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(cli, "LEADS_FILE", path)
+    return path
+
+
+@pytest.fixture(autouse=True)
 def authorization_log(tmp_path, monkeypatch) -> Path:
     """Where --authorized runs are logged during a test, so no test writes to the real log."""
     path = tmp_path / "logs" / "report-authorizations.log"
