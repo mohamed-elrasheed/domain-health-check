@@ -26,12 +26,14 @@ sweep = ["playwright>=1.45"]
 [project.scripts]
 domain-health-check = "domain_health_check.cli:main"
 domain-health-check-sweep = "domain_health_check.sweep.cli:main"
+domain-health-check-preview = "domain_health_check.preview.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["domain_health_check*"]
 
 [tool.setuptools.package-data]
 domain_health_check = ["assets/*.png", "assets/fonts/*.ttf", "assets/fonts/OFL.txt"]
+"domain_health_check.preview" = ["templates/*.html", "templates/*/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

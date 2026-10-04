@@ -1,0 +1,108 @@
+"""domain-health-check-preview: write one prospect's proposal into the private previews repository.
+
+    domain-health-check-preview some-lead-id --previews ../mizan-previews [--push]
+
+Reads the lead from leads.json (read only) and the phone screenshot sweep took from
+sweep-output/<lead-id>/phone.png, and writes public/<lead-id>/ in the previews repository: index.html (the
+proposal), site.html (the proposed home page) and current.png (their site today). It also keeps the
+repository's shared files in place: robots.txt, _headers, _redirects and the root page. With --push it
+commits the lead's folder and pushes. It never writes into this repository.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from datetime import date, datetime
+from pathlib import Path
+
+from ..sweep import hosts
+from . import render
+from .content import LeadError, proposal
+
+SHARED = {
+    "robots.txt": render.ROBOTS_TXT,
+    "_headers": render.HEADERS,
+    "_redirects": render.REDIRECTS,
+    "index.html": render.ROOT_PAGE,
+}
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="domain-health-check-preview",
+                                     description="Write a proposal page for one lead into the private previews repository.")
+    parser.add_argument("lead_id")
+    parser.add_argument("--leads", type=Path, default=Path("leads.json"), help="lead list (default: leads.json)")
+    parser.add_argument("--screenshots", type=Path, default=Path("sweep-output"),
+                        help="where sweep saved its screenshots (default: sweep-output)")
+    parser.add_argument("--previews", type=Path, default=Path("..") / "mizan-previews",
+                        help="the private previews repository (default: ../mizan-previews)")
+    parser.add_argument("--push", action="store_true", help="commit the lead's folder and push")
+    return parser
+
+
+def find_lead(path: Path, lead_id: str) -> dict:
+    for lead in json.loads(path.read_text(encoding="utf-8")):
+        if lead.get("id") == lead_id:
+            return lead
+    raise LeadError(f"no lead with id {lead_id!r} in {path}")
+
+
+def current_site(lead: dict) -> str:
+    """The host of the site they have today: the first listed address that is not someone else's platform."""
+    for _, url in lead.get("links", []):
+        if hosts.kind(url) != "third-party":
+            return hosts.host(url)
+    return ""
+
+
+def write(lead: dict, screenshot: Path, previews: Path, today: date) -> Path:
+    if not (previews / ".git").is_dir():
+        raise LeadError(f"{previews} is not a git repository; create the private previews repository first")
+    if not screenshot.is_file():
+        raise LeadError(f"no screenshot at {screenshot}; run domain-health-check-sweep --only {lead['id']} first")
+    p = proposal(lead, current_site(lead))
+    public = previews / "public"
+    public.mkdir(exist_ok=True)
+    for name, text in SHARED.items():
+        (public / name).write_text(text, encoding="utf-8", newline="\n")
+    folder = public / p.lead_id
+    if folder.exists():
+        shutil.rmtree(folder)  # a stale proposal is replaced, never layered on
+    folder.mkdir()
+    photographed = datetime.fromtimestamp(screenshot.stat().st_mtime).date()
+    (folder / "index.html").write_text(render.proposal_page(p, photographed), encoding="utf-8", newline="\n")
+    (folder / "site.html").write_text(render.site_page(p, today), encoding="utf-8", newline="\n")
+    shutil.copyfile(screenshot, folder / "current.png")
+    return folder
+
+
+def push(previews: Path, lead_id: str) -> None:
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(previews), *args], check=True)
+    git("add", "public")
+    if subprocess.run(["git", "-C", str(previews), "diff", "--cached", "--quiet"]).returncode == 0:
+        print("Nothing changed; nothing to push.")
+        return
+    git("commit", "-q", "-m", f"Proposal for {lead_id}")
+    git("push", "-q")
+
+
+def main(argv: list[str] | None = None, today: date | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        lead = find_lead(args.leads, args.lead_id)
+        folder = write(lead, args.screenshots / args.lead_id / "phone.png", args.previews, today or date.today())
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Wrote {folder}")
+    if not lead.get("hours"):
+        print("  Hours are not on the lead yet; the page shows them as not confirmed.")
+    if args.push:
+        push(args.previews, args.lead_id)
+        print("Pushed.")
+    return 0

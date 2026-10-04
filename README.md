@@ -254,6 +254,16 @@ everything under `sweep-output/` describe real businesses and must never be comm
 The two modes are kept apart in code: `tests/test_sweep_wall.py` fails if anything `sweep` imports can reach
 registry, DNS, TLS, report, PDF or mail code, and runs a sweep in a fresh interpreter to check what actually loaded.
 
+### Previews (proposal pages)
+
+`domain-health-check-preview <lead-id>` writes a proposal page for one lead into a separate, private
+repository (`../mizan-previews` by default), served at `preview.mizangroupllc.com/<lead-id>/`. It puts the
+business's current site, as `sweep` photographed it, beside the site we would build, both at phone width, then
+their own numbers and details. Every page opens with "A proposal for <business>, prepared by Mizan Group LLC.
+Not an official site.", carries `noindex, nofollow`, and the repository disallows all crawling. Facts we do not
+have are shown as missing, never guessed. `--push` commits and pushes the lead's folder. Nothing about a prospect
+is ever written into this repository; it sits behind the same wall test as `sweep`.
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report

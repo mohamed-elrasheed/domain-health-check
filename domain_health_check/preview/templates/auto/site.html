@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>${display_name} | ${trade} in ${town}</title>
+<style>
+  :root {
+    --ink: #121417;
+    --muted: #5d636b;
+    --paper: #fafaf7;
+    --panel: #ffffff;
+    --rule: #e3e1da;
+    --signal: #c2410c;
+    --signal-ink: #ffffff;
+    --dark: #121417;
+    --display: "Arial Narrow", "Roboto Condensed", "Helvetica Neue", Arial, sans-serif;
+    --text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.5 var(--text); }
+  a { color: inherit; }
+  .proposal-bar {
+    background: #f1e7d0; color: #3b2f17; font-size: 13px; line-height: 1.4; padding: 8px 16px; text-align: center;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; border-bottom: 1px solid var(--rule); background: var(--panel);
+  }
+  .wordmark { font: 700 19px/1.15 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+  .call-small {
+    flex: none; background: var(--signal); color: var(--signal-ink); text-decoration: none;
+    font-weight: 600; font-size: 15px; padding: 9px 14px; border-radius: 6px;
+  }
+  .hero { padding: 40px 20px 36px; background: var(--dark); color: #fff; }
+  .eyebrow { margin: 0 0 14px; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #c9ccd1; }
+  h1 {
+    margin: 0; font: 700 clamp(44px, 13vw, 88px)/0.95 var(--display); letter-spacing: -0.01em;
+    text-transform: uppercase; text-wrap: balance;
+  }
+  .actions { display: grid; gap: 12px; margin-top: 32px; max-width: 420px; }
+  .btn {
+    display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 19px;
+    padding: 16px 18px; border-radius: 8px;
+  }
+  .btn-call { background: var(--signal); color: var(--signal-ink); }
+  .btn-map { border: 2px solid #fff; color: #fff; }
+  section { padding: 36px 20px; border-bottom: 1px solid var(--rule); }
+  h2 { margin: 0 0 18px; font: 700 15px/1.2 var(--text); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .proof { display: flex; flex-wrap: wrap; gap: 8px 36px; }
+  .proof b { display: block; font: 700 clamp(72px, 22vw, 120px)/0.9 var(--display); letter-spacing: -0.02em; }
+  .proof span { display: block; margin-top: 6px; color: var(--muted); }
+  .hours { margin: 0; padding: 0; list-style: none; font-size: 18px; }
+  .hours li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--rule); }
+  .hours li:first-child { border-top: 0; }
+  .hours-note { margin: 14px 0 0; color: var(--muted); }
+  .empty { margin: 0; color: var(--muted); font-style: italic; }
+  address { font-style: normal; font-size: 19px; line-height: 1.45; }
+  .visit a { display: inline-block; margin-top: 14px; font-weight: 600; }
+  footer { padding: 28px 20px 40px; font-size: 14px; color: var(--muted); }
+  @media (min-width: 760px) {
+    header, .hero, section, footer { padding-left: max(32px, calc((100vw - 960px) / 2)); padding-right: max(32px, calc((100vw - 960px) / 2)); }
+    .actions { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="proposal-bar" role="note">A proposal for ${name}, prepared by Mizan Group LLC. Not an official site.</div>
+<header>
+  <div class="wordmark">${display_name}</div>
+  ${call_small}
+</header>
+<div class="hero">
+  <p class="eyebrow">${trade} in ${town}${state_suffix}</p>
+  <h1>${display_name}</h1>
+  <div class="actions">
+    ${call_button}
+    ${map_button}
+  </div>
+</div>
+${proof}
+<section aria-labelledby="hours-title">
+  <h2 id="hours-title">Hours</h2>
+  ${site_hours}
+</section>
+<section class="visit" aria-labelledby="visit-title">
+  <h2 id="visit-title">Find us</h2>
+  <address>${address_lines}</address>
+  ${map_link}
+</section>
+<footer>&copy; ${year} ${display_name}</footer>
+</body>
+</html>

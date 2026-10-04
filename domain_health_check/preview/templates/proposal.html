@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Proposal for ${name}</title>
+<style>
+  :root {
+    --ink: #10201f;
+    --muted: #5b6766;
+    --paper: #f6f3ee;
+    --card: #ffffff;
+    --rule: #ddd6ca;
+    --gold: #a8833f;
+    --bar: #10201f;
+    --bar-ink: #f6f3ee;
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--text); }
+  a { color: inherit; }
+  .proposal-bar {
+    background: var(--bar); color: var(--bar-ink); font-size: 14px; line-height: 1.45;
+    padding: 12px 16px; text-align: center;
+  }
+  .proposal-bar strong { font-weight: 600; }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 {
+    font: 600 clamp(26px, 5vw, 40px)/1.15 var(--display); letter-spacing: -0.01em;
+    margin: 0 0 28px; text-wrap: balance;
+  }
+  .compare { display: flex; gap: 16px; justify-content: center; align-items: flex-start; }
+  figure { margin: 0; width: min-content; }  /* as wide as its phone; the caption wraps to fit */
+  .phone {
+    --z: 0.4;
+    zoom: var(--z);
+    width: 410px; height: 864px; border: 10px solid #111; border-radius: 44px; overflow: hidden;
+    background: #fff; box-shadow: 0 24px 48px -24px rgba(16, 32, 31, 0.45);
+  }
+  .phone img, .phone iframe { display: block; width: 390px; height: 844px; border: 0; }
+  .phone img { object-fit: cover; object-position: top; }
+  figcaption { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  figcaption b { display: block; color: var(--ink); font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .host { overflow-wrap: anywhere; }
+  .numbers {
+    display: flex; flex-wrap: wrap; gap: 8px 40px; margin: 48px 0 0; padding: 32px 0;
+    border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  }
+  .number b { display: block; font: 600 clamp(64px, 16vw, 112px)/0.95 var(--display); letter-spacing: -0.03em; }
+  .number span { display: block; margin-top: 8px; font-size: 17px; color: var(--muted); }
+  .numbers .none { color: var(--muted); font-size: 17px; margin: 0; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 14px 28px; margin: 32px 0 0; font-size: 17px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+  dd p { margin: 0; }
+  .hours { margin: 0; padding: 0; list-style: none; }
+  .hours li { display: flex; gap: 16px; flex-wrap: wrap; }
+  .hours li span:first-child { min-width: 11ch; }
+  .empty { color: var(--muted); font-style: italic; }
+  @media (min-width: 560px) { .phone { --z: 0.6; } }
+  @media (min-width: 760px) { .phone { --z: 0.85; } .compare { gap: 40px; } }
+  @media (max-width: 420px) { dl { grid-template-columns: 1fr; gap: 4px; } dd { margin-bottom: 12px; } }
+</style>
+</head>
+<body>
+<div class="proposal-bar" role="note">
+  A proposal for <strong>${name}</strong>, prepared by <a href="https://www.mizangroupllc.com/">Mizan Group LLC</a>. Not an official site.
+</div>
+<main>
+  <h1>Your site today, and the one we would build</h1>
+  <div class="compare">
+    <figure>
+      <div class="phone"><img src="current.png" width="390" height="844" alt="Your home page today, at phone width"></div>
+      <figcaption><b>Today</b><span class="host">${current_host}</span>, photographed ${photographed}</figcaption>
+    </figure>
+    <figure>
+      <div class="phone"><iframe src="site.html" title="The home page we would build" loading="eager" sandbox></iframe></div>
+      <figcaption><b>Proposed</b><a href="site.html">Open it full screen</a></figcaption>
+    </figure>
+  </div>
+  <section class="numbers" aria-label="Your numbers">
+${numbers}
+  </section>
+  <dl>
+    <dt>Business</dt><dd>${name}</dd>
+    <dt>Trade</dt><dd>${trade}</dd>
+    <dt>Phone</dt><dd>${phone}</dd>
+    <dt>Address</dt><dd>${address}</dd>
+    <dt>Hours</dt><dd>${hours}</dd>
+  </dl>
+</main>
+</body>
+</html>

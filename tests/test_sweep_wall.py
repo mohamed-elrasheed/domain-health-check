@@ -75,13 +75,15 @@ def closure(start: set[str]) -> tuple[set[str], set[str]]:
 
 
 def sweep_modules() -> set[str]:
-    return {f"domain_health_check.sweep.{p.stem}" if p.stem != "__init__" else "domain_health_check.sweep"
-            for p in (PACKAGE / "sweep").glob("*.py")}
+    """Every prospecting module: sweep, and preview, which writes the proposal pages."""
+    return {f"domain_health_check.{package}.{p.stem}" if p.stem != "__init__" else f"domain_health_check.{package}"
+            for package in ("sweep", "preview") for p in (PACKAGE / package).glob("*.py")}
 
 
 def test_sweep_reaches_nothing_outside_the_wall():
     ours, _ = closure(sweep_modules())
-    outside_wall = {m for m in ours if m not in ALLOWED and not m.startswith("domain_health_check.sweep")}
+    outside_wall = {m for m in ours if m not in ALLOWED and not m.startswith(("domain_health_check.sweep",
+                                                                              "domain_health_check.preview"))}
     assert not outside_wall, f"sweep can reach report-path code: {sorted(outside_wall)}"
 
 
@@ -92,7 +94,7 @@ def test_sweep_imports_no_dns_tls_mail_or_pdf_library():
 
 def test_the_report_path_cannot_reach_sweep():
     ours, _ = closure({"domain_health_check.cli", "domain_health_check.runner"})
-    assert not {m for m in ours if m.startswith("domain_health_check.sweep")}
+    assert not {m for m in ours if m.startswith(("domain_health_check.sweep", "domain_health_check.preview"))}
 
 
 def test_the_closure_would_catch_a_wiring_mistake():
