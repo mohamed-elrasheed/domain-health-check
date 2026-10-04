@@ -24,42 +24,42 @@ class Sweeper:
     def sweep(self, business: Business) -> SweepResult:
         owned = [u for u in business.urls if hosts.kind(u) != "third-party"]
         elsewhere = [u for u in business.urls if hosts.kind(u) == "third-party"]
-        visits = [self._visit(u, business.id) for u in dict.fromkeys(_normalize(u) for u in owned)]
-        verdict, sentence, fault, also = decide(owned, elsewhere, visits)
+        visits = [self._visit(u, business) for u in dict.fromkeys(_normalize(u) for u in owned)]
+        verdict, sentence, fault, also = decide(owned, elsewhere, visits, business.hand_fault)
         return SweepResult(business.id, business.name, business.trade, verdict, sentence, fault, also,
                            owned, elsewhere, visits)
 
-    def _visit(self, url: str, lead_id: str) -> Visit:
+    def _visit(self, url: str, business: Business) -> Visit:
         if url not in self._visited:
-            self._visited[url] = self._load(url, lead_id)
+            self._visited[url] = self._load(url, business)
         return self._visited[url]
 
-    def _load(self, url: str, lead_id: str) -> Visit:
+    def _load(self, url: str, business: Business) -> Visit:
         visit = visit_robots(url, self.http, self.pacer)
         if visit.failure:
-            visit.faults = evaluate_visit(visit, self.year)
+            visit.faults = evaluate_visit(visit, self.year, business=business.name)
             return visit
         try:
             if self.browser is None:
                 visit.page = attempt(lambda: fetch_page(self.http, url), url, self.pacer, visit)
-                visit.faults = evaluate_visit(visit, self.year)
+                visit.faults = evaluate_visit(visit, self.year, business=business.name)
             else:
-                self._load_in_browser(url, lead_id, visit)
+                self._load_in_browser(url, business, visit)
         except LoadFailure as failure:
             visit.failure, visit.detail = failure.kind, failure.detail
-            visit.faults = evaluate_visit(visit, self.year)
+            visit.faults = evaluate_visit(visit, self.year, business=business.name)
         return visit
 
-    def _load_in_browser(self, url: str, lead_id: str, visit: Visit) -> None:
+    def _load_in_browser(self, url: str, business: Business, visit: Visit) -> None:
         for n in range(1, ATTEMPTS + 1):
             self.pacer.wait(url)
             visit.attempts += 1
             try:
                 with self.browser.open(url) as opened:
                     visit.page = opened.page
-                    visit.faults = confirm_on_screen(visit, self.year, opened.on_screen)
+                    visit.faults = confirm_on_screen(visit, self.year, opened.on_screen, business.name)
                     if self.out is not None:
-                        visit.screenshots = opened.capture(self.out / lead_id,
+                        visit.screenshots = opened.capture(self.out / business.id,
                                                            visit.faults[0] if visit.faults else None)
                 return
             except LoadFailure as failure:
@@ -70,7 +70,7 @@ class Sweeper:
                 self.pacer.pause(5.0)
 
 
-def confirm_on_screen(visit: Visit, year: int, on_screen) -> list:
+def confirm_on_screen(visit: Visit, year: int, on_screen, business: str = "") -> list:
     """Evaluate the visit, then check every fault that says visitors see something against what the browser
     actually shows. Text that is in the page but covered, clipped or hidden is set aside and the visit is
     evaluated again without it, until every remaining claim has been confirmed. A string in the HTML
@@ -78,7 +78,7 @@ def confirm_on_screen(visit: Visit, year: int, on_screen) -> list:
     hidden: set[str] = set()
     confirmed: set[str] = set()
     while True:
-        found = evaluate_visit(visit, year, frozenset(hidden))
+        found = evaluate_visit(visit, year, frozenset(hidden), business)
         pending = [f for f in found if f.on_screen and f.quote not in confirmed]
         if not pending:
             return found
@@ -90,12 +90,21 @@ def _normalize(url: str) -> str:
     return url if "//" in url else f"https://{url}"
 
 
-def decide(owned: list[str], elsewhere: list[str], visits: list[Visit]
+def decide(owned: list[str], elsewhere: list[str], visits: list[Visit], hand_fault: Fault | None = None
            ) -> tuple[str, str, Fault | None, list[str]]:
-    """(verdict, sentence, fault, codes of the lesser faults). Pure, so it is tested without a network."""
+    """(verdict, sentence, fault, codes of the lesser faults). Pure, so it is tested without a network.
+
+    A fault a person found and recorded on the lead competes with the detected ones by rank, and it keeps
+    the lead weak rather than letting it drop to good or unver: the detectors not seeing it is not evidence
+    it is gone. It is marked as found by hand, because hand notes go stale and Mo should look before
+    reading one aloud. It does not apply when every listed address turned out to be someone else's."""
     if not owned:
         return "none", _no_site(elsewhere), None, []
-    faults = sorted((f for v in visits for f in v.faults), key=rank)
+    faults = [f for v in visits for f in v.faults]
+    forwarded = [v for v in visits if v.page and hosts.kind(v.page.final_url) == "third-party"]
+    if hand_fault is not None and len(forwarded) < len(visits):
+        faults.append(hand_fault)
+    faults.sort(key=rank)
     if faults:
         return "weak", faults[0].sentence, faults[0], list(dict.fromkeys(f.code for f in faults[1:]))
     loaded = [v for v in visits if v.page]

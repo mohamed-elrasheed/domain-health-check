@@ -29,17 +29,22 @@ RANK = (
     "no-viewport",  # no mobile layout at all
     "builder-host",  # the live site is on a free builder subdomain
     "demo-images",  # the template's demo or stock pictures
+    "stock-photos",  # no photo of their own anywhere: found by hand, since no detector can tell
     "contact-form",  # a contact form with nowhere to send messages
+    "free-mail",  # a Gmail, Yahoo, AOL or Hotmail contact address on a site with its own domain
+    "weekday-typo",  # a misspelled day in the business hours
     "stale-copyright",  # copyright year two or more years behind
     "hidden-label",  # a template label only in alt, title or aria-label: real, but nobody sees it
 )
 
 
 def rank(fault: Fault) -> int:
-    return RANK.index(fault.code)
+    """Position in RANK. A hand-found fault with a code RANK does not know goes after every known one."""
+    return RANK.index(fault.code) if fault.code in RANK else len(RANK)
 
 
-def evaluate_visit(visit: Visit, year: int, hidden: frozenset[str] = frozenset()) -> list[Fault]:
+def evaluate_visit(visit: Visit, year: int, hidden: frozenset[str] = frozenset(), business: str = ""
+                   ) -> list[Fault]:
     """Every fault one visit shows, most damaging first. hidden holds strings a browser found in the page but
     not on screen (covered, clipped, scrolled out of reach); they never count as something visitors see."""
     faults: list[Fault] = []
@@ -50,23 +55,28 @@ def evaluate_visit(visit: Visit, year: int, hidden: frozenset[str] = frozenset()
     if visit.robots:
         faults.extend(evaluate_robots(visit.robots))
     if visit.page and hosts.kind(visit.page.final_url) != "third-party":
-        faults.extend(evaluate_page(visit.page, year, hidden))
+        faults.extend(evaluate_page(visit.page, year, hidden, business))
     return sorted(faults, key=rank)
 
 
-def evaluate_page(page: Page, year: int, hidden: frozenset[str] = frozenset()) -> list[Fault]:
+def evaluate_page(page: Page, year: int, hidden: frozenset[str] = frozenset(), business: str = "") -> list[Fault]:
+    """Every fault on the home page. business is the name on the lead, used to tell the business's own
+    copyright line from a vendor's."""
     tree = HTMLParser(page.html)
     # What the browser actually displayed, when we have it. Text that is in the page but hidden (display:
     # none, a collapsed block) is delivered, not seen, and a sentence that says visitors see it must be true.
     shown = collapse(page.visible_text) if page.rendered and page.visible_text else None
+    text = shown if shown is not None else visible_text(tree)
     found = [
         staging_links(tree, page.final_url),
         placeholders(tree, page.rendered, shown, hidden),
         missing_viewport(tree),
-        builder_host(page.final_url),
+        builder_host(page.final_url, text, business, hidden),
         demo_images(tree, page.final_url),
         dead_contact_form(tree, page.final_url),
-        stale_copyright(shown if shown is not None else visible_text(tree), year),
+        free_mail(tree, page.final_url, text, hidden),
+        misspelled_weekday(text, hidden),
+        stale_copyright(text, year),
     ]
     return sorted((f for f in found if f), key=rank)
 
@@ -160,12 +170,43 @@ def evaluate_robots(robots: Robots) -> list[Fault]:
 
 # ---------- on the page
 
-def builder_host(final_url: str) -> Fault | None:
+def builder_host(final_url: str, text: str = "", business: str = "",
+                 hidden: frozenset[str] = frozenset()) -> Fault | None:
+    """A live site on a free builder subdomain. When the page's copyright line names someone else, which on
+    a builder is the vendor, the sentence quotes that too: the site does not even carry their name."""
     if not hosts.builder(final_url):
         return None
     name = hosts.host(final_url)
+    line = vendor_copyright(text, business)
+    if line and line not in hidden:
+        return Fault("builder-host", f"Their site lives on a free builder address, {name}, and its footer copyright "
+                                     f"reads \"{line}\", not their own name.", quote=line, on_screen=True)
     return Fault("builder-host", f"Their site lives on a free builder address, {name}, not on a domain of "
                                  "their own.", quote=name)
+
+
+# Words that say what a business does rather than who it is, so they cannot identify its copyright line.
+GENERIC_NAME_WORDS = {
+    "the", "and", "of", "llc", "inc", "co", "company", "group", "auto", "automotive", "care", "repair",
+    "service", "services", "center", "centre", "shop", "motors", "garage", "barber", "barbers", "barbershop",
+    "grooming", "hair", "salon", "cleaning", "clean", "maid", "maids", "lawn", "landscaping", "landscape",
+    "tree", "mowing", "kitchen", "cafe", "restaurant", "bakery", "pizza", "grill", "bbq", "korean", "thai",
+}
+COPYRIGHT_LINE = re.compile(r"(?i)(?:©|\(c\)|copyright)\s*[^|]{0,80}?(?=\s*(?:all rights|\||$|\.\s))")
+
+
+def vendor_copyright(text: str, business: str) -> str | None:
+    """The page's copyright line when it never names the business, or None. Judged only when the name has
+    a distinctive word to look for: "Example" in "Example Auto Care", not "Auto" or "Care"."""
+    words = {w for w in re.findall(r"[a-z0-9]+", business.lower().replace("'", "")) if len(w) >= 3}
+    distinctive = words - GENERIC_NAME_WORDS
+    if not distinctive:
+        return None
+    lines = [collapse(m.group(0)).rstrip(" ,.-") for m in COPYRIGHT_LINE.finditer(text)]
+    lines = [line for line in lines if re.search(r"(19|20)\d{2}", line)]
+    if not lines or any(w in line.lower().replace("'", "") for line in lines for w in distinctive):
+        return None
+    return lines[-1]
 
 
 # A {{name}} that a template engine never filled in. Inside script or style it is code, not a placeholder.
@@ -220,21 +261,90 @@ def missing_viewport(tree: HTMLParser) -> Fault | None:
                                 "shrunk to fit the screen.")
 
 
-# Copyright 2019, (c) 2015-2024, © 2024 and so on. In a range, the year that counts is the last one.
+# Copyright 2019, (c) 2015-2024, © 2000-26, © 2024 and so on. In a range, the year that counts is the last
+# one, and a two-digit end year belongs to the start year's century.
 COPYRIGHT = re.compile(
-    r"(?i)(?:©|\(c\)|copyright)\s*(?:©\s*)?(?:(?:19|20)\d{2}\s*(?:-|–|—|to)\s*)?((?:19|20)\d{2})\b")
+    r"(?i)(?:©|\(c\)|copyright)\s*(?:©\s*)?(?:((?:19|20)\d{2})\s*(?:-|–|—|to)\s*)?((?:19|20)\d{2}|\d{2})\b")
+
+
+def _copyright_year(match: re.Match) -> int | None:
+    start, end = match.group(1), match.group(2)
+    if len(end) == 4:
+        return int(end)
+    return int(start[:2] + end) if start else None  # "© 26" alone is not a year we can read
 
 
 def stale_copyright(text: str, year: int) -> Fault | None:
     """A copyright year two or more years behind. A page with several copyright lines (the theme's and the
     business's) is judged on the latest, and a page with none says nothing either way."""
-    found = [(int(m.group(1)), collapse(m.group(0))) for m in COPYRIGHT.finditer(text)]
+    found = [(y, collapse(m.group(0))) for m in COPYRIGHT.finditer(text) if (y := _copyright_year(m))]
     if not found:
         return None
     latest, quote = max(found)
     if year - latest < 2:
         return None
     return Fault("stale-copyright", f"The copyright line on the home page reads \"{quote}\".", quote=quote)
+
+
+FREE_MAIL = {"gmail.com": "Gmail", "yahoo.com": "Yahoo", "aol.com": "AOL", "hotmail.com": "Hotmail"}
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+
+def free_mail(tree: HTMLParser, page_url: str, text: str, hidden: frozenset[str] = frozenset()) -> Fault | None:
+    """A free webmail contact address on a site that has its own domain: the domain is already paid for,
+    and the address that could carry it does not. A shown address comes first; a mailto link counts even
+    when its text says "Email us"."""
+    if hosts.kind(page_url) != "owned":
+        return None
+    site = hosts.host(page_url).removeprefix("www.")
+    shown = [a for a in EMAIL.findall(text) if a not in hidden]
+    linked = [(node.attributes.get("href") or "")[7:].split("?")[0].strip()
+              for node in tree.css('a[href^="mailto:"]')]
+    for address, on_screen in [(a, True) for a in shown] + [(a, False) for a in linked]:
+        provider = FREE_MAIL.get(address.rsplit("@", 1)[-1].lower())
+        if provider:
+            return Fault("free-mail", f"The contact address on the home page is \"{address}\", a free {provider} "
+                                      f"address, on a site that has its own domain, {site}.", quote=address,
+                         on_screen=on_screen, selector="" if on_screen else f'a[href^="mailto:{address}"]')
+    return None
+
+
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+# Real words close enough to a weekday to look like a typo of one.
+NOT_WEEKDAY_TYPOS = {"today", "someday", "holiday", "holidays", "birthday", "payday", "midday", "everyday",
+                     "weekday", "weekdays", "workday", "doomsday", "heyday", "mayday", "sundae", "sundry", "sunny",
+                     "monkey", "saturn", "friendly", "thirsty", "tuesdays", "monday's"}
+HOURS_CONTEXT = re.compile(r"(?i)\b\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)|\b\d{1,2}:\d{2}\b|\bclosed\b")
+
+
+def _distance(a: str, b: str) -> int:
+    """Levenshtein distance."""
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        previous, row[0] = row[0], i
+        for j, cb in enumerate(b, 1):
+            previous, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, previous + (ca != cb))
+    return row[-1]
+
+
+def misspelled_weekday(text: str, hidden: frozenset[str] = frozenset()) -> Fault | None:
+    """A capitalized word within two letters of a weekday, starting with the same letter, sitting among
+    business hours (a time, "closed", or another day within 80 characters)."""
+    for match in re.finditer(r"\b[A-Z][A-Za-z]{4,10}\b", text):
+        word = match.group(0)
+        lower = word.lower()
+        if lower in WEEKDAYS or lower in NOT_WEEKDAY_TYPOS or lower.rstrip("s") in WEEKDAYS or word in hidden:
+            continue
+        day = next((d for d in WEEKDAYS if d[0] == lower[0] and abs(len(d) - len(lower)) <= 2
+                    and _distance(lower, d) <= 2), None)
+        if day is None:
+            continue
+        window = text[max(0, match.start() - 80):match.end() + 80]
+        if not (HOURS_CONTEXT.search(window) or any(d in window.lower() for d in WEEKDAYS if d != day)):
+            continue
+        return Fault("weekday-typo", f"The business hours on the home page spell {day.capitalize()} as "
+                                     f"\"{word}\".", quote=word, on_screen=True)
+    return None
 
 
 # Lazy-loading plugins put a placeholder in src and the real address in one of these.

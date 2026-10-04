@@ -99,6 +99,8 @@ def test_copyright_two_years_behind():
     ("© 2023 Theme Co. © 2026 Example", False),  # the latest line decides
     ("All rights reserved.", False),  # no year says nothing either way
     ("(c) 2019", True),
+    ("Copyright © 2000-26 Vendor Group", False),  # a two-digit end year: 2026
+    ("© 2010-22 Example", True),
 ])
 def test_copyright_years(text, stale):
     assert (faults.stale_copyright(text, YEAR) is not None) is stale
@@ -310,3 +312,79 @@ def test_every_sentence_follows_the_voice_rules():
         assert not any(c in sentence for c in CONTRACTIONS), sentence
         assert " I " not in f" {sentence} ", sentence
         assert sentence.endswith(".") and ". " not in sentence.replace("Co. ", ""), sentence  # one sentence
+
+
+# ---------- whose name is on it
+
+def test_a_builder_site_carrying_the_vendors_copyright():
+    text = "Welcome to Example Garage. Copyright © 2026 Vendor Software Group, Inc. All rights reserved."
+    fault = faults.builder_host("https://examplegarage.mechanicnet.com/", text, "Example Garage Auto Care")
+    assert fault.sentence == ('Their site lives on a free builder address, examplegarage.mechanicnet.com, and its '
+                              'footer copyright reads "Copyright © 2026 Vendor Software Group, Inc", not their '
+                              'own name.')
+    assert fault.on_screen and fault.quote == "Copyright © 2026 Vendor Software Group, Inc"
+
+
+@pytest.mark.parametrize("text, business", [
+    ("Copyright © 2026 Example Garage. All rights reserved.", "Example Garage Auto Care"),  # their own
+    ("Copyright © 2026 Vendor Group.", "Auto Care Service Center"),  # nothing distinctive to look for
+    ("No copyright line at all.", "Example Garage"),
+])
+def test_vendor_copyright_needs_proof(text, business):
+    assert faults.vendor_copyright(text, business) is None
+
+
+def test_a_hidden_vendor_line_falls_back_to_the_address():
+    text = "Copyright © 2026 Vendor Group."
+    fault = faults.builder_host("https://x.wixsite.com/x", text, "Example Garage",
+                                hidden=frozenset({"Copyright © 2026 Vendor Group"}))
+    assert fault.sentence.endswith("not on a domain of their own.") and not fault.on_screen
+
+
+# ---------- free mail and misspelled days
+
+def test_free_mail_on_a_site_with_its_own_domain():
+    tree = HTMLParser("<body><p>Email us at examplegarage@gmail.com</p></body>")
+    fault = faults.free_mail(tree, "https://www.example.com/", "Email us at examplegarage@gmail.com")
+    assert fault.sentence == ('The contact address on the home page is "examplegarage@gmail.com", a free Gmail '
+                              'address, on a site that has its own domain, example.com.')
+    assert fault.on_screen
+
+
+def test_free_mail_behind_a_mailto_link():
+    tree = HTMLParser('<body><a href="mailto:Shop@Yahoo.com?subject=Hi">Email us</a></body>')
+    fault = faults.free_mail(tree, "https://www.example.com/", "Email us")
+    assert fault.quote == "Shop@Yahoo.com" and "free Yahoo address" in fault.sentence and not fault.on_screen
+    assert fault.selector == 'a[href^="mailto:Shop@Yahoo.com"]'
+
+
+@pytest.mark.parametrize("address, url", [
+    ("office@example.com", "https://www.example.com/"),  # their own domain
+    ("shop@gmail.com", "https://examplegarage.wixsite.com/x"),  # no domain of their own to use
+    ("shop@outlook.com", "https://www.example.com/"),  # not on the list
+])
+def test_free_mail_not_flagged(address, url):
+    tree = HTMLParser(f"<body><p>{address}</p></body>")
+    assert faults.free_mail(tree, url, address) is None
+
+
+@pytest.mark.parametrize("text, typo", [
+    ("Hours: Monday 8am - 6pm Tuesday 8am - 6pm Wenesday 8am - 6pm", "Wenesday"),
+    ("Thrusday: 9:00 to 5:00", "Thrusday"),
+    ("Open Monday to Fridy, closed weekends", "Fridy"),
+    ("Saterday 9 AM to 1 PM", "Saterday"),
+])
+def test_misspelled_weekday(text, typo):
+    fault = faults.misspelled_weekday(text)
+    assert fault.quote == typo and fault.on_screen
+
+
+@pytest.mark.parametrize("text", [
+    "Open today from 9am to 5pm, closed Sunday",  # "today" is a word, not a typo, and lowercase anyway
+    "Monday through Friday 8am to 6pm, Saturdays 9 to 1",  # plurals are fine
+    "Closed for the Holiday on Monday",
+    "Sunny days ahead. Monday 9am",
+    "Wenesday is a fine name for a cat.",  # no hours nearby
+])
+def test_weekday_words_that_are_not_typos(text):
+    assert faults.misspelled_weekday(text) is None

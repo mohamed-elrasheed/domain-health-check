@@ -19,7 +19,7 @@ from pathlib import Path
 from .. import __version__
 from . import hosts, load
 from .browser import Browser, BrowserUnavailable
-from .models import Business, SweepResult
+from .models import Business, Fault, SweepResult
 from .run import Sweeper
 
 # The trades we sweep, in rotation order, with the short codes the lead list uses.
@@ -36,7 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="domain-health-check-sweep",
         description="Classify local businesses (none, weak, unver, good) for Mizan's own lead list. Loads each "
                     "business's home page once, as any visitor would. Never writes a report or contacts anyone.")
-    parser.add_argument("leads", type=Path, help="lead list (JSON); read only")
+    parser.add_argument("leads", type=Path, nargs="?", default=Path("leads.json"),
+                        help="lead list (JSON), read only (default: leads.json, gitignored)")
     parser.add_argument("--trade", help="only this trade: auto, barber, cleaning, landscaping or food")
     parser.add_argument("--only", nargs="+", metavar="ID", help="only these lead ids")
     parser.add_argument("-o", "--output", type=Path, default=Path("sweep-output"),
@@ -56,8 +57,10 @@ def read_leads(path: Path) -> list[Business]:
         if not SAFE_ID.fullmatch(lead_id):
             raise ValueError(f"lead id {lead_id!r} is not URL safe; it becomes a folder name")
         urls = [link[1] if isinstance(link, (list, tuple)) else link for link in lead.get("links", [])]
+        hand = lead.get("hand_fault")
+        hand_fault = Fault(hand["code"], hand["sentence"], hand.get("quote", ""), found_by="hand") if hand else None
         businesses.append(Business(lead_id, lead.get("n") or lead.get("name", ""),
-                                   lead.get("cat") or lead.get("trade", ""), [u for u in urls if u]))
+                                   lead.get("cat") or lead.get("trade", ""), [u for u in urls if u], hand_fault))
     return businesses
 
 
@@ -106,7 +109,8 @@ def write_summary(results: list[SweepResult], out: Path, today: date) -> Path:
         if old != path:
             old.unlink()
     rows = [{"id": r.id, "name": r.name, "trade": r.trade, "verdict": r.verdict, "sentence": r.sentence,
-             "fault": r.fault.code if r.fault else "", "also_found": r.also_found,
+             "fault": r.fault.code if r.fault else "", "found_by": r.fault.found_by if r.fault else "",
+             "also_found": r.also_found,
              "failures": [{"url": v.url, "kind": v.failure, "detail": v.detail} for v in r.visits if v.failure],
              "screenshots": [f"{r.id}/{s}" for v in r.visits for s in v.screenshots]} for r in results]
     path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
@@ -139,7 +143,8 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
                     result = sweeper.sweep(business)
                     write(result, args.output)
                     results.append(result)
-                    print(f"{result.id:32} {result.verdict:6} {result.sentence}", flush=True)
+                    by_hand = "[found by hand, check before using] " if result.fault and                         result.fault.found_by == "hand" else ""
+                    print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}", flush=True)
         except BrowserUnavailable as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 2

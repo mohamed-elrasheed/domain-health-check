@@ -29,3 +29,6 @@ scripts/check_against_leads.py
 
 # Records of every report run under --authorized. Local only.
 logs/
+
+# Fixes to the lead list, as patches. They name real businesses.
+leads-*.patch

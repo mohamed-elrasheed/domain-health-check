@@ -13,7 +13,7 @@ import pytest
 
 from domain_health_check.identity import USER_AGENT
 from domain_health_check.sweep import cli, load
-from domain_health_check.sweep.models import Business, Page, Visit
+from domain_health_check.sweep.models import Business, Fault, Page, Visit
 from domain_health_check.sweep.run import Sweeper, decide
 
 SYNTHETIC = Path(__file__).parent / "fixtures" / "synthetic"
@@ -324,3 +324,42 @@ def test_covered_vendor_labels_are_not_claimed():
     # The nav labels are covered; the one in alt text is still real, and its sentence says it is hidden.
     [fault] = found
     assert fault.code == "hidden-label" and fault.quote == "Main Dish Image" and "hidden" in fault.sentence
+
+
+# ---------- faults found by hand
+
+def test_a_hand_found_fault_keeps_a_lead_weak_and_says_so():
+    hand = Fault("stock-photos", "The photos on the home page are stock photography.", found_by="hand")
+    page = Page("https://www.example.com/", "https://www.example.com/", 200, [], GOOD)
+    verdict, sentence, fault, _ = decide(["https://www.example.com/"], [], [Visit("https://www.example.com/", page=page)], hand)
+    assert verdict == "weak" and fault.found_by == "hand" and sentence == hand.sentence
+
+
+def test_a_hand_note_competes_by_rank():
+    hand = Fault("stock-photos", "Hand note.", found_by="hand")
+    page = Page("https://www.example.com/", "https://www.example.com/", 200, [], GOOD)
+    worse = Fault("builder-host", "Their site lives on a free builder address.")
+    lesser = Fault("free-mail", "The contact address on the home page is a free Gmail address.")
+    visit = Visit("https://www.example.com/", page=page, faults=[worse])
+    assert decide(["https://www.example.com/"], [], [visit], hand)[2] is worse
+    visit = Visit("https://www.example.com/", page=page, faults=[lesser])
+    verdict, _, fault, also = decide(["https://www.example.com/"], [], [visit], hand)
+    assert fault is hand and also == ["free-mail"]
+
+
+def test_an_unknown_hand_code_goes_last():
+    hand = Fault("something-new", "Hand note.", found_by="hand")
+    found = Fault("stale-copyright", "The copyright line reads 2019.")
+    visit = Visit("https://www.example.com/", page=Page("https://www.example.com/", "https://www.example.com/",
+                                                        200, [], GOOD), faults=[found])
+    assert decide(["https://www.example.com/"], [], [visit], hand)[2] is found
+
+
+def test_cli_reads_a_hand_fault_and_marks_it(tmp_path, capsys):
+    path = tmp_path / "leads.json"
+    path.write_text(json.dumps([{"id": "a", "n": "A", "cat": "auto", "links": [["Site", "https://www.example.com/"]],
+                                 "hand_fault": {"code": "stock-photos", "sentence": "Stock photos only."}}]))
+    transport = own_site_and({"https://www.example.com/robots.txt": robots_ok(),
+                              "https://www.example.com/": httpx.Response(200, html=GOOD)})
+    assert cli.main([str(path), "-o", str(tmp_path / "o"), "--no-browser"], transport=transport) == 0
+    assert "weak   [found by hand, check before using] Stock photos only." in capsys.readouterr().out

@@ -14,6 +14,7 @@ class Fault:
     quote: str = ""  # the exact string found on the page, when there is one
     selector: str = ""  # CSS for the element that shows it, used to photograph the evidence
     on_screen: bool = False  # the sentence says visitors see quote; a browser confirms it before it stands
+    found_by: str = "sweep"  # "hand" for a fault a person found and recorded on the lead
 
 
 @dataclass
@@ -54,6 +55,7 @@ class Business:
     name: str
     trade: str
     urls: list[str]
+    hand_fault: Fault | None = None  # found by a person, recorded on the lead; used when sweep finds nothing
 
 
 @dataclass
