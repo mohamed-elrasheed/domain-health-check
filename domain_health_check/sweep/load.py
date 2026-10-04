@@ -55,10 +55,11 @@ BROWSER_WARNINGS = ("expired", "not yet valid", "self-signed", "self signed", "h
 
 
 class LoadFailure(Exception):
-    def __init__(self, kind: str, detail: str):
+    def __init__(self, kind: str, detail: str, retry_after: str = ""):
         super().__init__(detail)
         self.kind = kind
         self.detail = detail
+        self.retry_after = retry_after  # a 429's Retry-After header, for the back-off
 
 
 def phrase(status: int) -> str:
@@ -151,22 +152,23 @@ def _download(http: httpx.Client, url: str, max_bytes: int) -> tuple[httpx.Respo
 def fetch_robots(http: httpx.Client, url: str) -> Robots:
     response, body = _download(http, robots_url(url), ROBOTS_MAX_BYTES)
     return Robots(str(response.url), response.status_code,
-                  body.decode(response.encoding or "utf-8", errors="replace"))
+                  body.decode(response.encoding or "utf-8", errors="replace"),
+                  response.headers.get("retry-after", ""))
 
 
 def fetch_page(http: httpx.Client, url: str) -> Page:
     """The home page as delivered, before any scripts run. Used when there is no browser, and in tests."""
     response, body = _download(http, url, MAX_BYTES)
-    check_status(response.status_code, str(response.url))
+    check_status(response.status_code, str(response.url), response.headers.get("retry-after", ""))
     return Page(url, str(response.url), response.status_code,
                 [(str(r.url), r.status_code) for r in response.history],
                 body.decode(response.encoding or "utf-8", errors="replace"), rendered=False)
 
 
-def check_status(status: int, where: str) -> None:
+def check_status(status: int, where: str, retry_after: str = "") -> None:
     """An error page is a block page or a maintenance notice, never the site, so it is never read."""
     if status in BLOCKED_STATUSES:
-        raise LoadFailure("blocked", f"{where} answered HTTP {status} ({phrase(status)})")
+        raise LoadFailure("blocked", f"{where} answered HTTP {status} ({phrase(status)})", retry_after)
     if status >= 400:
         raise LoadFailure("status", f"{where} answered HTTP {status} ({phrase(status)})")
 
@@ -175,7 +177,7 @@ def robots_gate(robots: Robots, url: str) -> LoadFailure | None:
     """Whether robots.txt lets us load the home page. RFC 9309: 4xx means no rules; 5xx means load nothing."""
     if robots.status == 429:  # rate limited: aimed at us, says nothing about Google, and means stop
         return LoadFailure("blocked", f"{robots.url} answered HTTP 429 (Too Many Requests), so we did not load "
-                                      "the page")
+                                      "the page", robots.retry_after)
     if robots.status >= 500:
         return LoadFailure("robots", f"{robots.url} answered HTTP {robots.status} ({phrase(robots.status)}), so "
                                      "we did not load the page")
@@ -209,9 +211,9 @@ def visit_robots(url: str, http: httpx.Client, pacer: Pacer) -> Visit:
     try:
         visit.robots = attempt(lambda: fetch_robots(http, url), url, pacer, visit)
     except LoadFailure as failure:  # robots.txt unreachable: RFC 9309 says load nothing
-        visit.failure, visit.detail = failure.kind, failure.detail
+        visit.failure, visit.detail, visit.retry_after = failure.kind, failure.detail, failure.retry_after
         return visit
     gate = robots_gate(visit.robots, url)
     if gate:
-        visit.failure, visit.detail = gate.kind, gate.detail
+        visit.failure, visit.detail, visit.retry_after = gate.kind, gate.detail, gate.retry_after
     return visit

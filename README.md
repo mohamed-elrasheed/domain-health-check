@@ -231,25 +231,36 @@ domain-health-check-sweep leads.json                        # every lead
 domain-health-check-sweep leads.json --trade barber         # one trade: auto, barber, cleaning, landscaping, food
 domain-health-check-sweep leads.json --only some-lead-id    # specific leads
 domain-health-check-sweep leads.json --no-browser           # HTML as delivered, no screenshots
+domain-health-check-sweep leads.json --force                # ignore the cache and the cooldown (another visit)
 ```
+
+The verdict answers one question, is there a website job here:
 
 | Verdict | Meaning |
 |---|---|
 | `none` | No site they own. A Facebook page, a booking link, a delivery app or a directory listing does not count. |
 | `weak` | A site of their own with a specific, nameable fault. |
 | `unver` | Every attempt failed or was blocked. The reason is recorded, because it decides what to do next. |
-| `good` | Leave them alone. |
+| `good` | No website job. |
 
 A `weak` verdict comes with the single most damaging fault, as one sentence quoting the page: a domain that does
 not exist, a certificate warning, a robots.txt that answers with a server error or keeps Google off the home page,
-a live link to a staging address, template placeholders on the page, no mobile layout, a free builder subdomain,
-the template's demo or stock pictures, a contact form with nowhere to send, or a copyright year two or more years
-behind.
+a live link to a staging address, template placeholders a visitor can actually see, no mobile layout, a free
+builder subdomain (with the vendor's copyright when it is theirs in the footer), the template's demo or stock
+pictures, or a contact form with nowhere to send. A fault someone found by hand and recorded on the lead competes
+by rank and is marked as found by hand.
+
+Everything real that is not a website job is a flag, and never changes the verdict: a free webmail contact
+address on a site with its own domain, a contact address on a different domain, a misspelled day in the hours,
+an old copyright year. A `good` site with flags is a tune-up or business email job, not a rebuild.
 
 Each business costs one visit: robots.txt, then the home page, which `sweep` honors, loads once in a browser at
 phone width, photographs at 390 by 844 and again at 1280 wide, and closes. Nothing else is requested, nothing is
-sent, and no report or PDF is written. Output goes to `sweep-output/<lead-id>/` (gitignored). The lead list and
-everything under `sweep-output/` describe real businesses and must never be committed.
+sent, and no report or PDF is written. A visit is cached for seven days, and no domain is fetched again within
+seven days of the last fetch; a re-run inside that window re-reads the stored page. A 429 backs the domain off for
+30 days, or longer if its `Retry-After` asks. Output goes to `sweep-output/<lead-id>/`, the cooldown state to
+`sweep-output/_state.json` and cached pages to `sweep-output/_cache/`, all gitignored. The lead list and everything
+under `sweep-output/` describe real businesses and must never be committed.
 
 The two modes are kept apart in code: `tests/test_sweep_wall.py` fails if anything `sweep` imports can reach
 registry, DNS, TLS, report, PDF or mail code, and runs a sweep in a fresh interpreter to check what actually loaded.

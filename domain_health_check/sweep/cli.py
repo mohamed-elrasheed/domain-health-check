@@ -19,8 +19,9 @@ from pathlib import Path
 from .. import __version__
 from . import hosts, load
 from .browser import Browser, BrowserUnavailable
+from .footprint import Deferred, Footprint
 from .models import Business, Fault, SweepResult
-from .run import Sweeper
+from .run import Sweeper, redecide
 
 # The trades we sweep, in rotation order, with the short codes the lead list uses.
 TRADES = {"auto": "auto", "barber": "barber", "cleaning": "clean", "clean": "clean", "landscaping": "land",
@@ -42,6 +43,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--only", nargs="+", metavar="ID", help="only these lead ids")
     parser.add_argument("-o", "--output", type=Path, default=Path("sweep-output"),
                         help="folder for verdicts and screenshots (default: sweep-output, gitignored)")
+    parser.add_argument("--force", action="store_true",
+                        help="fetch even if the domain was fetched in the last 7 days, is backed off after a 429, or "
+                             "has a stored visit. Every forced fetch is another visit to their site.")
     parser.add_argument("--no-browser", action="store_true",
                         help="read the HTML as delivered, without a browser and without screenshots")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -82,14 +86,6 @@ def to_json(result: SweepResult) -> dict:
     return asdict(result)
 
 
-def clear(folder: Path) -> None:
-    """Remove a lead's previous screenshots and verdict, so a stale picture never sits beside a new verdict."""
-    if folder.is_dir():
-        for old in folder.iterdir():
-            if old.is_file() and old.suffix in (".png", ".json"):
-                old.unlink()
-
-
 def write(result: SweepResult, out: Path) -> None:
     folder = out / result.id
     folder.mkdir(parents=True, exist_ok=True)
@@ -111,6 +107,11 @@ def write_summary(results: list[SweepResult], out: Path, today: date) -> Path:
     rows = [{"id": r.id, "name": r.name, "trade": r.trade, "verdict": r.verdict, "sentence": r.sentence,
              "fault": r.fault.code if r.fault else "", "found_by": r.fault.found_by if r.fault else "",
              "also_found": r.also_found,
+             "flags": [{"code": f.code, "sentence": f.sentence} for f in r.flags],
+             "display_name": r.display_name, "display_name_source": r.display_name_source,
+             "deferred_until": r.deferred_until,
+             "from_visit_on": next((v.cached_on for v in r.visits if v.cached_on), ""),
+             "unchecked": [t for v in r.visits for t in v.unchecked],
              "failures": [{"url": v.url, "kind": v.failure, "detail": v.detail} for v in r.visits if v.failure],
              "screenshots": [f"{r.id}/{s}" for v in r.visits for s in v.screenshots]} for r in results]
     path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
@@ -133,18 +134,26 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
             print(f"Error: could not reach {OWN_SITE}. Check the network before sweeping; otherwise every "
                   "business would come back unverified.", file=sys.stderr)
             return 2
+        footprint = Footprint(args.output, today, force=args.force)
         try:
             browser = nullcontext(None) if args.no_browser else Browser()
             with browser as session:
-                sweeper = Sweeper(http, today.year, args.output, session)
+                sweeper = Sweeper(http, today.year, args.output, session, footprint=footprint)
                 results = []
                 for business in businesses:
-                    clear(args.output / business.id)
-                    result = sweeper.sweep(business)
+                    try:
+                        result = sweeper.sweep(business)
+                    except Deferred as deferred:
+                        result = _stored(args.output, business, deferred)
+                        if result is None:
+                            print(f"{business.id:32} deferred, nothing stored: {deferred}", flush=True)
+                            continue
                     write(result, args.output)
                     results.append(result)
                     by_hand = "[found by hand, check before using] " if result.fault and                         result.fault.found_by == "hand" else ""
-                    print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}", flush=True)
+                    when = (f" [deferred: {result.deferred_until}]" if result.deferred_until else
+                            next((f" [from the visit on {v.cached_on}]" for v in result.visits if v.cached_on), ""))
+                    print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}{when}", flush=True)
         except BrowserUnavailable as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 2
@@ -152,6 +161,16 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
     counts = {v: sum(r.verdict == v for r in results) for v in ("none", "weak", "unver", "good")}
     print(f"\n{len(results)} businesses: " + ", ".join(f"{n} {v}" for v, n in counts.items()) + f". {summary}")
     return 0
+
+
+def _stored(out: Path, business: Business, deferred: Deferred) -> SweepResult | None:
+    """The last stored result for a lead whose domain is cooling down, decided again under today's rules."""
+    path = out / business.id / "result.json"
+    if not path.exists():
+        return None
+    result = redecide(json.loads(path.read_text(encoding="utf-8")), business)
+    result.deferred_until = deferred.until.isoformat()
+    return result
 
 
 def _network_ok(http) -> bool:

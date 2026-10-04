@@ -22,6 +22,7 @@ class Robots:
     url: str  # after redirects
     status: int
     text: str
+    retry_after: str = ""  # the Retry-After header, when the site sent one
 
 
 @dataclass
@@ -47,6 +48,9 @@ class Visit:
     attempts: int = 0
     faults: list[Fault] = field(default_factory=list)
     screenshots: list[str] = field(default_factory=list)
+    retry_after: str = ""  # the Retry-After header that came with a 429, if any
+    cached_on: str = ""  # the date of the stored visit this came from, when nothing was fetched
+    unchecked: list[str] = field(default_factory=list)  # on-screen claims no live browser has checked yet
 
 
 @dataclass
@@ -70,3 +74,25 @@ class SweepResult:
     owned: list[str] = field(default_factory=list)  # listed addresses that could be their own site
     elsewhere: list[str] = field(default_factory=list)  # listings on platforms they do not own
     visits: list[Visit] = field(default_factory=list)
+    flags: list[Fault] = field(default_factory=list)  # real, but not a website job; never change the verdict
+    display_name: str = ""  # what the business calls itself on its own site, when we could read it
+    display_name_source: str = ""  # where on their page that came from
+    deferred_until: str = ""  # set when this is a stored result re-decided because the domain is cooling down
+
+
+def fault_from_dict(data: dict) -> Fault:
+    return Fault(**{k: v for k, v in data.items() if k in Fault.__dataclass_fields__})
+
+
+def visit_from_dict(data: dict) -> Visit:
+    """A Visit back from JSON (a cache entry or a result.json)."""
+    fields = {k: v for k, v in data.items() if k in Visit.__dataclass_fields__}
+    if fields.get("robots"):
+        fields["robots"] = Robots(**{k: v for k, v in fields["robots"].items() if k in Robots.__dataclass_fields__})
+    if fields.get("page"):
+        page = {k: v for k, v in fields["page"].items() if k in Page.__dataclass_fields__}
+        page.setdefault("html", "")
+        page["redirect_chain"] = [tuple(hop) for hop in page.get("redirect_chain", [])]
+        fields["page"] = Page(**page)
+    fields["faults"] = [fault_from_dict(f) for f in fields.get("faults", [])]
+    return Visit(**fields)

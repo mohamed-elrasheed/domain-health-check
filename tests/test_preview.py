@@ -81,9 +81,24 @@ def test_a_trade_without_a_template_is_refused():
         content.proposal({**LEAD, "cat": "plumbing"})
 
 
-def test_display_name_drops_the_parenthetical_unless_given():
-    assert content.proposal(LEAD).display_name == "Example Garage & Sons"
-    assert content.proposal({**LEAD, "display_name": "Example Fuel"}).display_name == "Example Fuel"
+def test_the_name_is_theirs_or_ours_unchanged_never_trimmed():
+    assert content.proposal(LEAD).display_name == "Example Garage & Sons (Fuel)"  # ours, exactly
+    assert content.proposal(LEAD, read_name="Example Fuel").display_name == "Example Fuel"  # read from their page
+    lead = {**LEAD, "display_name": "Example Fuel Garage"}
+    assert content.proposal(lead, read_name="Example Fuel").display_name == "Example Fuel Garage"  # the lead wins
+
+
+@pytest.mark.parametrize("lead, read, note", [
+    ({**LEAD, "display_name": "Example Fuel", "display_name_source": "their site header"}, ("", ""),
+     'Name "Example Fuel" is from their site header. Confirm it on the call.'),
+    ({**LEAD, "display_name": "Example Fuel", "display_name_confirmed": True}, ("", ""), ""),
+    (LEAD, ("Example Fuel", "their site footer (copyright line)"),
+     'Name "Example Fuel" was read from their site footer (copyright line). Confirm it on the call.'),
+    (LEAD, ("", ""), 'No name read from their site; the pages use our lead name "Example Garage & Sons (Fuel)". '
+                     "Confirm it on the call."),
+])
+def test_an_unconfirmed_name_is_called_out(lead, read, note):
+    assert cli.name_note(lead, read) == note
 
 
 # ---------- the pages

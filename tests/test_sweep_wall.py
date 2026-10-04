@@ -142,6 +142,9 @@ def test_a_real_sweep_run_never_loads_report_code(tmp_path):
 
     written = sorted(p.relative_to(tmp_path / "sweep-output").as_posix()
                      for p in (tmp_path / "sweep-output").rglob("*") if p.is_file())
-    assert written == ["a/result.json", "b/result.json", written[-1]] and written[-1].startswith("sweep-")
+    leads = [w for w in written if not w.startswith("_")]
+    assert leads == ["a/result.json", "b/result.json", leads[-1]] and leads[-1].startswith("sweep-")
+    footprint = [w for w in written if w.startswith("_")]  # the cooldown state and one cached visit, for a
+    assert footprint[-1] == "_state.json" and len(footprint) == 2  # one fetched site; b was never fetched
     assert not any(p.suffix in (".pdf", ".md", ".eml") for p in tmp_path.rglob("*"))
 

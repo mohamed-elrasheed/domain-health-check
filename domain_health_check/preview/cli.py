@@ -59,12 +59,33 @@ def current_site(lead: dict) -> str:
     return ""
 
 
-def write(lead: dict, screenshot: Path, previews: Path, today: date) -> Path:
+def read_name(screenshots: Path, lead_id: str) -> tuple[str, str]:
+    """(name, where) as sweep read it from their own page on its last visit, or ("", "")."""
+    path = screenshots / lead_id / "result.json"
+    if not path.exists():
+        return "", ""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("display_name", ""), data.get("display_name_source", "")
+
+
+def name_note(lead: dict, read: tuple[str, str]) -> str:
+    """What to say about the name on the pages, so it is confirmed before anything goes live under it."""
+    if lead.get("display_name"):
+        if lead.get("display_name_confirmed"):
+            return ""
+        source = lead.get("display_name_source") or "the lead record"
+        return f"Name \"{lead['display_name']}\" is from {source}. Confirm it on the call."
+    if read[0]:
+        return f"Name \"{read[0]}\" was read from {read[1]}. Confirm it on the call."
+    return f"No name read from their site; the pages use our lead name \"{lead['n']}\". Confirm it on the call."
+
+
+def write(lead: dict, screenshot: Path, previews: Path, today: date, name_read: str = "") -> Path:
     if not (previews / ".git").is_dir():
         raise LeadError(f"{previews} is not a git repository; create the private previews repository first")
     if not screenshot.is_file():
         raise LeadError(f"no screenshot at {screenshot}; run domain-health-check-sweep --only {lead['id']} first")
-    p = proposal(lead, current_site(lead))
+    p = proposal(lead, current_site(lead), name_read)
     public = previews / "public"
     public.mkdir(exist_ok=True)
     for name, text in SHARED.items():
@@ -95,11 +116,16 @@ def main(argv: list[str] | None = None, today: date | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         lead = find_lead(args.leads, args.lead_id)
-        folder = write(lead, args.screenshots / args.lead_id / "phone.png", args.previews, today or date.today())
+        read = read_name(args.screenshots, args.lead_id)
+        folder = write(lead, args.screenshots / args.lead_id / "phone.png", args.previews, today or date.today(),
+                       read[0])
     except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     print(f"Wrote {folder}")
+    note = name_note(lead, read)
+    if note:
+        print(f"  {note}")
     if not lead.get("hours"):
         print("  Hours are not on the lead yet; the page shows them as not confirmed.")
     if args.push:

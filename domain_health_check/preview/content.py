@@ -2,6 +2,10 @@
 
 The lead record is the board's: n (name), cat (trade), town, addr, ph, rating, links, and optionally
 display_name, numbers and hours (see HOURS below).
+
+The name on the pages is what the business calls itself, never one we made up: display_name on the lead
+(set from their own site, confirmed on the call), else the name sweep read from their header or footer,
+else our lead name exactly as recorded. A name is never made by deleting words from ours.
 """
 
 from __future__ import annotations
@@ -52,8 +56,8 @@ class Hours:
 @dataclass
 class Proposal:
     lead_id: str
-    name: str  # as recorded on the lead, used in the proposal line
-    display_name: str  # how the proposed site names them
+    name: str  # our lead name, exactly as recorded
+    display_name: str  # what they call themselves: used in the proposal line and on the proposed site
     trade: str  # "Auto repair"
     template: str  # which site template to use
     town: str
@@ -67,7 +71,8 @@ class Proposal:
     extra: dict = field(default_factory=dict)
 
 
-def proposal(lead: dict, current_host: str = "") -> Proposal:
+def proposal(lead: dict, current_host: str = "", read_name: str = "") -> Proposal:
+    """read_name is the name sweep read from their own page, if any."""
     try:
         lead_id, name, cat = lead["id"], lead["n"].strip(), lead["cat"]
     except KeyError as exc:
@@ -78,17 +83,12 @@ def proposal(lead: dict, current_host: str = "") -> Proposal:
     address = (lead.get("addr") or "").strip()
     maps = next((url for label, url in lead.get("links", []) if label == "Maps"), "")
     return Proposal(
-        lead_id=lead_id, name=name, display_name=(lead.get("display_name") or _plain_name(name)).strip(),
+        lead_id=lead_id, name=name, display_name=(lead.get("display_name") or read_name or name).strip(),
         trade=trade, template=template, town=(lead.get("town") or "").strip(), state=_state(address),
         address=address, phone=(lead.get("ph") or "").strip(),
         numbers=[tuple(n) for n in lead["numbers"]] if lead.get("numbers") else rating_numbers(lead.get("rating", "")),
         hours=hours(lead.get("hours")), maps_url=maps, current_host=current_host,
     )
-
-
-def _plain_name(name: str) -> str:
-    """The name without a parenthetical: "Example Auto Care (Fuel)" reads as "Example Auto Care"."""
-    return re.sub(r"\s*\([^)]*\)\s*", " ", name).strip() or name
 
 
 STATES = {"VA": "Virginia", "MD": "Maryland", "DC": "Washington, DC"}

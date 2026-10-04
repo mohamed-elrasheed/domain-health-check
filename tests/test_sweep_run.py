@@ -182,7 +182,8 @@ def test_the_worst_fault_across_two_addresses_wins():
     routes = {"https://www.example.com/robots.txt": robots_ok(), "https://www.example.com/": httpx.Response(200, html=old),
               "https://www.example-old.com/robots.txt": nxdomain_error()}
     result, _, _ = sweep(["https://www.example.com/", "https://www.example-old.com/"], routes)
-    assert result.verdict == "weak" and result.fault.code == "nxdomain" and result.also_found == ["stale-copyright"]
+    assert result.verdict == "weak" and result.fault.code == "nxdomain" and result.also_found == []
+    assert [f.code for f in result.flags] == ["stale-copyright"]  # a flag, never a website fault
 
 
 def test_an_address_listed_by_two_leads_is_visited_once():
@@ -331,7 +332,7 @@ def test_covered_vendor_labels_are_not_claimed():
 def test_a_hand_found_fault_keeps_a_lead_weak_and_says_so():
     hand = Fault("stock-photos", "The photos on the home page are stock photography.", found_by="hand")
     page = Page("https://www.example.com/", "https://www.example.com/", 200, [], GOOD)
-    verdict, sentence, fault, _ = decide(["https://www.example.com/"], [], [Visit("https://www.example.com/", page=page)], hand)
+    verdict, sentence, fault, _, _ = decide(["https://www.example.com/"], [], [Visit("https://www.example.com/", page=page)], hand)
     assert verdict == "weak" and fault.found_by == "hand" and sentence == hand.sentence
 
 
@@ -343,13 +344,13 @@ def test_a_hand_note_competes_by_rank():
     visit = Visit("https://www.example.com/", page=page, faults=[worse])
     assert decide(["https://www.example.com/"], [], [visit], hand)[2] is worse
     visit = Visit("https://www.example.com/", page=page, faults=[lesser])
-    verdict, _, fault, also = decide(["https://www.example.com/"], [], [visit], hand)
-    assert fault is hand and also == ["free-mail"]
+    d = decide(["https://www.example.com/"], [], [visit], hand)
+    assert d.fault is hand and d.also_found == [] and [f.code for f in d.flags] == ["free-mail"]
 
 
 def test_an_unknown_hand_code_goes_last():
     hand = Fault("something-new", "Hand note.", found_by="hand")
-    found = Fault("stale-copyright", "The copyright line reads 2019.")
+    found = Fault("contact-form", "The contact form has nowhere to send.")
     visit = Visit("https://www.example.com/", page=Page("https://www.example.com/", "https://www.example.com/",
                                                         200, [], GOOD), faults=[found])
     assert decide(["https://www.example.com/"], [], [visit], hand)[2] is found
@@ -363,3 +364,19 @@ def test_cli_reads_a_hand_fault_and_marks_it(tmp_path, capsys):
                               "https://www.example.com/": httpx.Response(200, html=GOOD)})
     assert cli.main([str(path), "-o", str(tmp_path / "o"), "--no-browser"], transport=transport) == 0
     assert "weak   [found by hand, check before using] Stock photos only." in capsys.readouterr().out
+
+
+def test_a_good_site_with_only_flags_stays_good():
+    page = Page("https://www.example.com/", "https://www.example.com/", 200, [], GOOD)
+    flag = Fault("free-mail", "The contact address on the home page is a free Gmail address.")
+    d = decide(["https://www.example.com/"], [], [Visit("https://www.example.com/", page=page, faults=[flag])])
+    assert d.verdict == "good" and d.sentence == "" and d.flags == [flag]
+
+
+def test_sweep_reads_their_name_from_the_page():
+    html = GOOD.replace('<header><a href="/">Example Auto Care</a>', '<header><a href="/">Example Fuel</a>')
+    transport = site({"/robots.txt": robots_ok(), "/": httpx.Response(200, html=html)})
+    with load.client(transport) as http:
+        result = Sweeper(http, 2026, pacer=FakePacer()).sweep(
+            Business("lead", "Example Auto Care (Fuel)", "auto", ["https://www.example.com/"]))
+    assert (result.display_name, result.display_name_source) == ("Example Fuel", "their site header")

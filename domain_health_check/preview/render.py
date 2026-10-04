@@ -48,7 +48,7 @@ def hours_list(h: Hours | None, empty: str) -> str:
 
 def proposal_page(p: Proposal, photographed: date) -> str:
     return _t("proposal.html").substitute(
-        name=esc(p.name),
+        name=esc(p.display_name),
         current_host=esc(p.current_host),
         photographed=_long_date(photographed),
         numbers=numbers(p),
@@ -70,7 +70,7 @@ def site_page(p: Proposal, today: date) -> str:
     street, _, rest = p.address.partition(", ")
     address_lines = f"{esc(street)}<br>{esc(rest)}" if rest else esc(p.address)
     return _t(f"{p.template}/site.html").substitute(
-        name=esc(p.name),
+        name=esc(p.display_name),
         display_name=esc(p.display_name),
         trade=esc(p.trade),
         town=esc(p.town),

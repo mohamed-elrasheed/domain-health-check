@@ -180,7 +180,7 @@ class Browser:
                 raise LoadFailure(kind, message) from None
             if response is None:
                 raise LoadFailure("error", "the browser got no response")
-            check_status(response.status, response.url)
+            check_status(response.status, response.url, response.headers.get("retry-after", ""))
             try:
                 tab.wait_for_load_state("networkidle", timeout=SETTLE_MS)
             except PlaywrightTimeout:

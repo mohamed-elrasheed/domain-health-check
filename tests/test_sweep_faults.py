@@ -388,3 +388,27 @@ def test_misspelled_weekday(text, typo):
 ])
 def test_weekday_words_that_are_not_typos(text):
     assert faults.misspelled_weekday(text) is None
+
+
+# ---------- flags: real, but not a website job
+
+def test_email_on_another_domain():
+    tree = HTMLParser('<body><a href="mailto:office@examplelawn-services.com">Email us</a></body>')
+    fault = faults.email_mismatch(tree, "https://www.examplelawn.com/", "Email us")
+    assert fault.sentence == ('The contact address on the home page is "office@examplelawn-services.com", on '
+                              'examplelawn-services.com, a different domain from the site, examplelawn.com.')
+
+
+@pytest.mark.parametrize("address", [
+    "office@examplelawn.com", "office@mail.examplelawn.com",  # their own domain
+    "you@yourdomain.com", "name@example.com",  # template placeholders
+    "logo@2x.png",  # an image name, not an address
+    "examplelawn@gmail.com",  # free webmail is free_mail's finding
+])
+def test_email_mismatch_ignores(address):
+    tree = HTMLParser(f"<body><p>{address}</p></body>")
+    assert faults.email_mismatch(tree, "https://www.examplelawn.com/", address) is None
+
+
+def test_flags_are_known_codes():
+    assert faults.FLAGS <= set(faults.RANK)
