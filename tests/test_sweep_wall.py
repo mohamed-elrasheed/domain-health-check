@@ -134,7 +134,7 @@ def test_a_real_sweep_run_never_loads_report_code(tmp_path):
     """The static check reads imports; this one runs a sweep in a fresh interpreter and looks at what was
     actually loaded. A lazy import inside a function would get past neither."""
     result = subprocess.run([sys.executable, "-c", RUN_A_SWEEP, str(tmp_path)], capture_output=True, text=True,
-                            timeout=120, cwd=PACKAGE.parent)
+                            timeout=120, cwd=tmp_path)  # the lead list is leads.json at the root of this run
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout.strip().splitlines()[-1])
     assert report["code"] == 0

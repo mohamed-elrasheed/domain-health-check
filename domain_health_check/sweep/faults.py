@@ -33,6 +33,7 @@ RANK = (
     "contact-form",  # a contact form with nowhere to send messages
     "free-mail",  # a Gmail, Yahoo, AOL or Hotmail contact address on a site with its own domain
     "email-mismatch",  # a contact address on a different domain from the site
+    "vendor-email",  # a contact address on the site builder's own domain
     "weekday-typo",  # a misspelled day in the business hours
     "stale-copyright",  # copyright year two or more years behind
     "hidden-label",  # a template label only in alt, title or aria-label: real, but nobody sees it
@@ -42,7 +43,7 @@ RANK = (
 # Real, and worth knowing, but not a website job: a business email setup, a tune-up. These never change the
 # verdict, which answers one question only (is there a website job here). They are reported as flags, and a
 # good site with flags is its own list: the rung between the free report and a new website.
-FLAGS = frozenset({"free-mail", "email-mismatch", "weekday-typo", "stale-copyright"})
+FLAGS = frozenset({"free-mail", "email-mismatch", "vendor-email", "weekday-typo", "stale-copyright"})
 
 
 def rank(fault: Fault) -> int:
@@ -83,6 +84,7 @@ def evaluate_page(page: Page, year: int, hidden: frozenset[str] = frozenset(), b
         dead_contact_form(tree, page.final_url),
         free_mail(tree, page.final_url, text, hidden),
         email_mismatch(tree, page.final_url, text, hidden),
+        vendor_email(tree, page.final_url, text, hidden),
         misspelled_weekday(text, hidden),
         stale_copyright(text, year),
     ]
@@ -335,6 +337,21 @@ def email_mismatch(tree: HTMLParser, page_url: str, text: str, hidden: frozenset
         return Fault("email-mismatch", f"The contact address on the home page is \"{address}\", on {domain}, a "
                                        f"different domain from the site, {site}.", quote=address,
                      on_screen=on_screen, selector="" if on_screen else f'a[href^="mailto:{address}"]')
+    return None
+
+
+def vendor_email(tree: HTMLParser, page_url: str, text: str, hidden: frozenset[str] = frozenset()) -> Fault | None:
+    """A contact address on the site builder's own domain (shop@builder.example on a shop.builder.example
+    site): the business's mail runs through the vendor too, and leaves with the vendor."""
+    vendor = hosts.builder(page_url)
+    if not vendor:
+        return None
+    for address, on_screen in contact_addresses(tree, text, hidden):
+        domain = address.rsplit("@", 1)[-1].lower()
+        if domain == vendor or domain.endswith(f".{vendor}"):
+            return Fault("vendor-email", f"The contact address on the home page is \"{address}\", on the site "
+                                         f"builder's own domain, {vendor}.", quote=address, on_screen=on_screen,
+                         selector="" if on_screen else f'a[href^="mailto:{address}"]')
     return None
 
 

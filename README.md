@@ -274,7 +274,8 @@ screenshot and preview links, whether hours are confirmed, and the last and next
 not reach keeps its last known values and gets `blocked_until`. `demand` and `demand_term` stay null until there
 is a keyword volume export. The field list is fixed in `domain_health_check/sweep/board.py` and pinned by a test;
 nothing typed on the board (notes, call status) is ever copied into it. `--board-only` regenerates it without
-sweeping. Screenshots are published to the private previews repository under `_shots/<lead-id>/`, never to this one.
+sweeping. The board is built only from `leads.json` at the repository root with every `leads-*.patch` there fully
+applied; otherwise the run says why, leaves `board.json` untouched and exits with status 2. Screenshots are published to the private previews repository under `_shots/<lead-id>/`, never to this one.
 
 ### Previews (proposal pages)
 

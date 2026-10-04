@@ -412,3 +412,31 @@ def test_email_mismatch_ignores(address):
 
 def test_flags_are_known_codes():
     assert faults.FLAGS <= set(faults.RANK)
+
+
+def test_a_contact_address_on_the_builders_domain():
+    text = "Email us at examplegarage@builder-vendor.example"
+    tree = HTMLParser(f"<body><p>{text}</p></body>")
+    fault = faults.vendor_email(tree, "https://examplegarage.mechanicnet.com/", text)
+    assert fault is None  # a different vendor's domain is not this builder's
+    text = "Email us at examplegarage@mechanicnet.com"
+    tree = HTMLParser(f"<body><p>{text}</p></body>")
+    fault = faults.vendor_email(tree, "https://examplegarage.mechanicnet.com/", text)
+    assert fault.sentence == ('The contact address on the home page is "examplegarage@mechanicnet.com", on the '
+                              "site builder's own domain, mechanicnet.com.")
+    assert fault.code in faults.FLAGS and fault.on_screen
+
+
+def test_vendor_email_needs_a_builder_site():
+    text = "office@mechanicnet.com"
+    assert faults.vendor_email(HTMLParser(f"<body>{text}</body>"), "https://www.example.com/", text) is None
+
+
+def test_vendor_email_never_changes_the_verdict():
+    from domain_health_check.sweep.models import Visit
+    from domain_health_check.sweep.run import decide
+    url = "https://www.example.com/"
+    flag = faults.Fault("vendor-email", "The contact address is on the builder's domain.")
+    page = Page(url, url, 200, [], (SYNTHETIC / "good.html").read_text(encoding="utf-8"))
+    d = decide([url], [], [Visit(url, page=page, faults=[flag])])
+    assert d.verdict == "good" and [f.code for f in d.flags] == ["vendor-email"]

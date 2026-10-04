@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from contextlib import nullcontext
 from dataclasses import asdict
@@ -32,6 +33,7 @@ SAFE_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
 # business would otherwise come back as unver (or worse, as a domain that does not exist).
 OWN_SITE = "https://www.mizangroupllc.com/robots.txt"
 PREVIEWS = Path("..") / "mizan-previews"  # the private previews repository; tests point this elsewhere
+REPO_ROOT = Path(".")  # where sweep runs: the lead list and its fix patches live here
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -139,8 +141,7 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     if args.board_only:
-        print(f"Board: {export_board(raw_leads, args.output, args.previews)}")
-        return 0
+        return 0 if _board(args, raw_leads) else 2
 
     with load.client(transport) as http:
         if any(hosts.kind(u) != "third-party" for b in businesses for u in b.urls) and not _network_ok(http):
@@ -173,8 +174,46 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
     summary = write_summary(results, args.output, today)
     counts = {v: sum(r.verdict == v for r in results) for v in ("none", "weak", "unver", "good")}
     print(f"\n{len(results)} businesses: " + ", ".join(f"{n} {v}" for v, n in counts.items()) + f". {summary}")
+    return 0 if _board(args, raw_leads) else 2
+
+
+def board_blockers(leads: Path, root: Path) -> list[str]:
+    """Why board.json must not be regenerated, or [] when it may. The board is built only from leads.json at
+    the repository root with every leads-*.patch there fully applied: building from a patched copy, or from a
+    file a patch has not reached, is how the board quietly goes stale."""
+    problems = []
+    expected = (root / "leads.json").resolve()
+    if not expected.is_file():
+        return [f"there is no leads.json at the repository root ({expected})"]
+    if leads.resolve() != expected:
+        problems.append(f"the lead list must be leads.json at the repository root ({expected}); "
+                        f"this run read {leads.resolve()}")
+    for patch in sorted(root.glob("leads-*.patch")):
+        def applies(*flags: str) -> bool:
+            try:
+                return subprocess.run(["git", "apply", "--check", *flags, patch.name], cwd=root,
+                                      capture_output=True).returncode == 0
+            except OSError:
+                return False
+        if applies("--reverse"):
+            continue  # fully applied
+        if applies():
+            problems.append(f"{patch.name} is not applied to leads.json yet: run git apply {patch.name}")
+        else:
+            problems.append(f"{patch.name} neither is applied to leads.json nor applies cleanly: the file and the "
+                            "patch disagree, so look at both before regenerating")
+    return problems
+
+
+def _board(args, raw_leads: list[dict]) -> bool:
+    problems = board_blockers(args.leads, REPO_ROOT)
+    if problems:
+        print("Board not regenerated:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return False
     print(f"Board: {export_board(raw_leads, args.output, args.previews)}")
-    return 0
+    return True
 
 
 def export_board(raw_leads: list[dict], out: Path, previews: Path, now: datetime | None = None) -> Path:

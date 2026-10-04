@@ -11,6 +11,7 @@ import pytest
 
 from domain_health_check.preview import shots
 from domain_health_check.sweep import board, cli
+from domain_health_check.sweep.cli import board_blockers  # the real guard; conftest stubs cli.board_blockers
 
 TODAY = date(2026, 10, 4)
 NOW = datetime(2026, 10, 4, 18, 0, tzinfo=timezone.utc)
@@ -148,3 +149,66 @@ def test_no_screenshot_is_ever_committed_to_this_repository():
     tracked = subprocess.run(["git", "ls-files", "*.png", "*.jpg", "*.jpeg", "*.webp"], capture_output=True,
                              text=True, cwd=Path(__file__).parent.parent).stdout.split()
     assert all(path.startswith("domain_health_check/assets/") for path in tracked), tracked
+
+
+# ---------- the board is built only from leads.json at the root, with every fix patch applied
+
+def git(root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
+@pytest.fixture
+def root(tmp_path) -> Path:
+    """A repository root holding leads.json and a fix patch that adds a link."""
+    git(tmp_path, "init", "-q")
+    before = json.dumps([LEAD], indent=2) + "\n"
+    after = json.dumps([{**LEAD, "links": LEAD["links"] + [["Old site", "https://example-old.com/"]]}], indent=2) + "\n"
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "leads.json").write_text(before, newline="\n")
+    (tmp_path / "b" / "leads.json").write_text(after, newline="\n")
+    diff = subprocess.run(["git", "diff", "--no-index", "--no-prefix", "a/leads.json", "b/leads.json"],
+                          cwd=tmp_path, capture_output=True, text=True).stdout
+    (tmp_path / "leads-fixes.patch").write_text(diff, newline="\n")
+    (tmp_path / "leads.json").write_text(before, newline="\n")
+    return tmp_path
+
+
+def test_a_lead_list_anywhere_else_is_refused(root):
+    git(root, "apply", "leads-fixes.patch")
+    problems = board_blockers(root / "a" / "leads.json", root)
+    assert len(problems) == 1 and "must be leads.json at the repository root" in problems[0]
+
+
+def test_an_unapplied_patch_is_refused(root):
+    assert board_blockers(root / "leads.json", root) == [
+        "leads-fixes.patch is not applied to leads.json yet: run git apply leads-fixes.patch"]
+
+
+def test_an_applied_patch_is_accepted(root):
+    git(root, "apply", "leads-fixes.patch")
+    assert board_blockers(root / "leads.json", root) == []
+
+
+def test_a_file_and_patch_that_disagree_are_refused(root):
+    (root / "leads.json").write_text("[]\n")
+    [problem] = board_blockers(root / "leads.json", root)
+    assert "the file and the patch disagree" in problem
+
+
+def test_the_command_refuses_and_says_so(root, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "board_blockers", board_blockers)
+    monkeypatch.setattr(cli, "REPO_ROOT", root)
+    assert cli.main([str(root / "leads.json"), "-o", str(root / "out"), "--board-only"]) == 2
+    err = capsys.readouterr().err
+    assert "Board not regenerated:" in err and "git apply leads-fixes.patch" in err
+    assert not (root / "out" / "board.json").exists()
+    git(root, "apply", "leads-fixes.patch")
+    assert cli.main([str(root / "leads.json"), "-o", str(root / "out"), "--board-only"]) == 0
+    assert (root / "out" / "board.json").exists()
+
+
+def test_no_lead_list_at_the_root_says_so_plainly(tmp_path):
+    (tmp_path / "leads-fixes.patch").write_text("")
+    assert board_blockers(tmp_path / "elsewhere" / "leads.json", tmp_path) == [
+        f"there is no leads.json at the repository root ({(tmp_path / 'leads.json').resolve()})"]

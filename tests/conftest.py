@@ -42,6 +42,8 @@ def no_previews_repository(tmp_path, monkeypatch):
     from domain_health_check.sweep import cli as sweep_cli
     monkeypatch.setattr(sweep_cli, "PREVIEWS", tmp_path / "no-previews-repository")
     monkeypatch.setattr(preview_cli, "PREVIEWS", tmp_path / "no-previews-repository")
+    # Tests sweep lead lists in temporary folders; tests/test_sweep_board.py tests the guard itself.
+    monkeypatch.setattr(sweep_cli, "board_blockers", lambda leads, root: [])
 
 
 @pytest.fixture(autouse=True)
