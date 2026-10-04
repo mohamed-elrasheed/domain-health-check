@@ -23,22 +23,19 @@ from ..sweep import hosts
 from . import render
 from .content import LeadError, proposal
 
-SHARED = {
-    "robots.txt": render.ROBOTS_TXT,
-    "_headers": render.HEADERS,
-    "_redirects": render.REDIRECTS,
-    "index.html": render.ROOT_PAGE,
-}
+PREVIEWS = Path("..") / "mizan-previews"  # the private previews repository; tests point this elsewhere
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="domain-health-check-preview",
                                      description="Write a proposal page for one lead into the private previews repository.")
-    parser.add_argument("lead_id")
+    parser.add_argument("lead_id", nargs="?",
+                        help="the lead to write a proposal for; leave out with --push to push what is there "
+                             "(screenshots sweep published, for instance)")
     parser.add_argument("--leads", type=Path, default=Path("leads.json"), help="lead list (default: leads.json)")
     parser.add_argument("--screenshots", type=Path, default=Path("sweep-output"),
                         help="where sweep saved its screenshots (default: sweep-output)")
-    parser.add_argument("--previews", type=Path, default=Path("..") / "mizan-previews",
+    parser.add_argument("--previews", type=Path, default=PREVIEWS,
                         help="the private previews repository (default: ../mizan-previews)")
     parser.add_argument("--push", action="store_true", help="commit the lead's folder and push")
     return parser
@@ -88,7 +85,7 @@ def write(lead: dict, screenshot: Path, previews: Path, today: date, name_read: 
     p = proposal(lead, current_site(lead), name_read)
     public = previews / "public"
     public.mkdir(exist_ok=True)
-    for name, text in SHARED.items():
+    for name, text in render.shared_files().items():
         (public / name).write_text(text, encoding="utf-8", newline="\n")
     folder = public / p.lead_id
     if folder.exists():
@@ -101,19 +98,27 @@ def write(lead: dict, screenshot: Path, previews: Path, today: date, name_read: 
     return folder
 
 
-def push(previews: Path, lead_id: str) -> None:
+def push(previews: Path, lead_id: str | None) -> None:
     def git(*args: str) -> None:
         subprocess.run(["git", "-C", str(previews), *args], check=True)
     git("add", "public")
     if subprocess.run(["git", "-C", str(previews), "diff", "--cached", "--quiet"]).returncode == 0:
         print("Nothing changed; nothing to push.")
         return
-    git("commit", "-q", "-m", f"Proposal for {lead_id}")
+    git("commit", "-q", "-m", f"Proposal for {lead_id}" if lead_id else "Update published screenshots")
     git("push", "-q")
 
 
 def main(argv: list[str] | None = None, today: date | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.lead_id is None:
+        if not args.push:
+            print("Error: give a lead id, or --push to push what is already in the previews repository.",
+                  file=sys.stderr)
+            return 2
+        push(args.previews, None)
+        print("Pushed.")
+        return 0
     try:
         lead = find_lead(args.leads, args.lead_id)
         read = read_name(args.screenshots, args.lead_id)

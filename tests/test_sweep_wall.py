@@ -121,7 +121,8 @@ RUN_A_SWEEP = textwrap.dedent("""
         {"id": "a", "n": "A", "cat": "auto", "links": [["Site", "https://www.example.com/"]]},
         {"id": "b", "n": "B", "cat": "food", "links": [["Facebook", "https://www.facebook.com/b"]]},
     ]))
-    code = cli.main([str(leads), "-o", str(out / "sweep-output"), "--no-browser"],
+    code = cli.main([str(leads), "-o", str(out / "sweep-output"), "--no-browser",
+                     "--previews", str(out / "no-previews-repository")],
                     transport=httpx.MockTransport(handler))
     loaded = sorted(m for m in sys.modules if m.startswith("domain_health_check") or
                     m.split(".")[0] in ("dns", "smtplib", "weasyprint"))
@@ -137,13 +138,15 @@ def test_a_real_sweep_run_never_loads_report_code(tmp_path):
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout.strip().splitlines()[-1])
     assert report["code"] == 0
-    outside = [m for m in report["loaded"] if m not in ALLOWED and not m.startswith("domain_health_check.sweep")]
+    outside = [m for m in report["loaded"] if m not in ALLOWED and not m.startswith(
+        ("domain_health_check.sweep", "domain_health_check.preview"))]
     assert outside == [], f"a sweep run loaded: {outside}"
 
     written = sorted(p.relative_to(tmp_path / "sweep-output").as_posix()
                      for p in (tmp_path / "sweep-output").rglob("*") if p.is_file())
     leads = [w for w in written if not w.startswith("_")]
-    assert leads == ["a/result.json", "b/result.json", leads[-1]] and leads[-1].startswith("sweep-")
+    assert leads[:3] == ["a/result.json", "b/result.json", "board.json"] and leads[3].startswith("sweep-")
+    assert len(leads) == 4
     footprint = [w for w in written if w.startswith("_")]  # the cooldown state and one cached visit, for a
     assert footprint[-1] == "_state.json" and len(footprint) == 2  # one fetched site; b was never fetched
     assert not any(p.suffix in (".pdf", ".md", ".eml") for p in tmp_path.rglob("*"))

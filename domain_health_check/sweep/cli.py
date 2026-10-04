@@ -13,11 +13,12 @@ import re
 import sys
 from contextlib import nullcontext
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .. import __version__
-from . import hosts, load
+from ..preview import shots
+from . import board, hosts, load
 from .browser import Browser, BrowserUnavailable
 from .footprint import Deferred, Footprint
 from .models import Business, Fault, SweepResult
@@ -30,6 +31,7 @@ SAFE_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
 # Our own site, loaded once before a run: if it cannot be reached, the problem is our network, and every
 # business would otherwise come back as unver (or worse, as a domain that does not exist).
 OWN_SITE = "https://www.mizangroupllc.com/robots.txt"
+PREVIEWS = Path("..") / "mizan-previews"  # the private previews repository; tests point this elsewhere
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
                              "has a stored visit. Every forced fetch is another visit to their site.")
     parser.add_argument("--no-browser", action="store_true",
                         help="read the HTML as delivered, without a browser and without screenshots")
+    parser.add_argument("--previews", type=Path, default=PREVIEWS,
+                        help="the private previews repository, where screenshots are published for the lead board "
+                             "(default: ../mizan-previews)")
+    parser.add_argument("--board-only", action="store_true",
+                        help="regenerate sweep-output/board.json from what is stored, without sweeping")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -62,6 +69,8 @@ def read_leads(path: Path) -> list[Business]:
             raise ValueError(f"lead id {lead_id!r} is not URL safe; it becomes a folder name")
         urls = [link[1] if isinstance(link, (list, tuple)) else link for link in lead.get("links", [])]
         hand = lead.get("hand_fault")
+        if hand and not hand.get("found"):
+            raise ValueError(f"{lead_id}: a hand fault must carry the date it was observed, as \"found\"")
         hand_fault = Fault(hand["code"], hand["sentence"], hand.get("quote", ""), found_by="hand") if hand else None
         businesses.append(Business(lead_id, lead.get("n") or lead.get("name", ""),
                                    lead.get("cat") or lead.get("trade", ""), [u for u in urls if u], hand_fault))
@@ -125,9 +134,13 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
         sys.stdout.reconfigure(errors="replace")
     try:
         businesses = select(read_leads(args.leads), args.trade, args.only)
+        raw_leads = json.loads(args.leads.read_text(encoding="utf-8"))
     except (OSError, ValueError, KeyError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+    if args.board_only:
+        print(f"Board: {export_board(raw_leads, args.output, args.previews)}")
+        return 0
 
     with load.client(transport) as http:
         if any(hosts.kind(u) != "third-party" for b in businesses for u in b.urls) and not _network_ok(http):
@@ -160,7 +173,21 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
     summary = write_summary(results, args.output, today)
     counts = {v: sum(r.verdict == v for r in results) for v in ("none", "weak", "unver", "good")}
     print(f"\n{len(results)} businesses: " + ", ".join(f"{n} {v}" for v, n in counts.items()) + f". {summary}")
+    print(f"Board: {export_board(raw_leads, args.output, args.previews)}")
     return 0
+
+
+def export_board(raw_leads: list[dict], out: Path, previews: Path, now: datetime | None = None) -> Path:
+    """Regenerate board.json for every lead in the list, publishing screenshots into the previews repository
+    first so the board's links point at files that exist. Without the previews repository the links are null."""
+    ids = [lead["id"] for lead in raw_leads]
+    if (previews / ".git").is_dir():
+        published = shots.publish(out, previews, ids)
+        pages = {lead_id: shots.preview_url(previews, lead_id) for lead_id in ids}
+    else:
+        print(f"  No previews repository at {previews}; screenshot and preview links are null.", file=sys.stderr)
+        published, pages = {}, {}
+    return board.write(board.build(raw_leads, out, published, pages, now or datetime.now(timezone.utc)), out)
 
 
 def _stored(out: Path, business: Business, deferred: Deferred) -> SweepResult | None:

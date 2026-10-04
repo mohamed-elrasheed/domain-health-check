@@ -36,6 +36,15 @@ def no_network(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_previews_repository(tmp_path, monkeypatch):
+    """No test may write into the real private previews repository next to this one."""
+    from domain_health_check.preview import cli as preview_cli
+    from domain_health_check.sweep import cli as sweep_cli
+    monkeypatch.setattr(sweep_cli, "PREVIEWS", tmp_path / "no-previews-repository")
+    monkeypatch.setattr(preview_cli, "PREVIEWS", tmp_path / "no-previews-repository")
+
+
+@pytest.fixture(autouse=True)
 def authorization_log(tmp_path, monkeypatch) -> Path:
     """Where --authorized runs are logged during a test, so no test writes to the real log."""
     path = tmp_path / "logs" / "report-authorizations.log"

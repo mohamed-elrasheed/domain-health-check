@@ -265,6 +265,17 @@ under `sweep-output/` describe real businesses and must never be committed.
 The two modes are kept apart in code: `tests/test_sweep_wall.py` fails if anything `sweep` imports can reach
 registry, DNS, TLS, report, PDF or mail code, and runs a sweep in a fresh interpreter to check what actually loaded.
 
+### The lead board export
+
+Every sweep run regenerates `sweep-output/board.json` (gitignored), the contract with the lead board, for every
+lead in the list: verdict and hand verdict, the fault with its source (`detector` or `hand`, a hand fault always
+carrying the date it was observed) and date, flags, the name from their own site and whether it is confirmed,
+screenshot and preview links, whether hours are confirmed, and the last and next fetch dates. A lead sweep could
+not reach keeps its last known values and gets `blocked_until`. `demand` and `demand_term` stay null until there
+is a keyword volume export. The field list is fixed in `domain_health_check/sweep/board.py` and pinned by a test;
+nothing typed on the board (notes, call status) is ever copied into it. `--board-only` regenerates it without
+sweeping. Screenshots are published to the private previews repository under `_shots/<lead-id>/`, never to this one.
+
 ### Previews (proposal pages)
 
 `domain-health-check-preview <lead-id>` writes a proposal page for one lead into a separate, private

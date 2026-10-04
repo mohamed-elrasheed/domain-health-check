@@ -359,7 +359,8 @@ def test_an_unknown_hand_code_goes_last():
 def test_cli_reads_a_hand_fault_and_marks_it(tmp_path, capsys):
     path = tmp_path / "leads.json"
     path.write_text(json.dumps([{"id": "a", "n": "A", "cat": "auto", "links": [["Site", "https://www.example.com/"]],
-                                 "hand_fault": {"code": "stock-photos", "sentence": "Stock photos only."}}]))
+                                 "hand_fault": {"code": "stock-photos", "sentence": "Stock photos only.",
+                                                "found": "2026-10-02"}}]))
     transport = own_site_and({"https://www.example.com/robots.txt": robots_ok(),
                               "https://www.example.com/": httpx.Response(200, html=GOOD)})
     assert cli.main([str(path), "-o", str(tmp_path / "o"), "--no-browser"], transport=transport) == 0

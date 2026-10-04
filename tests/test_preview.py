@@ -196,7 +196,7 @@ def test_write_produces_the_folder_and_the_shared_files(previews, screenshot):
     folder = cli.write(LEAD, screenshot, previews, TODAY)
     assert sorted(p.name for p in folder.iterdir()) == ["current.png", "index.html", "site.html"]
     public = previews / "public"
-    assert (public / "robots.txt").read_text() == "User-agent: *\nDisallow: /\n"
+    assert (public / "robots.txt").read_text() == "User-agent: *\nDisallow: /\nDisallow: /_shots/\n"
     assert "X-Robots-Tag: noindex, nofollow" in (public / "_headers").read_text()
     assert (public / "_redirects").read_text().startswith("/ https://www.mizangroupllc.com/")
     assert "example-garage" not in (public / "index.html").read_text()  # the root lists no lead

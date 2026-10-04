@@ -99,8 +99,11 @@ def site_page(p: Proposal, today: date) -> str:
     )
 
 
-# The files every previews site carries, whatever leads are in it.
-ROBOTS_TXT = "User-agent: *\nDisallow: /\n"
+PREVIEW_BASE = "https://preview.mizangroupllc.com"
+
+# The files every previews site carries, whatever leads are in it. The second Disallow is covered by the first
+# and is there to say so: the screenshots under /_shots/ are never to be crawled.
+ROBOTS_TXT = "User-agent: *\nDisallow: /\nDisallow: /_shots/\n"
 HEADERS = "/*\n  X-Robots-Tag: noindex, nofollow\n  Referrer-Policy: no-referrer\n"
 # The root lists nothing: a preview's link goes to that business and nobody else.
 REDIRECTS = "/ https://www.mizangroupllc.com/ 302\n"
@@ -116,3 +119,8 @@ ROOT_PAGE = """<!doctype html>
 <body><p>Nothing to see here. <a href="https://www.mizangroupllc.com/">Mizan Group LLC</a></p></body>
 </html>
 """
+
+
+def shared_files() -> dict[str, str]:
+    """public/<name>: text, for every file the previews site carries whatever leads are in it."""
+    return {"robots.txt": ROBOTS_TXT, "_headers": HEADERS, "_redirects": REDIRECTS, "index.html": ROOT_PAGE}
