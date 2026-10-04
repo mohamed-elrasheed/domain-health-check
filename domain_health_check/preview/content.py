@@ -13,12 +13,16 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# trade code: (label, template, comes to the customer, how the site refers to the business)
+# A business that comes to the customer shows its town, not its street address: the address on file may be
+# someone's home, and nobody needs directions to it. A lead can say otherwise with "visits": "storefront"
+# (a dry cleaner files under cleaning) or "comes-to-you".
 TRADES = {
-    "auto": ("Auto repair", "auto"),
-    "barber": ("Barbershop", "barber"),
-    "clean": ("Cleaning", "clean"),
-    "land": ("Landscaping", "land"),
-    "food": ("Restaurant", "food"),
+    "auto": ("Auto repair", "auto", False, "the shop"),
+    "barber": ("Barbershop", "barber", False, "the shop"),
+    "clean": ("Cleaning", "clean", True, "the business"),
+    "land": ("Landscaping", "land", True, "the business"),
+    "food": ("Restaurant", "food", False, "the restaurant"),
 }
 
 DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -68,6 +72,8 @@ class Proposal:
     hours: Hours | None  # None: not known yet
     maps_url: str = ""
     current_host: str = ""  # the address of the site they have today
+    comes_to_you: bool = False  # they go to the customer: show the town, not the street, and no directions
+    who: str = "the business"  # how the proposed site refers to them: "the shop", "the restaurant"
     extra: dict = field(default_factory=dict)
 
 
@@ -79,7 +85,12 @@ def proposal(lead: dict, current_host: str = "", read_name: str = "") -> Proposa
         raise LeadError(f"the lead has no {exc.args[0]!r}") from None
     if cat not in TRADES:
         raise LeadError(f"no template for trade {cat!r} yet")
-    trade, template = TRADES[cat]
+    trade, template, comes_to_you, who = TRADES[cat]
+    visits = lead.get("visits")
+    if visits not in (None, "storefront", "comes-to-you"):
+        raise LeadError(f"visits: {visits!r} should be \"storefront\" or \"comes-to-you\"")
+    if visits:
+        comes_to_you = visits == "comes-to-you"
     address = (lead.get("addr") or "").strip()
     maps = next((url for label, url in lead.get("links", []) if label == "Maps"), "")
     return Proposal(
@@ -88,6 +99,7 @@ def proposal(lead: dict, current_host: str = "", read_name: str = "") -> Proposa
         address=address, phone=(lead.get("ph") or "").strip(),
         numbers=[tuple(n) for n in lead["numbers"]] if lead.get("numbers") else rating_numbers(lead.get("rating", "")),
         hours=hours(lead.get("hours")), maps_url=maps, current_host=current_host,
+        comes_to_you=comes_to_you, who=who,
     )
 
 

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>${display_name} | ${trade} in ${town}</title>
+<style>
+  :root {
+    --ink: #13233a;
+    --muted: #5a6474;
+    --paper: #f7f4ee;
+    --rule: #ddd5c6;
+    --red: #b3261e;
+    --display: "Didot", "Bodoni 72", "Bodoni MT", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 var(--text); }
+  a { color: inherit; }
+  .proposal-bar {
+    background: #f1e7d0; color: #3b2f17; font-size: 13px; line-height: 1.4; padding: 8px 16px; text-align: center;
+  }
+  /* The one ornament: a barber pole, drawn, not photographed. */
+  .pole {
+    height: 10px;
+    background: repeating-linear-gradient(-45deg, var(--red) 0 12px, #fff 12px 24px, var(--ink) 24px 36px, #fff 36px 48px);
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .wordmark { font: 400 18px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; }
+  .call-small {
+    flex: none; border: 1.5px solid var(--ink); color: var(--ink); text-decoration: none; font-weight: 600;
+    font-size: 15px; padding: 8px 14px; border-radius: 999px;
+  }
+  .hero { padding: 48px 20px 44px; text-align: center; }
+  .eyebrow { margin: 0 0 18px; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--red); }
+  h1 {
+    margin: 0 auto; max-width: 14ch; font: 400 clamp(46px, 13vw, 92px)/1.02 var(--display);
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .flourish { width: 64px; height: 1px; margin: 28px auto 0; background: var(--ink); }
+  .actions { display: grid; gap: 12px; margin: 32px auto 0; max-width: 380px; }
+  .btn {
+    display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 18px;
+    padding: 15px 18px; border-radius: 999px;
+  }
+  .btn-call { background: var(--ink); color: var(--paper); }
+  .btn-map { border: 1.5px solid var(--ink); color: var(--ink); }
+  section { padding: 40px 20px; border-top: 1px solid var(--rule); text-align: center; }
+  h2 { margin: 0 0 20px; font: 600 13px/1.2 var(--text); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .proof { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 48px; }
+  .proof b { display: block; font: 400 clamp(76px, 22vw, 120px)/0.95 var(--display); }
+  .proof span { display: block; margin-top: 6px; color: var(--muted); }
+  .hours { margin: 0 auto; padding: 0; list-style: none; max-width: 420px; text-align: left; font-size: 17px; }
+  .hours li { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; }
+  .hours li span:first-child::after {
+    content: ""; flex: 1; border-bottom: 1px dotted var(--muted); margin-left: 8px; transform: translateY(-4px);
+  }
+  .hours li span:first-child { display: flex; flex: 1; }
+  .hours-note { margin: 14px 0 0; color: var(--muted); }
+  .empty { margin: 0; color: var(--muted); font-style: italic; }
+  address { font-style: normal; font: 400 22px/1.4 var(--display); }
+  .visit a { display: inline-block; margin-top: 14px; font-weight: 600; }
+  footer { padding: 28px 20px 40px; font-size: 14px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="proposal-bar" role="note">A proposal for ${name}, prepared by Mizan Group LLC. Not an official site.</div>
+<div class="pole" aria-hidden="true"></div>
+<header>
+  <div class="wordmark">${display_name}</div>
+  ${call_small}
+</header>
+<div class="hero">
+  <p class="eyebrow">${trade} in ${town}${state_suffix}</p>
+  <h1>${display_name}</h1>
+  <div class="flourish" aria-hidden="true"></div>
+  <div class="actions">
+    ${call_button}
+    ${map_button}
+  </div>
+</div>
+${proof}
+<section aria-labelledby="hours-title">
+  <h2 id="hours-title">Hours</h2>
+  ${site_hours}
+</section>
+<section class="visit" aria-labelledby="visit-title">
+  <h2 id="visit-title">Find us</h2>
+  <address>${address_lines}</address>
+  ${map_link}
+</section>
+<div class="pole" aria-hidden="true"></div>
+<footer>&copy; ${year} ${display_name}</footer>
+</body>
+</html>

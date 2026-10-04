@@ -225,3 +225,46 @@ def test_the_command_reads_the_lead_list_and_never_writes_to_it(tmp_path, previe
     assert leads.read_bytes() == before
     assert "Hours are not on the lead yet" in capsys.readouterr().out
     assert cli.main(["nobody", "--leads", str(leads), "--previews", str(previews)]) == 2
+
+
+# ---------- every trade's template
+
+TRADE_CODES = ["auto", "barber", "clean", "land", "food"]
+
+
+@pytest.mark.parametrize("trade", TRADE_CODES)
+@pytest.mark.parametrize("hours", [None, {"mon": [["09:00", "17:00"]], "sun": []}])
+def test_every_template_keeps_the_rules(trade, hours):
+    lead = {**LEAD, "cat": trade, "hours": hours}
+    site = render.site_page(content.proposal(lead), TODAY)
+    text = visible(site)
+    assert text.startswith(PROPOSAL_LINE)
+    assert '<meta name="robots" content="noindex, nofollow">' in site and "<script" not in site
+    assert "${" not in site and "{{" not in site
+    assert "—" not in text and "!" not in text and not any(c in text for c in CONTRACTIONS)
+    assert "© 2026 Example Garage &amp; Sons (Fuel)" in site.replace("&copy;", "©")
+    assert 'href="tel:+15550100100"' in site and "42" in text
+    assert "<img" not in site  # typographic: no stock photography, no pictures at all
+
+
+@pytest.mark.parametrize("trade, comes_to_you", [("auto", False), ("barber", False), ("food", False),
+                                                 ("clean", True), ("land", True)])
+def test_a_business_that_comes_to_you_shows_its_town_not_its_street(trade, comes_to_you):
+    site = visible(render.site_page(content.proposal({**LEAD, "cat": trade}), TODAY))
+    assert ("100 Main St" in site) is not comes_to_you
+    assert ("Get directions" in site) is not comes_to_you
+    assert ("Based in Springfield, Virginia" in site) is comes_to_you
+
+
+def test_a_lead_can_say_it_has_a_storefront():
+    lead = {**LEAD, "cat": "clean", "visits": "storefront"}  # a dry cleaner files under cleaning
+    assert "100 Main St" in visible(render.site_page(content.proposal(lead), TODAY))
+    with pytest.raises(content.LeadError, match="visits"):
+        content.proposal({**LEAD, "visits": "sometimes"})
+
+
+@pytest.mark.parametrize("trade, who", [("auto", "the shop"), ("barber", "the shop"), ("food", "the restaurant"),
+                                        ("clean", "the business"), ("land", "the business")])
+def test_the_empty_hours_line_names_the_business_the_right_way(trade, who):
+    site = visible(render.site_page(content.proposal({**LEAD, "cat": trade}), TODAY))
+    assert f"Hours will be listed here once {who} confirms them." in site

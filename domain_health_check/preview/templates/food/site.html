@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>${display_name} | ${trade} in ${town}</title>
+<style>
+  :root {
+    --ink: #2a1a14;
+    --muted: #6b5a50;
+    --paper: #fbf6ec;
+    --rule: #e3d6c2;
+    --tomato: #b8322a;
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 var(--text); }
+  a { color: inherit; }
+  .proposal-bar {
+    background: #f1e7d0; color: #3b2f17; font-size: 13px; line-height: 1.4; padding: 8px 16px; text-align: center;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px;
+    border-bottom: 3px double var(--ink);
+  }
+  .wordmark { font: italic 600 20px/1.2 var(--display); }
+  .call-small {
+    flex: none; background: var(--tomato); color: #fff; text-decoration: none; font-weight: 700;
+    font-size: 15px; padding: 9px 14px; border-radius: 4px;
+  }
+  .hero { padding: 48px 20px 44px; text-align: center; }
+  .eyebrow { margin: 0 0 16px; font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--tomato); }
+  h1 { margin: 0 auto; max-width: 13ch; font: italic 600 clamp(46px, 13vw, 92px)/1.0 var(--display); text-wrap: balance; }
+  .actions { display: grid; gap: 12px; margin: 32px auto 0; max-width: 380px; }
+  .btn {
+    display: block; text-align: center; text-decoration: none; font-weight: 700; font-size: 18px;
+    padding: 15px 18px; border-radius: 4px;
+  }
+  .btn-call { background: var(--tomato); color: #fff; }
+  .btn-map { border: 1.5px solid var(--ink); color: var(--ink); }
+  section { padding: 40px 20px; text-align: center; border-top: 1px solid var(--rule); }
+  h2 {
+    margin: 0 0 22px; font: italic 600 26px/1.2 var(--display);
+    display: flex; align-items: center; gap: 14px; justify-content: center;
+  }
+  h2::before, h2::after { content: ""; width: 40px; height: 1px; background: var(--ink); }
+  .proof { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 48px; }
+  .proof b { display: block; font: 600 clamp(76px, 22vw, 120px)/0.95 var(--display); color: var(--tomato); }
+  .proof span { display: block; margin-top: 6px; color: var(--muted); }
+  /* Hours set like a menu: day, dotted leader, time. */
+  .hours { margin: 0 auto; padding: 0; list-style: none; max-width: 420px; text-align: left; font: 400 19px/1.4 var(--display); }
+  .hours li { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; }
+  .hours li span:first-child { display: flex; flex: 1; }
+  .hours li span:first-child::after {
+    content: ""; flex: 1; border-bottom: 1px dotted var(--muted); margin-left: 8px; transform: translateY(-5px);
+  }
+  .hours-note { margin: 14px 0 0; color: var(--muted); }
+  .empty { margin: 0; color: var(--muted); font-style: italic; }
+  address { font-style: normal; font: 400 22px/1.4 var(--display); }
+  .visit a { display: inline-block; margin-top: 14px; font-weight: 700; }
+  footer { padding: 28px 20px 40px; font-size: 14px; color: var(--muted); text-align: center; border-top: 3px double var(--ink); }
+</style>
+</head>
+<body>
+<div class="proposal-bar" role="note">A proposal for ${name}, prepared by Mizan Group LLC. Not an official site.</div>
+<header>
+  <div class="wordmark">${display_name}</div>
+  ${call_small}
+</header>
+<div class="hero">
+  <p class="eyebrow">${trade} in ${town}${state_suffix}</p>
+  <h1>${display_name}</h1>
+  <div class="actions">
+    ${call_button}
+    ${map_button}
+  </div>
+</div>
+${proof}
+<section aria-labelledby="hours-title">
+  <h2 id="hours-title">Hours</h2>
+  ${site_hours}
+</section>
+<section class="visit" aria-labelledby="visit-title">
+  <h2 id="visit-title">Find us</h2>
+  <address>${address_lines}</address>
+  ${map_link}
+</section>
+<footer>&copy; ${year} ${display_name}</footer>
+</body>
+</html>

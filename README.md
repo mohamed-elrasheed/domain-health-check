@@ -275,6 +275,12 @@ Not an official site.", carries `noindex, nofollow`, and the repository disallow
 have are shown as missing, never guessed. `--push` commits and pushes the lead's folder. Nothing about a prospect
 is ever written into this repository; it sits behind the same wall test as `sweep`.
 
+There is one proposed-site template per trade (auto repair, barbershop, cleaning, landscaping, restaurant), all
+typographic and phone first, with no pictures. Cleaning and landscaping businesses usually come to the customer,
+so their pages show the town rather than a street address that may be someone's home; a lead with
+`"visits": "storefront"` (a dry cleaner) shows its address and directions instead. The name on the pages is the
+one the business uses on its own site, or our lead name exactly as recorded, never one made by trimming ours.
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report

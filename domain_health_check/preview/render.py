@@ -63,12 +63,23 @@ def site_page(p: Proposal, today: date) -> str:
     tel = _tel(p.phone)
     call_button = f'<a class="btn btn-call" href="tel:{esc(tel)}">Call {esc(p.phone)}</a>' if p.phone else ""
     call_small = f'<a class="call-small" href="tel:{esc(tel)}">Call</a>' if p.phone else ""
-    map_button = f'<a class="btn btn-map" href="{esc(p.maps_url)}">Get directions</a>' if p.maps_url else ""
-    map_link = f'<a href="{esc(p.maps_url)}">Get directions</a>' if p.maps_url else ""
+    directions = p.maps_url and not p.comes_to_you
+    map_button = f'<a class="btn btn-map" href="{esc(p.maps_url)}">Get directions</a>' if directions else ""
+    map_link = f'<a href="{esc(p.maps_url)}">Get directions</a>' if directions else ""
     proof = "" if not p.numbers else (
         '<section aria-label="Reviews"><div class="proof">\n' + numbers(p, css="figure") + "\n</div></section>")
     street, _, rest = p.address.partition(", ")
     address_lines = f"{esc(street)}<br>{esc(rest)}" if rest else esc(p.address)
+    area_line = f"Based in {esc(p.town)}{f', {esc(p.state)}' if p.state else ''}" if p.town else ""
+    # Templates for trades that usually come to the customer carry one contact slot, filled either way.
+    if p.comes_to_you:
+        contact_section = (f'<section class="contact" aria-labelledby="contact-title">\n'
+                           f'  <h2 id="contact-title">Get in touch</h2>\n'
+                           f'  <p>{area_line}</p>\n  {call_button}\n</section>')
+    else:
+        contact_section = (f'<section class="contact visit" aria-labelledby="visit-title">\n'
+                           f'  <h2 id="visit-title">Find us</h2>\n'
+                           f'  <address>{address_lines}</address>\n  {map_link}\n</section>')
     return _t(f"{p.template}/site.html").substitute(
         name=esc(p.display_name),
         display_name=esc(p.display_name),
@@ -79,9 +90,11 @@ def site_page(p: Proposal, today: date) -> str:
         call_button=call_button,
         map_button=map_button,
         proof=proof,
-        site_hours=hours_list(p.hours, "Hours will be listed here once the shop confirms them."),
+        site_hours=hours_list(p.hours, f"Hours will be listed here once {p.who} confirms them."),
         address_lines=address_lines,
         map_link=map_link,
+        area_line=area_line,
+        contact_section=contact_section,
         year=today.year,
     )
 
