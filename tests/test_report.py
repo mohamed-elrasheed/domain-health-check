@@ -374,3 +374,20 @@ def test_filter_and_sort_are_different_measures_on_purpose():
     report = DomainReport("example.com", NOW, [heavy_mostly_right, light_mostly_wrong])
     assert [r.name for r in layout.worth_doing(report)] == ["Page weight"]
     assert "### ⚠️ Image alt text" in section(render_markdown(report), "Fix it yourself")  # not lost, just not first
+
+
+
+def test_keep_latest_removes_the_first_naming_for_that_domain_only(tmp_path):
+    from datetime import datetime, timezone
+    tmp_path = tmp_path / "reports"
+    tmp_path.mkdir()
+    from domain_health_check.models import DomainReport
+    from domain_health_check.report import prune_older
+    for name in ("Website-health-report-example.com.pdf", "Website-health-report-example.org.pdf",
+                 "example.com-2026-10-01.md", "example.com-2026-10-05.md", "example.org-2026-10-01.md"):
+        (tmp_path / name).write_text("x")
+    report = DomainReport("example.com", datetime(2026, 10, 5, tzinfo=timezone.utc), [])
+    removed = sorted(p.name for p in prune_older(report, tmp_path))
+    assert removed == ["Website-health-report-example.com.pdf", "example.com-2026-10-01.md"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "Website-health-report-example.org.pdf", "example.com-2026-10-05.md", "example.org-2026-10-01.md"]

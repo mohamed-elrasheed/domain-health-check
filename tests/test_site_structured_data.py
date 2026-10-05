@@ -113,6 +113,6 @@ def test_only_a_rendered_page_is_called_visible(mizan_page):
     [delivered] = structured_data.check_structured_data(mizan_page)
     assert delivered.summary.endswith("match the page.")
     assert "including any text the page hides" in delivered.details[0]
-    [rendered] = structured_data.check_structured_data(replace(mizan_page, rendered=True, delivered_html=mizan_page.html))
+    [rendered] = structured_data.check_structured_data(replace(mizan_page, rendered_html=mizan_page.html))
     assert rendered.summary.endswith("match the visible page.")
     assert "leaving out anything a visitor could not see" in rendered.details[0]

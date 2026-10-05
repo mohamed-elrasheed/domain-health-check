@@ -134,7 +134,7 @@ def check_search_blocking(page: PageContext | FetchError) -> list[CheckResult]:
     # A noindex counts wherever it is: in the page as delivered (Google may not render a page that says
     # noindex) or added by scripts (Google honors that too once it renders).
     meta_robots = list(dict.fromkeys(
-        (name, content) for html in dict.fromkeys((page.as_delivered, page.html))
+        (name, content) for html in dict.fromkeys(h for h in (page.html, page.rendered_html) if h)
         for name in ("robots", "googlebot") for content in meta(parse(html), name)))
     rule = googlebot_block(robots.text, path) if readable else None
     return [evaluate_search_blocking(meta_robots, page.headers.get("x-robots-tag"), rule,
@@ -179,7 +179,7 @@ def evaluate_canonical(canonicals: list[str], final_url: str) -> CheckResult:
 
 
 def check_canonical(page: PageContext) -> list[CheckResult]:
-    tree = parse(page.html)
+    tree = parse(page.indexed_html)
     canonicals = [
         (node.attributes.get("href") or "").strip()
         for node in tree.css("link[rel]")

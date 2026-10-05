@@ -131,13 +131,16 @@ def output_path(report: DomainReport, output_dir: Path, suffix: str) -> Path:
 
 
 def prune_older(report: DomainReport, output_dir: Path) -> list[Path]:
-    """Delete this domain's reports from earlier days, Markdown and PDF alike. Returns what was removed."""
+    """Delete this domain's reports from earlier days, Markdown and PDF alike, including any written under the
+    first naming scheme (Website-health-report-<domain>.pdf), which carried no date and is always older than
+    the report being written. Returns what was removed."""
     pattern = re.compile(re.escape(report.domain) + r"-(\d{4}-\d{2}-\d{2})\.(md|pdf)")
+    first_naming = f"Website-health-report-{report.domain}.pdf"
     today = f"{report.checked_at:%Y-%m-%d}"
     removed = []
     for path in output_dir.iterdir() if output_dir.is_dir() else []:
         match = pattern.fullmatch(path.name)
-        if match and match.group(1) != today:
+        if (match and match.group(1) != today) or path.name == first_naming:
             path.unlink()
             removed.append(path)
     return removed

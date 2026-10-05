@@ -75,10 +75,15 @@ def compare(found: set[tuple[str, str, str]], wanted: list[dict]) -> None:
 
 @pytest.mark.parametrize("archetype", [a for a in ARCHETYPES if a != "js-spa"])
 def test_golden_report(monkeypatch, archetype):
-    rendered = []
-    compare(report_findings(monkeypatch, archetype, renderer=lambda url: rendered.append(url)),
-            expected(archetype)["findings"])
-    assert rendered == []  # a page with real content is never loaded a second time
+    """With no browser available. Every report asks for one; when it cannot have one, the findings are the same
+    on these pages, and the checks that would judge the screen say they read the page as delivered."""
+    asked = []
+
+    def unavailable(url):
+        asked.append(url)
+        raise fetcher.RenderFailed("no browser")
+    compare(report_findings(monkeypatch, archetype, renderer=unavailable), expected(archetype)["findings"])
+    assert asked == [URL]  # every report asks for a browser view of the page
 
 
 def test_a_script_built_page_without_a_browser_reports_false_absences(monkeypatch):
@@ -106,12 +111,13 @@ def test_what_a_visitor_cannot_see_does_not_count(local_renderer):
     from domain_health_check.checks.site import content
     from domain_health_check.checks.site._html import HIDDEN
     rendered = fetcher.render(page("js-spa"), renderer=local_renderer)
-    assert rendered.rendered and HIDDEN in rendered.html
+    assert rendered.rendered and HIDDEN in rendered.rendered_html
     [heading] = content.check_main_heading(rendered)
     assert heading.status is Status.PASS and "A neighborhood restaurant in Springfield" in heading.summary
     [alt] = content.check_alt_text(rendered)
     assert alt.status is Status.PASS and "1 of the 1 images" in alt.summary
-    unmarked = fetcher.PageContext(**{**rendered.__dict__, "html": rendered.html.replace(HIDDEN, "data-was-hidden")})
+    unmarked = fetcher.PageContext(**{**rendered.__dict__,
+                                      "rendered_html": rendered.rendered_html.replace(HIDDEN, "data-was-hidden")})
     assert content.check_main_heading(unmarked)[0].summary == "Your home page has 2 main headings instead of one."
     assert content.check_alt_text(unmarked)[0].status is Status.WARN
 
@@ -125,5 +131,9 @@ def test_the_report_says_when_it_looked_twice(monkeypatch, local_renderer):
     monkeypatch.setattr(fetcher, "RENDERER", local_renderer)
     report = runner.run_checks(DomainConfig("example.com"), NOW)
     assert report.rendered and "one more visit to that page in a standard web browser" in layout.about(report)
-    monkeypatch.setattr(runner, "_fetch_page", lambda name: page("webflow"))
-    assert "a single ordinary visit" in layout.about(runner.run_checks(DomainConfig("example.com"), NOW))
+
+    def unavailable(url):
+        raise fetcher.RenderFailed("no browser")
+    monkeypatch.setattr(fetcher, "RENDERER", unavailable)
+    unrendered = runner.run_checks(DomainConfig("example.com"), NOW)
+    assert not unrendered.rendered and "a single ordinary visit" in layout.about(unrendered)

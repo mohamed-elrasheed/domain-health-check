@@ -65,7 +65,7 @@ def check_page_loaded(page: PageContext | FetchError) -> list[CheckResult]:
 
 
 def check_page_rendered(page: PageContext | FetchError) -> list[CheckResult]:
-    if not isinstance(page, PageContext) or not built_by_scripts(page):
+    if not isinstance(page, PageContext) or not built_by_scripts(page) or page.rendered:
         return []
     words, heading_count = _measure(page.html)
     return [CheckResult(

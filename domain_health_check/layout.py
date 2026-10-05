@@ -201,7 +201,7 @@ def about(report: DomainReport) -> str:
     if report.rendered:
         sources = ("DNS records, the domain registry, an ordinary visit to the website's home page, along with the "
                    "robots.txt and sitemap files that search engines read, and one more visit to that page in a "
-                   "standard web browser, because its content is built by scripts after it loads")
+                   "standard web browser, to see it the way a visitor does")
     if any(r.ran and r.name in pagespeed.LAB for r in report.results):
         sources += ", plus Google's own PageSpeed Insights test of that page"
     if any(r.category == LOCAL for r in report.results):

@@ -192,11 +192,12 @@ def _counted(values: list[Value]) -> str:
 
 
 def check_structured_data(page: PageContext) -> list[CheckResult]:
-    tree = parse(page.html)
+    # The structured data is what a search engine reads; what it is compared against is what a visitor sees.
     blocks = [
-        node.text() for node in tree.css("script[type]")
+        node.text() for node in parse(page.indexed_html).css("script[type]")
         if (node.attributes.get("type") or "").split(";")[0].strip().lower() == "application/ld+json"
     ]
-    links = {urljoin(page.final_url, node.attributes.get("href") or "") for node in tree.css("a[href]")}
-    return [evaluate_structured_data(blocks, page.final_url, visible_text(page.html), links,
+    screen = parse(page.visible_html)
+    links = {urljoin(page.final_url, node.attributes.get("href") or "") for node in screen.css("a[href]")}
+    return [evaluate_structured_data(blocks, page.final_url, visible_text(page.visible_html), links,
                                      sitemap_pages(page.sitemap), rendered=page.rendered)]

@@ -54,7 +54,7 @@ def evaluate_viewport(contents: list[str]) -> CheckResult:
 
 
 def check_viewport(page: PageContext) -> list[CheckResult]:
-    return [evaluate_viewport(meta(parse(page.html), "viewport"))]
+    return [evaluate_viewport(meta(parse(page.indexed_html), "viewport"))]
 
 
 # ---------- Page weight

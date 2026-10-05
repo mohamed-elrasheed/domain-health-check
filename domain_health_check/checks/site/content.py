@@ -134,7 +134,7 @@ def _headings_text(tree) -> list[str]:
 
 
 def check_title(page: PageContext) -> list[CheckResult]:
-    tree = parse(page.html)
+    tree = parse(page.indexed_html)
     node = tree.css_first("head > title")
     context = _headings_text(tree) + meta(tree, "description")
     return [evaluate_title(collapse(node.text()) if node else None, page.final_url, context)]
@@ -178,7 +178,7 @@ def evaluate_description(descriptions: list[str], context: list[str] = ()) -> Ch
 
 
 def check_description(page: PageContext) -> list[CheckResult]:
-    tree = parse(page.html)
+    tree = parse(page.indexed_html)
     node = tree.css_first("head > title")
     context = ([collapse(node.text())] if node else []) + _headings_text(tree)
     return [evaluate_description(meta(tree, "description"), context)]
@@ -207,7 +207,7 @@ def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
 
 
 def check_main_heading(page: PageContext) -> list[CheckResult]:
-    return [evaluate_main_heading([text for level, text in headings(parse(page.html)) if level == 1])]
+    return [evaluate_main_heading([text for level, text in headings(parse(page.visible_html)) if level == 1])]
 
 
 # ---------- Heading order
@@ -241,7 +241,7 @@ def evaluate_heading_order(levels: list[int]) -> CheckResult:
 
 
 def check_heading_order(page: PageContext) -> list[CheckResult]:
-    return [evaluate_heading_order([level for level, _ in headings(parse(page.html))])]
+    return [evaluate_heading_order([level for level, _ in headings(parse(page.visible_html))])]
 
 
 # ---------- Image alt text
@@ -308,7 +308,7 @@ def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = Fal
 def check_alt_text(page: PageContext) -> list[CheckResult]:
     images = [
         (image_address(node.attributes), node.attributes.get("alt"))
-        for node in parse(page.html).css("img")
+        for node in parse(page.visible_html).css("img")
         if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
     ]
     return [evaluate_alt_text(images, rendered=page.rendered)]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -25,8 +26,10 @@ def _checks_for(
         return lambda: check(page) if isinstance(page, PageContext) else []
 
     def on_rendered_page(check: Callable[[PageContext], list[CheckResult]]) -> Callable[[], list[CheckResult]]:
-        """Content checks also need text to read. When scripts build it, check_page_rendered says so once."""
-        return lambda: check(page) if isinstance(page, PageContext) and not site.built_by_scripts(page) else []
+        """Content checks also need text to read. When scripts build it and no browser could run them,
+        check_page_rendered says so once."""
+        return lambda: check(page) if isinstance(page, PageContext) and not (
+            page.script_built and not page.rendered) else []
 
     return [
         (WEBSITE, "SSL/TLS", lambda: tls.check_tls(d, now)),
@@ -69,7 +72,7 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
     now = now or datetime.now(timezone.utc)
     if _domain_exists(domain.name) is False:
         return _unregistered(domain.name, now)
-    page = _render_if_built_by_scripts(_fetch_page(domain.name))
+    page = _render_in_browser(_fetch_page(domain.name))
     ext = _fetch_external(domain, page)
     results: list[CheckResult] = []
     for category, name, check in _checks_for(domain, now, page, ext):
@@ -100,16 +103,18 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
 
 
-def _render_if_built_by_scripts(page: PageContext | FetchError) -> PageContext | FetchError:
-    """A delivered page with almost no text and almost no headings is an empty shell that scripts fill in, and
-    judging it would report things missing that a visitor and Google both see. Such a page, and only such a
-    page, is read again in a real browser. When that fails the delivered page stands, and check_page_rendered
-    says the content checks did not run."""
-    if not isinstance(page, PageContext) or not site.built_by_scripts(page):
+def _render_in_browser(page: PageContext | FetchError) -> PageContext | FetchError:
+    """Every report reads the page a second time, in a real browser, so the checks an owner verifies by looking
+    at their own screen (main heading, heading order, image descriptions, structured data against the page)
+    are judged on what that screen shows. Whether the delivered page is an empty shell is decided first, on
+    what the server sent. When the browser fails the delivered page stands, and those checks say they read
+    the page as delivered rather than claiming what is visible."""
+    if not isinstance(page, PageContext):
         return page
+    page = replace(page, script_built=site.built_by_scripts(page))
     try:
         return fetcher.render(page)
-    except Exception:  # no browser, or it could not load the page: fall back to saying so, never to guessing
+    except Exception:  # no browser, or it could not load the page: say so, never guess
         return page
 
 

@@ -55,16 +55,32 @@ class PageContext:
     ttfb_ms: int  # first request until the final response's headers arrived, including redirects
     robots: FetchedFile | None
     sitemap: FetchedFile | None  # None when robots.txt disallows it or it could not be reached
-    # When the delivered page was an empty shell that scripts fill in, html is the page after a browser ran
-    # them (with what a visitor cannot see marked), and delivered_html keeps what the server sent. Checks
-    # whose real-world reader does not run scripts (link previews) read delivered_html.
-    rendered: bool = False
-    delivered_html: str = ""
+    # Every report also reads the page in a real browser. rendered_html is the DOM after scripts ran, with
+    # every element a visitor cannot see marked; it is "" when the browser could not load the page.
+    # script_built: the delivered html is an empty shell that scripts fill in.
+    rendered_html: str = ""
+    script_built: bool = False
+
+    @property
+    def rendered(self) -> bool:
+        return bool(self.rendered_html)
 
     @property
     def as_delivered(self) -> str:
-        """The HTML exactly as the server sent it, whether or not the page was also rendered."""
-        return self.delivered_html if self.rendered else self.html
+        """Exactly what the server sent. Link previews read this: the apps that draw them run no scripts."""
+        return self.html
+
+    @property
+    def indexed_html(self) -> str:
+        """What a search engine reads: the page as delivered, unless scripts build it, in which case the page
+        after they ran (Google runs them). Title, description, canonical, viewport and structured data."""
+        return self.rendered_html if self.script_built and self.rendered_html else self.html
+
+    @property
+    def visible_html(self) -> str:
+        """What a visitor sees: the rendered page with off-screen elements marked, or, when the browser could not
+        load it, the delivered page (and the checks then say so instead of claiming what is visible)."""
+        return self.rendered_html or self.html
 
     @property
     def truncated(self) -> bool:
@@ -237,8 +253,9 @@ class RenderFailed(Exception):
 
 
 def browser_render(url: str, offline: bool = False) -> Rendered:
-    """Load url in a real browser, through the path sweep uses, and return the rendered page. This is a
-    second view of the home page, made only when the first came back as an empty shell."""
+    """Load url in a real browser, through the path sweep uses, and return the rendered page. A second view of
+    the home page, made on every report: the report runs only on submitted domains, and the checks an owner
+    verifies by looking at their own screen are judged on what that screen shows."""
     from .browser import BrowserUnavailable, NavigationFailed, Session, mark_hidden
     try:
         with Session(hint=" to read pages that scripts build", offline=offline) as session,                 session.tab(url) as (tab, response):
@@ -256,4 +273,4 @@ RENDERER: Callable[[str], Rendered] = browser_render  # tests put a renderer of 
 def render(page: PageContext, renderer: Callable[[str], Rendered] | None = None) -> PageContext:
     """The page as a browser shows it. Raises RenderFailed; the caller keeps the delivered page."""
     rendered = (renderer or RENDERER)(page.final_url)
-    return replace(page, html=rendered.html, rendered=True, delivered_html=page.html)
+    return replace(page, rendered_html=rendered.html)
