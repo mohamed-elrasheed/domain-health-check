@@ -1,12 +1,13 @@
 """Who a report may be run for.
 
-A report runs only for a domain someone submitted through the form on /digital: the submission is the
-consent. A domain on our own lead list is never one: the lead list is consent-free by definition, so the
-report refuses any domain that appears there, whatever else is said about it.
+A report runs only for a domain with a recorded submission: someone asked for it, through the form on
+/digital, by email, in person, or it is one of our own. The record lives in submissions.yaml at the repository
+root (gitignored, since it holds people's email addresses) and is written by
+`domain-health-check record-submission`. Every report run is appended to a local run log with the record it
+ran on.
 
-Submissions are not recorded anywhere this tool can read yet, so every domain counts as unrecorded and the
-CLI refuses it unless the operator passes --authorized, confirming they have seen the submission. Each such run is appended to a local log, so there is a record of every report that ran on
-someone's word rather than on a stored submission.
+A domain on our own lead list is never reported on, record or not: the lead list is consent-free by
+definition, so the report refuses any domain that appears there, whatever else is said about it.
 """
 
 from __future__ import annotations
@@ -14,9 +15,12 @@ from __future__ import annotations
 import getpass
 import json
 import re
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
+
+import yaml
 
 # A token that looks like a domain but is a file name.
 FILE_SUFFIXES = {"txt", "png", "jpg", "jpeg", "gif", "webp", "svg", "html", "htm", "xml", "json", "php", "js",
@@ -64,13 +68,79 @@ def on_lead_list(domain: str, domains: set[str]) -> str | None:
     return None
 
 
-def recorded_submission(domain: str) -> bool:
-    """Whether the /digital form has a stored submission for domain. There is no store yet, so never."""
-    return False
+SOURCES = ("form", "email", "in-person", "own")
+NEEDS_EMAIL = ("form", "email")  # a submission that arrived in writing came from an address
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def log_authorized(domains: list[str], log_path: Path, now: datetime | None = None) -> None:
-    """Append one line per domain run under --authorized: when, who, and which domain."""
+class SubmissionError(ValueError):
+    pass
+
+
+@dataclass
+class Submission:
+    domain: str
+    email: str
+    received: date
+    source: str
+
+    def as_yaml(self) -> dict:
+        return {"domain": self.domain, "email": self.email, "received": self.received.isoformat(),
+                "source": self.source}
+
+
+def validate(domain: str, email: str, received: date | str, source: str) -> Submission:
+    if source not in SOURCES:
+        raise SubmissionError(f"source must be one of {', '.join(SOURCES)}, not {source!r}")
+    email = (email or "").strip()
+    if source in NEEDS_EMAIL and not email:
+        raise SubmissionError(f"a submission by {source} needs the email address it came from")
+    if email and not EMAIL.match(email):
+        raise SubmissionError(f"{email!r} is not an email address")
+    if isinstance(received, str):
+        try:
+            received = date.fromisoformat(received)
+        except ValueError:
+            raise SubmissionError(f"received must be a date like 2026-10-05, not {received!r}") from None
+    return Submission(_bare(domain), email, received, source)
+
+
+def load_submissions(path: Path) -> dict[str, Submission]:
+    """{domain: submission}. A missing file means nothing is recorded yet; a malformed one is an error."""
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    records = data.get("submissions", []) if isinstance(data, dict) else None
+    if not isinstance(records, list):
+        raise SubmissionError(f"{path}: expected a list under 'submissions'")
+    found = {}
+    for record in records:
+        try:
+            submission = validate(str(record["domain"]), record.get("email", ""), str(record["received"]),
+                                  record["source"])
+        except (KeyError, TypeError) as exc:
+            raise SubmissionError(f"{path}: a record is missing {exc}") from None
+        found[submission.domain] = submission
+    return found
+
+
+def record_submission(path: Path, submission: Submission) -> bool:
+    """Write submission to path, replacing any earlier record for the same domain. True when it replaced one."""
+    records = load_submissions(path)
+    replaced = submission.domain in records
+    records[submission.domain] = submission
+    body = {"submissions": [r.as_yaml() for r in sorted(records.values(), key=lambda r: r.domain)]}
+    path.write_text("# Who asked for a report. Gitignored: it holds people's email addresses.\n"
+                    + yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
+    return replaced
+
+
+def submitted(domain: str, records: dict[str, Submission]) -> Submission | None:
+    return records.get(_bare(domain))
+
+
+def log_run(domain: str, submission: Submission, log_path: Path, now: datetime | None = None) -> None:
+    """Append one line per report run: when, who ran it, which domain, and the record it ran on."""
     now = now or datetime.now(timezone.utc)
     try:
         user = getpass.getuser()
@@ -78,5 +148,11 @@ def log_authorized(domains: list[str], log_path: Path, now: datetime | None = No
         user = "unknown"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as log:
-        for domain in domains:
-            log.write(f"{now.isoformat(timespec='seconds')}\t{user}\t--authorized\t{domain}\n")
+        log.write(f"{now.isoformat(timespec='seconds')}\t{user}\treport\t{domain}\t"
+                  f"source={submission.source}\treceived={submission.received.isoformat()}\n")
+
+
+def add_command(domain: str) -> str:
+    """The command that records a submission for domain, for the refusal message."""
+    return (f"domain-health-check record-submission {domain} --source form --email ADDRESS "
+            "[--received YYYY-MM-DD]")

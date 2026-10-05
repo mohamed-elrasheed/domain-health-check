@@ -32,3 +32,6 @@ logs/
 
 # Fixes to the lead list, as patches. They name real businesses.
 leads-*.patch
+
+# Who asked for a report. It holds people's email addresses.
+submissions.yaml

@@ -208,18 +208,23 @@ domains:
 ## Usage
 
 ```powershell
-domain-health-check --authorized                        # check everything in domains.yaml
-domain-health-check --authorized example.com            # check one domain without a config file
-domain-health-check --authorized -c other.yaml -o out   # different config file / report folder
-domain-health-check --authorized --no-color             # plain output (also honours NO_COLOR)
-domain-health-check --authorized example.com --no-pdf   # Markdown only, no PDF
-domain-health-check --authorized example.com --email    # PDF, emailed to you for review (needs SMTP_* in .env)
+# First, record that the owner asked (source: form, email, in-person or own)
+domain-health-check record-submission example.com --source form --email owner@example.com
+domain-health-check record-submission example.com --source in-person --received 2026-10-01
+
+domain-health-check report example.com                  # check one domain
+domain-health-check report                              # check everything in domains.yaml
+domain-health-check report -c other.yaml -o out         # different config file / report folder
+domain-health-check report example.com --no-pdf         # Markdown only, no PDF
+domain-health-check report example.com --email          # PDF, emailed to you for review (needs SMTP_* in .env)
 python -m domain_health_check --help
 ```
 
-A report runs only for a domain submitted through the /digital form. Submissions are not stored where the tool
-can read them yet, so it refuses every domain unless you pass `--authorized`, confirming you have seen the
-submission. Each such run is appended to `logs/report-authorizations.log` (gitignored).
+A report runs only for a domain with a recorded submission. Records live in `submissions.yaml` (gitignored,
+since they hold email addresses); a form or email submission must carry the address it came from. Without a
+record the report refuses and prints the `record-submission` command to add one. A domain on the lead list is
+refused whatever the record says. Every run is appended to `logs/report-runs.log` (gitignored) with the record
+it ran on.
 
 Every report is written to `reports/<domain>-<date>.md` and `.pdf` (gitignored; `--no-pdf` skips the PDF). Only the
 latest report per domain is kept: writing a new one deletes that domain's older reports. A stale scan is

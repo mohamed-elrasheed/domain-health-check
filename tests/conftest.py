@@ -97,10 +97,22 @@ def lead_list(tmp_path, monkeypatch) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def authorization_log(tmp_path, monkeypatch) -> Path:
-    """Where --authorized runs are logged during a test, so no test writes to the real log."""
-    path = tmp_path / "logs" / "report-authorizations.log"
-    monkeypatch.setattr(cli, "AUTHORIZATION_LOG", path)
+def run_log(tmp_path, monkeypatch) -> Path:
+    """Where report runs are logged during a test, so no test writes to the real log."""
+    path = tmp_path / "logs" / "report-runs.log"
+    monkeypatch.setattr(cli, "RUN_LOG", path)
+    return path
+
+
+@pytest.fixture(autouse=True)
+def submissions(tmp_path, monkeypatch) -> Path:
+    """A submissions record of the test's own, so no test reads or writes the real one. example.com and
+    example.org are recorded; anything else is not."""
+    from domain_health_check import consent
+    path = tmp_path / "submissions.yaml"
+    for domain in ("example.com", "example.org"):
+        consent.record_submission(path, consent.validate(domain, "owner@example.com", "2026-10-01", "form"))
+    monkeypatch.setattr(cli, "SUBMISSIONS", path)
     return path
 
 

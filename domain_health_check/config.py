@@ -35,7 +35,7 @@ def normalize_domain(value: object) -> str:
         raise ConfigError(f"Domain names must be text, got {value!r}")
     domain = value.strip().lower().rstrip(".")
     if len(domain) > 253 or not _DOMAIN_RE.match(domain):
-        raise ConfigError(f"{value!r} doesn't look like a domain name (expected something like example.com)")
+        raise ConfigError(f"{value!r} does not look like a domain name (expected something like example.com)")
     return domain
 
 

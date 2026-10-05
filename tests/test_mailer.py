@@ -143,7 +143,7 @@ def cli_env(monkeypatch, tmp_path):
 
 
 def test_cli_email_sends_one_report_to_the_reviewer(cli_env, capsys):
-    assert cli.main(["--authorized", "example.com", "-o", str(cli_env), "--no-color", "--email"]) == 0
+    assert cli.main(["report", "example.com", "-o", str(cli_env), "--no-color", "--email"]) == 0
     [server] = FakeSMTP.instances
     [msg] = server.sent
     assert msg["To"] == "mo@mizangroupllc.com"
@@ -152,7 +152,7 @@ def test_cli_email_sends_one_report_to_the_reviewer(cli_env, capsys):
 
 def test_cli_email_without_settings_stops_before_running_checks(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "run_checks", lambda d: pytest.fail("checks ran without mail settings"))
-    assert cli.main(["--authorized", "example.com", "-o", str(tmp_path), "--email"]) == 2
+    assert cli.main(["report", "example.com", "-o", str(tmp_path), "--email"]) == 2
     assert "SMTP_USERNAME" in capsys.readouterr().err
 
 
@@ -160,7 +160,7 @@ def test_cli_send_failure_exits_2_without_the_password(cli_env, monkeypatch, cap
     def failing(host, port, timeout=None):
         return FakeSMTP(host, port, timeout, fail_with=smtplib.SMTPAuthenticationError(535, PASSWORD.encode()))
     monkeypatch.setattr(cli, "SMTP_FACTORY", failing)
-    assert cli.main(["--authorized", "example.com", "-o", str(cli_env), "--no-color", "--email"]) == 2
+    assert cli.main(["report", "example.com", "-o", str(cli_env), "--no-color", "--email"]) == 2
     captured = capsys.readouterr()
     assert PASSWORD not in captured.out + captured.err
 

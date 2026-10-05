@@ -197,8 +197,8 @@ def test_every_report_run_prunes_pagespeed_responses_older_than_a_day(tmp_path, 
         path.write_text("{}")
     day = 24 * 60 * 60
     os.utime(old, (time.time() - day - 60, time.time() - day - 60))
-    # The run itself is refused (no --authorized): pruning happens first, whatever follows.
-    assert cli.main(["example.net", "-o", str(tmp_path), "--no-pdf"]) == 2
+    # The run itself is refused (no submission is recorded): pruning happens first, whatever follows.
+    assert cli.main(["report", "example.net", "-o", str(tmp_path), "--no-pdf"]) == 2
     assert not old.exists() and fresh.exists()
     assert "Deleted a cached PageSpeed response older than 24 hours: example.com-mobile-1.json" in \
         capsys.readouterr().out

@@ -127,22 +127,22 @@ def test_cli_exit_codes(tmp_path, monkeypatch, capsys):
     out = tmp_path / "reports"
 
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS, Status.WARN))
-    assert cli.main(["--authorized", "-c", str(config), "-o", str(out), "--no-color"]) == 0
+    assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 0
 
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.FAIL))
-    assert cli.main(["--authorized", "-c", str(config), "-o", str(out), "--no-color"]) == 1
+    assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 1
     assert (out / "example.com-2026-03-14.md").exists()
 
 
 def test_cli_config_error_exit_code(tmp_path, capsys):
-    assert cli.main(["--authorized", "-c", str(tmp_path / "missing.yaml")]) == 2
+    assert cli.main(["report", "-c", str(tmp_path / "missing.yaml")]) == 2
     assert "domains.example.yaml" in capsys.readouterr().err
 
 
 def test_cli_domain_arguments_override_config(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "run_checks", lambda d: seen.append(d) or sample_report(Status.PASS))
-    assert cli.main(["--authorized", "example.org", "-o", str(tmp_path), "--no-color"]) == 0
+    assert cli.main(["report", "example.org", "-o", str(tmp_path), "--no-color"]) == 0
     assert seen == [DomainConfig("example.org")]
 
 
@@ -165,13 +165,13 @@ def test_terminal_marks_not_checked():
 
 def test_cli_writes_a_pdf_by_default(tmp_path, monkeypatch, stub_pdf):
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS))
-    assert cli.main(["--authorized", "example.com", "-o", str(tmp_path), "--no-color"]) == 0
+    assert cli.main(["report", "example.com", "-o", str(tmp_path), "--no-color"]) == 0
     assert stub_pdf == ["example.com"]
 
 
 def test_cli_no_pdf_skips_it(tmp_path, monkeypatch, stub_pdf):
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS))
-    assert cli.main(["--authorized", "example.com", "-o", str(tmp_path), "--no-color", "--no-pdf"]) == 0
+    assert cli.main(["report", "example.com", "-o", str(tmp_path), "--no-color", "--no-pdf"]) == 0
     assert stub_pdf == []
 
 
@@ -181,7 +181,7 @@ def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch,
         raise OSError("cannot load library 'libgobject-2.0-0'")
     monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
     monkeypatch.setattr(cli_module, "write_pdf", no_pango)
-    assert cli.main(["--authorized", "example.com", "-o", str(tmp_path), "--no-color"]) == 2
+    assert cli.main(["report", "example.com", "-o", str(tmp_path), "--no-color"]) == 2
     assert (tmp_path / "example.com-2026-03-14.md").exists()
     assert "PDF output" in capsys.readouterr().err
 
@@ -189,7 +189,7 @@ def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch,
 def test_cli_passes_form_details(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "run_checks", lambda d: seen.append(d) or sample_report(Status.PASS))
-    cli.main(["--authorized", "example.com", "-o", str(tmp_path), "--no-color", "--business-name", " Example Plumbing ",
+    cli.main(["report", "example.com", "-o", str(tmp_path), "--no-color", "--business-name", " Example Plumbing ",
               "--city", "Springfield", "--phone", "555-010-0100"])
     assert seen == [DomainConfig("example.com", business_name="Example Plumbing", city="Springfield",
                                  phone="555-010-0100")]
