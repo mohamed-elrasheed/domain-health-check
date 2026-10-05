@@ -54,6 +54,9 @@ class DomainReport:
     # that did not run. Empty means every part of the report ran. The CLI exits 0 only when it is empty.
     incomplete: list[str] = field(default_factory=list)
     requests: list = field(default_factory=list)  # requestlog.Request, every request the report made
+    # The hosted website builder serving the site, when one was recognized (platform.py), and what gave it away.
+    platform: str = ""
+    platform_evidence: str = ""
 
     @property
     def complete(self) -> bool:

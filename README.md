@@ -95,7 +95,8 @@ else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 
 ### Site health
 
-All of these read the one page view; none makes a request of its own. A check with nothing to
+No check makes a request of its own. All of them read the one page view, except the link and icon checks,
+whose few extra requests the fetch layer makes first (see below). A check with nothing to
 measure (no images, no structured data, a page built entirely by scripts) is marked as not run and
 left out of the score rather than passed.
 
@@ -114,6 +115,10 @@ left out of the score rather than passed.
 | **Sitemap and robots** | both found, sitemap valid, listed in robots.txt | any of those not true | |
 | **Page weight** | HTML under 150 KB and first byte under 5 seconds | either over | |
 | **Redirect chain** | two redirects or fewer | more than two | |
+| **Broken links** | every link to another page on the site that we verified works | one ends in an error, a timeout or more than 3 redirects | |
+| **Links to other sites** | the same, for links to other sites | the same; never a FAIL, since the owner does not control those sites | |
+| **Mixed content** | everything on the secure page loads over https | an image, script, stylesheet, font or framed page over plain http | |
+| **Favicon** | the site's own icon resolves to an image | no icon, or a website builder's standard icon | |
 
 - **Search engine blocking** is the most valuable check here: a site launched with `noindex` left
   on from staging is invisible in Google, and nothing on the page looks wrong. robots.txt is read the
@@ -124,6 +129,12 @@ left out of the score rather than passed.
   page text, a page link, or the sitemap.
 - Measured on the HTML as delivered, before scripts run. Page weight is the HTML document alone;
   images, scripts and styles are not loaded. A sitemap index is recorded but never followed.
+- **Broken links** and **Links to other sites** are the one place the report requests anything beyond the page:
+  each link on the consented page, once, under the cap in CLAUDE.md (at most 80, HEAD and GET only when HEAD is
+  refused, 3 redirects, no response bodies). That is `linkcheck.py`, which sweep can never reach.
+- **Mixed content** reads the resource list of the page as the browser loaded it, so files a script adds count.
+- **Favicon** resolves the icon the way a browser does, in at most two requests. The standard icons of each
+  website builder are listed in `config/platforms.yaml`.
 
 ### Speed (optional, from Google PageSpeed Insights)
 
@@ -240,7 +251,8 @@ Every report is written to its own folder, `reports/<domain>/<date>/` (gitignore
 | `requests.log` | Every request the run made, one per line: time, source, method, target, outcome. |
 
 `requests.log` covers the page fetch (robots.txt, the home page, the sitemap), every request the browser made
-while rendering the page, RDAP, the TLS handshake, each DNS query, and the PageSpeed and Places calls. API keys
+while rendering the page, each link verified, the icon, RDAP, the TLS handshake, each DNS query, and the PageSpeed
+and Places calls. API keys
 are masked before anything is written. Every PDF page is stamped with the package version and the run date, so
 a report in someone's inbox says exactly which code produced it.
 

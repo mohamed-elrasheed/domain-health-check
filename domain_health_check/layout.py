@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from . import __version__, pricelist
 from .checks import pagespeed, site
+from .checks.site import favicon, links
 from .ladder import CUSTOMER_FACING, LADDER, TIER
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, credit, score
@@ -101,22 +102,31 @@ def worth_doing(report: DomainReport) -> list[CheckResult]:
     return costing_customers(report)[:TOP]
 
 
-def rung(r: CheckResult) -> pricelist.Rung:
-    """Which rung a finding sits on. Raises KeyError for a check config/pricelist.yaml does not map, rather than
-    guessing: a finding with no rung would leave the last page without a price line or an instruction."""
-    found = pricelist.load().rung_of(r.name)
+def rung(r: CheckResult, report: DomainReport | None = None) -> pricelist.Rung:
+    """Which rung a finding sits on: the one config/pricelist.yaml gives its check, or platform when the report
+    found a hosted builder that sets what the check measures. Raises KeyError for a check the file does not map,
+    rather than guessing: a finding with no rung would leave the last page without a price line or an
+    instruction."""
+    found = pricelist.load().rung_of(r.name, report.platform if report else "")
     if found is None:
         raise KeyError(f"{r.name} has no rung in config/pricelist.yaml")
     return found
 
 
+def answer(found: pricelist.Rung, r: CheckResult) -> list[str]:
+    """What the last page puts beside a finding: its own fix, the rung's price lines, or what we found."""
+    if found.shows == "prices":
+        return [str(line) for line in found.prices]
+    return [r.fix if found.shows == "fix" else r.summary]
+
+
 def fix_yourself(report: DomainReport) -> list[CheckResult]:
     """Confirmed findings on the self rung, so this section and the last page cannot disagree."""
-    return [r for r in confirmed(report) if rung(r).key == "self"]
+    return [r for r in confirmed(report) if rung(r, report).key == "self"]
 
 
 def needs_developer(report: DomainReport) -> list[CheckResult]:
-    return [r for r in confirmed(report) if rung(r).key != "self"]
+    return [r for r in confirmed(report) if rung(r, report).key != "self"]
 
 
 def priced(report: DomainReport) -> list[tuple[pricelist.Rung, list[CheckResult]]]:
@@ -125,7 +135,7 @@ def priced(report: DomainReport) -> list[tuple[pricelist.Rung, list[CheckResult]
     found = confirmed(report)
     groups = []
     for key in pricelist.RUNGS:
-        members = [r for r in found if rung(r).key == key]
+        members = [r for r in found if rung(r, report).key == key]
         if members:
             groups.append((pricelist.load().rungs[key], members))
     return groups
@@ -242,6 +252,10 @@ def about(report: DomainReport) -> str:
         sources = ("DNS records, the domain registry, an ordinary visit to the website's home page, along with the "
                    "robots.txt and sitemap files that search engines read, and one more visit to that page in a "
                    "standard web browser, to see it the way a visitor does")
+    if any(r.ran and r.name in (links.SAME_SITE, links.OTHER_SITES) for r in report.results):
+        sources += ", a single request to each link on that page to confirm it still leads somewhere"
+    if any(r.ran and r.name == favicon.NAME for r in report.results):
+        sources += ", the site's browser tab icon"
     if any(r.ran and r.name in pagespeed.LAB for r in report.results):
         sources += ", plus Google's own PageSpeed Insights test of that page"
     if any(r.category == LOCAL for r in report.results):

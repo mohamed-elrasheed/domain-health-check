@@ -88,11 +88,21 @@ def test_every_check_a_full_run_produces_is_weighted(fake_dns, monkeypatch, miza
 def test_weights_cover_exactly_the_checks_that_exist():
     """A renamed check would otherwise drop out of the score, or leave a stale weight behind."""
     from domain_health_check.checks import rdap
-    from domain_health_check.checks.site import content, delivery, indexing, sharing, structured_data
+    from domain_health_check.checks.site import (
+        content,
+        delivery,
+        favicon,
+        indexing,
+        links,
+        mixed_content,
+        sharing,
+        structured_data,
+    )
     site = {content.TITLE, content.DESCRIPTION, content.MAIN_HEADING, content.HEADING_ORDER, content.ALT_TEXT,
             delivery.VIEWPORT, delivery.PAGE_WEIGHT, delivery.REDIRECTS, indexing.SEARCH_BLOCKING,
-            indexing.CANONICAL, indexing.SITEMAP, sharing.SOCIAL_PREVIEW, structured_data.NAME}
-    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 13
+            indexing.CANONICAL, indexing.SITEMAP, sharing.SOCIAL_PREVIEW, structured_data.NAME,
+            links.SAME_SITE, links.OTHER_SITES, mixed_content.NAME, favicon.NAME}
+    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 17
     security = {"SSL certificate", "TLS version", "HSTS (always use HTTPS)", "Content Security Policy",
                 "X-Content-Type-Options", rdap.NAME, "Nameservers", "DNSSEC", "Mail servers (MX)",
                 "SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)"}

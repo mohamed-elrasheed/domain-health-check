@@ -16,12 +16,13 @@ LADDER = [
     # 3. Customers cannot find the business locally.
     ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews"],
     # 4. The site is slow enough that people leave.
-    ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility"],
+    ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility",
+     "Broken links", "Mixed content"],
     # 5. Email can be spoofed.
     ["DMARC (anti-spoofing policy)", "SPF (approved senders)", "DKIM (email signatures)", "Mail servers (MX)"],
     # 6. Hardening.
     ["HSTS (always use HTTPS)", "Content Security Policy", "X-Content-Type-Options", "DNSSEC", "TLS version",
-     "Nameservers", "Best practices"],
+     "Nameservers", "Best practices", "Links to other sites", "Favicon"],
 ]
 TIER_WEIGHT = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1, 6: 1}
 CUSTOMER_FACING = 4  # tiers 1 to 4 cost customers; 5 and 6 are behind the scenes

@@ -127,13 +127,21 @@ The last page, on a page of its own. Every confirmed finding again, grouped by i
 | Rung | Means | The page shows |
 |---|---|---|
 | `self` | The owner can do it from their website builder, Google Business Profile or domain registrar. | The finding's own fix, one or two sentences. |
-| `tuneup` | Work on the site they have now: DNS, headers, redirects, speed, structured data. | The published hourly rate. |
+| `tuneup` | Work on the site they have now: headers, redirects, speed, structured data. | The published hourly rate on /digital. |
+| `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | The finding's own fix. /services publishes no line for this yet, so there is no price. |
 | `rebuild` | The problem is the site itself, not a setting on it. | The three published build packages. |
+| `platform` | Set by a hosted website builder the report recognized: HSTS, Content Security Policy and nosniff only. | What we found, under "Set by your website platform", with the sentence "This is set by your website platform, not by you or a developer. We list it for completeness and do not charge for it." |
 
-Rungs, rung labels and every price line come from one file, `config/pricelist.yaml`, which mirrors the price list
-on https://www.mizangroupllc.com/digital word for word. A test compares each line with a saved copy of that page,
-so the file cannot drift from it unnoticed. Nothing in the report writes a price of its own. A check with no rung
-stops the report rather than guessing one.
+Rungs, rung labels and every price line come from one file, `config/pricelist.yaml`, which mirrors our /digital
+and /services pages word for word. A test compares each line with a saved copy of the page it names, so the file
+cannot drift from it unnoticed. Nothing in the report writes a price of its own. A check with no rung stops the
+report rather than guessing one.
+
+`platform` is never assigned in that file. A finding reaches it only when `platform.py` recognizes Webflow, Wix,
+Squarespace, Shopify or GoDaddy Website Builder from what the report already fetched: the response headers, the
+generator tag, attributes on the page, and the hosts its own assets load from (`config/platforms.yaml`). Nothing
+is requested to find out. When no builder is recognized those three findings stay `tuneup`. The rung never changes
+the score.
 
 A finding we could not confirm is never priced. When nothing confirmed is left to list, the page says so in one
 sentence and nothing else. No urgency, no "limited time", and no recommendation beyond the rung: the owner can take
@@ -181,11 +189,27 @@ partial credit for sort-of-having-one. Confirmed-absent scores zero.
 measure of how much of the thing is right, a binary one does not.
 
 - Binary: main heading present, meta description present, canonical present, title present, sitemap
-  present, viewport present, template placeholder text, Google Business Profile findable.
+  present, viewport present, template placeholder text, Google Business Profile findable, mixed content,
+  favicon.
 - Graded: alt text (images described ÷ images), heading order (headings in order ÷ headings), title and
   description length, social preview tags, structured data matches, page weight, Google's speed and
   accessibility scores, redirect hops, profile completeness, review count, days left before a certificate
-  or domain expires.
+  or domain expires, broken links (links that work ÷ links verified, separately for the site and for other
+  sites).
+
+### Checks added for links, mixed content and the icon
+
+| Check | Tier | Weight | Rung | WARN when |
+|---|---|---|---|---|
+| Broken links | 4 | 2 | `self` | a link to another page on the site ends in an error status, a timeout, or more than 3 redirects |
+| Links to other sites | 6 | 1 | `self` | the same, for a link to someone else's site. Never FAIL: the owner does not control that site |
+| Mixed content | 4 | 2 | `self` | the secure page loads an image, script, stylesheet, font or framed page over plain http |
+| Favicon | 6 | 1 | `self` | no icon resolves to an image, or the icon is a website builder's standard one |
+
+None of them can FAIL. Links are verified under the capped rule in CLAUDE.md (at most 80, HEAD then GET only when
+HEAD is refused, 3 hops, no bodies), and every request is in `requests.log`. A status that usually means automated
+checks are turned away (401, 403, 429, 999) is reported as not verified, never as broken. The icon takes at most
+two requests: the first icon the page names, then `/favicon.ico`.
 
 "Heading order skipped in 2 places" and "no main heading at all" are not the same site, and proportional
 credit says so without a special case: 31 of 31 images undescribed scores zero, 14 of 40 does not.

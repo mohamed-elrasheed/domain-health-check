@@ -127,18 +127,16 @@ def render_markdown(report: DomainReport) -> str:
 
 
 def _prices(report: DomainReport) -> list[str]:
-    """The last section: each confirmed finding under its rung, with its fix (self) or its price lines."""
+    """The last section: each confirmed finding under its rung, with what that rung shows beside it."""
     lines = ["## " + layout.PRICES_HEADING, ""]
     groups = layout.priced(report)
     if not groups:
         return lines + [layout.prices_note(report)]
     lines.append(layout.PRICES_INTRO)
     for rung, results in groups:
-        column = "What to do" if rung.key == "self" else "From our price list"
-        lines += ["", f"### {rung.label}", "", rung.intro, "", f"| Finding | {column} |", "|---|---|"]
+        lines += ["", f"### {rung.label}", "", rung.intro, "", f"| Finding | {rung.column} |", "|---|---|"]
         for r in results:
-            answer = r.fix if rung.key == "self" else "; ".join(str(line) for line in rung.prices)
-            lines.append(f"| {_cell(r.name)} | {_cell(answer)} |")
+            lines.append(f"| {_cell(r.name)} | {_cell('; '.join(layout.answer(rung, r)))} |")
     note = layout.prices_note(report)
     return lines + (["", note] if note else [])
 
@@ -171,14 +169,15 @@ def record(report: DomainReport) -> dict:
         "website_loaded": report.website_loaded,
         "rendered": report.rendered,
         "unreachable": report.unreachable,
-        "results": [{**asdict(r), "status": r.status.name, "rung": _rung_key(r)} for r in report.results],
+        "platform": {"name": report.platform, "evidence": report.platform_evidence} if report.platform else None,
+        "results": [{**asdict(r), "status": r.status.name, "rung": _rung_key(r, report)} for r in report.results],
         "requests": [r.as_dict() for r in report.requests],
     }
 
 
-def _rung_key(r: CheckResult) -> str | None:
+def _rung_key(r: CheckResult, report: DomainReport) -> str | None:
     """The rung for a graded check; None for a row that grades nothing (a check that did not run, or a note)."""
-    found = pricelist.load().rung_of(r.name)
+    found = pricelist.load().rung_of(r.name, report.platform)
     return found.key if found else None
 
 

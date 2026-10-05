@@ -17,7 +17,8 @@ PACKAGE = Path(__file__).parent.parent / "domain_health_check"
 # Everything whose strings reach a report, the email or the terminal summary.
 OUTPUT = sorted([*PACKAGE.glob("checks/*.py"), *PACKAGE.glob("checks/site/*.py"),
                  *(PACKAGE / name for name in ("layout.py", "report.py", "pdf.py", "mailer.py", "terminal.py",
-                                               "runner.py", "pricelist.py"))])
+                                               "runner.py", "pricelist.py", "linkcheck.py",
+                                               "platform.py"))])
 CONTRACTION = re.compile(r"(?i)n['’]t\b|['’](re|ll|ve|m|d)\b|\b(it|that|there|here|what|who)['’]s\b|\blet['’]s\b(?! encrypt)")
 RECHECK = re.compile(r"(?i)(run|check)\w* (these checks |it )?again|at no charge|free re-?check")
 

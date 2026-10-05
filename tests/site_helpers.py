@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import httpx
+
 from domain_health_check.fetcher import PageContext
 
 
@@ -21,3 +23,13 @@ def with_body(page: PageContext, extra: str) -> PageContext:
 
 def ld_json(data: str) -> str:
     return f'<script type="application/ld+json">{data}</script>'
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+
+
+def healthy_site(request: httpx.Request) -> httpx.Response:
+    """Every link works and the icon is an image: what a report sees on a site with nothing wrong."""
+    if request.url.path.endswith((".ico", ".png", ".svg")):
+        return httpx.Response(200, headers={"content-type": "image/png"}, content=PNG)
+    return httpx.Response(200, headers={"content-type": "text/html"}, text="<html></html>")

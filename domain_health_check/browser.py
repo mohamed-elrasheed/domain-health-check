@@ -175,10 +175,14 @@ class Session:
         self._playwright.stop()
 
     @contextmanager
-    def tab(self, url: str, on_request=None) -> Iterator[tuple[object, object]]:
+    def tab(self, url: str, on_request=None, on_resource=None, on_console=None,
+            routes=None) -> Iterator[tuple[object, object]]:
         """Navigate once to url at phone width and let it settle. Yields (tab, response). Raises
         NavigationFailed when the browser could not load it at all. on_request(method, url, outcome) is called
-        for every request the page makes, so a caller can keep a record of them."""
+        for every request the page makes, so a caller can keep a record of them. on_resource(url, kind) is called
+        as each subresource is requested, kind being Chromium's resource type ("iframe" for a framed page), and
+        on_console(text) for every console message. routes(route) answers every request instead of the network;
+        tests use it to serve a page at an https address without leaving the machine."""
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
@@ -187,6 +191,24 @@ class Session:
             user_agent=self.user_agent, service_workers="block", offline=self.offline)
         try:
             tab = context.new_page()
+            if routes is not None:
+                context.route("**/*", routes)
+            if on_resource is not None:
+                def requested(request):
+                    if request.url.startswith(("data:", "blob:")):
+                        return
+                    kind = request.resource_type
+                    if kind == "document":
+                        try:
+                            if request.frame.parent_frame is None:
+                                return  # the page itself
+                        except Exception:
+                            return
+                        kind = "iframe"
+                    on_resource(request.url, kind)
+                tab.on("request", requested)
+            if on_console is not None:
+                tab.on("console", lambda message: on_console(message.text))
             if on_request is not None:
                 def answered(response):
                     if not response.url.startswith(("data:", "blob:")):

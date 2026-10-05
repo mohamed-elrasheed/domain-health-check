@@ -1,0 +1,49 @@
+# Hosted website builders, and how to recognize them from what a report has already fetched.
+#
+# Read by domain_health_check/platform.py. Detection uses only the home page response: its headers, its
+# <meta name="generator">, attributes on the page, and the hosts its assets load from. It never makes a request
+# of its own. On a hosted builder the platform sets the response headers, so the HSTS, Content Security Policy
+# and nosniff findings are listed as set by the platform rather than priced (see config/pricelist.yaml).
+#
+# default_icons: the browser tab icon each builder shows when the owner has not uploaded one. A resolved icon
+# address containing any of these fragments is that builder's default. Keep them specific: a fragment that also
+# matches a real uploaded icon would tell an owner their own logo is a placeholder.
+
+platforms:
+  Webflow:
+    generator: ["webflow"]
+    headers: ["x-wf-"]
+    attributes: ["data-wf-site", "data-wf-page"]
+    hosts: ["website-files.com", "webflow.com", "webflow.io"]
+    default_icons: ["website-files.com/img/favicon.ico", "webflow.com/img/favicon.ico"]
+  Wix:
+    generator: ["wix.com"]
+    headers: ["x-wix-"]
+    attributes: []
+    hosts: ["wixstatic.com", "parastorage.com"]
+    default_icons: ["www.wix.com/favicon.ico"]
+  Squarespace:
+    generator: ["squarespace"]
+    headers: ["x-squarespace-"]
+    attributes: []
+    hosts: ["squarespace.com", "squarespace-cdn.com", "sqspcdn.com"]
+    default_icons: ["squarespace.com/universal/default-favicon.ico"]
+  Shopify:
+    generator: ["shopify"]
+    headers: ["x-shopid", "x-shopify-"]
+    attributes: []
+    hosts: ["cdn.shopify.com", "myshopify.com"]
+    default_icons: []
+  GoDaddy Website Builder:
+    generator: ["go daddy website builder", "starfield technologies"]
+    headers: []
+    attributes: []
+    hosts: ["img1.wsimg.com", "isteam.wsimg.com"]
+    default_icons: []
+
+# Not a hosted builder: WordPress sites control their own headers, so this entry never makes a finding
+# "set by the platform". It is here only for its default icon, which WordPress serves at /favicon.ico when no
+# site icon has been set.
+default_icons_only:
+  WordPress:
+    default_icons: ["/wp-includes/images/w-logo-blue-white-bg.png"]

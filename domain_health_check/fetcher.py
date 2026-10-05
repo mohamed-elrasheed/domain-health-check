@@ -11,6 +11,11 @@ ourselves in the User-Agent, honor robots.txt, give up after a timeout, follow
 a limited number of redirects, and stop reading anything that is too large.
 A sitemap index is recorded but never followed, since opening the sitemaps it
 lists would mean more requests.
+
+Two more loads belong to the page itself, as they would for any visitor: the
+browser view (below), and the site's icon (fetch_favicon), at most two requests.
+The links on the page are verified separately, in linkcheck.py, under the
+capped rule in CLAUDE.md.
 """
 
 from __future__ import annotations
@@ -18,7 +23,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from http import HTTPStatus
 from urllib.parse import urljoin, urlsplit
 
@@ -45,6 +50,21 @@ class FetchedFile:
 
 
 @dataclass
+class FetchedIcon:
+    url: str  # requested
+    final_url: str  # after redirects
+    status: int | None  # None when there was no answer
+    content_type: str
+    image: bool  # an image by its type or by its first bytes
+    declared: bool  # named by the page in <link rel="icon">, rather than the /favicon.ico fallback
+    error: str = ""
+
+    @property
+    def found(self) -> bool:
+        return self.status == 200 and self.image
+
+
+@dataclass
 class PageContext:
     requested_url: str
     final_url: str  # after redirects
@@ -62,6 +82,11 @@ class PageContext:
     # script_built: the delivered html is an empty shell that scripts fill in.
     rendered_html: str = ""
     script_built: bool = False
+    # (url, kind) for every image, script, stylesheet, font and iframe the browser loaded or was asked to load,
+    # including what scripts added and what lazy loading fetched after a full scroll. Empty without a browser.
+    resources: list[tuple[str, str]] = field(default_factory=list)
+    links: list | None = None  # linkcheck.LinkResult for each link verified; None when verification did not run
+    favicon: list[FetchedIcon] | None = None  # each icon request, in order; None when we did not look
 
     @property
     def rendered(self) -> bool:
@@ -250,27 +275,73 @@ def _get(client: httpx.Client, url: str, max_bytes: int) -> tuple[httpx.Response
 class Rendered:
     html: str  # the DOM after scripts ran, with elements a visitor cannot see marked data-dhc-hidden
     final_url: str
+    resources: list[tuple[str, str]] = field(default_factory=list)  # (url, kind), see PageContext.resources
+
+
+MIXED_CONTENT_KINDS = {"image": "image", "element": "image", "script": "script", "stylesheet": "stylesheet",
+                       "font": "font", "frame": "iframe", "iframe": "iframe"}
+MIXED_CONSOLE = re.compile(r"Mixed Content: .*? requested an insecure ([\w ]+?) '([^']+)'")
+
+# Every asset the rendered page names, resolved against the page, after scripts ran and lazy loading caught up.
+DOM_RESOURCES = r"""() => {
+  const out = [];
+  const add = (value, kind) => {
+    if (!value) return;
+    try { out.push([new URL(value, document.baseURI).href, kind]); } catch (e) {}
+  };
+  document.querySelectorAll('img, source').forEach(e => {
+    add(e.getAttribute('src'), 'image');
+    (e.getAttribute('srcset') || '').split(',').forEach(part => add(part.trim().split(/\s+/)[0], 'image'));
+  });
+  document.querySelectorAll('script[src]').forEach(e => add(e.getAttribute('src'), 'script'));
+  document.querySelectorAll('link[href]').forEach(e => {
+    const rel = (e.getAttribute('rel') || '').toLowerCase();
+    const as = (e.getAttribute('as') || '').toLowerCase();
+    if (rel.includes('stylesheet')) add(e.getAttribute('href'), 'stylesheet');
+    else if (rel.includes('preload') && as === 'font') add(e.getAttribute('href'), 'font');
+  });
+  document.querySelectorAll('iframe[src]').forEach(e => add(e.getAttribute('src'), 'iframe'));
+  return out;
+}"""
+
+
+def mixed_console(text: str) -> tuple[str, str] | None:
+    """(url, kind) from Chromium's console warning about an insecure resource on a secure page, which it logs both
+    when it blocks the resource and when it quietly upgrades it to https, so neither leaves an http request."""
+    match = MIXED_CONSOLE.search(text)
+    if not match:
+        return None
+    kind = MIXED_CONTENT_KINDS.get(match.group(1).strip().split(" ")[-1].lower())
+    return (match.group(2), kind) if kind else None
 
 
 class RenderFailed(Exception):
     pass
 
 
-def browser_render(url: str, offline: bool = False) -> Rendered:
+def browser_render(url: str, offline: bool = False, routes: Callable | None = None) -> Rendered:
     """Load url in a real browser, through the path sweep uses, and return the rendered page. A second view of
     the home page, made on every report: the report runs only on submitted domains, and the checks an owner
     verifies by looking at their own screen are judged on what that screen shows."""
     from .browser import BrowserUnavailable, NavigationFailed, Session, mark_hidden
+    resources: list[tuple[str, str]] = []
     try:
         def seen(method: str, target: str, outcome: object) -> None:
             requestlog.record("browser", method, target, outcome)
 
+        def console(text: str) -> None:
+            found = mixed_console(text)
+            if found:
+                resources.append(found)
+
         with Session(hint=" to read the page the way a visitor sees it", offline=offline) as session, \
-                session.tab(url, on_request=seen) as (tab, response):
+                session.tab(url, on_request=seen, on_resource=lambda u, k: resources.append((u, k)),
+                            on_console=console, routes=routes) as (tab, response):
             if response.status and response.status >= 400:
                 raise RenderFailed(f"the browser got status {response.status} ({status_phrase(response.status)})")
             mark_hidden(tab)
-            return Rendered(tab.content(), response.url)
+            resources += [(u, k) for u, k in tab.evaluate(DOM_RESOURCES)]
+            return Rendered(tab.content(), response.url, resources)
     except (BrowserUnavailable, NavigationFailed) as exc:
         raise RenderFailed(str(exc)) from exc
 
@@ -281,4 +352,64 @@ RENDERER: Callable[[str], Rendered] = browser_render  # tests put a renderer of 
 def render(page: PageContext, renderer: Callable[[str], Rendered] | None = None) -> PageContext:
     """The page as a browser shows it. Raises RenderFailed; the caller keeps the delivered page."""
     rendered = (renderer or RENDERER)(page.final_url)
-    return replace(page, rendered_html=rendered.html)
+    return replace(page, rendered_html=rendered.html, resources=list(rendered.resources))
+
+
+# ---------- the site's icon
+
+ICON_RELS = ("icon", "shortcut icon", "apple-touch-icon", "apple-touch-icon-precomposed")  # in the order we try
+IMAGE_MAGIC = (b"\x00\x00\x01\x00", b"\x89PNG", b"GIF8", b"\xff\xd8\xff", b"RIFF", b"<svg", b"<?xml")
+ICON_TRANSPORT: httpx.BaseTransport | None = None  # tests put a transport of their own here
+
+
+def icon_candidates(html: str, base: str) -> list[str]:
+    """Icons the page names, rel="icon" and "shortcut icon" first, then the Apple touch icons, each in page
+    order. Hidden marks do not matter here: icons live in the head."""
+    from selectolax.parser import HTMLParser
+    links = [(" ".join((node.attributes.get("rel") or "").lower().split()), node.attributes.get("href") or "")
+             for node in HTMLParser(html).css("link[rel][href]")]
+    ordered = []
+    for rel in ICON_RELS:
+        ordered += [urljoin(base, href.strip()) for r, href in links if r == rel and href.strip()]
+    return list(dict.fromkeys(u for u in ordered if not u.startswith("data:")))
+
+
+def fetch_favicon(page: PageContext, *, transport: httpx.BaseTransport | None = None) -> list[FetchedIcon]:
+    """Resolve the site's icon the way a browser does: the first icon the page names, then /favicon.ico. At most
+    two requests, redirects capped at three, and only the first bytes are read, to tell an image from an error
+    page; nothing is kept but the outcome."""
+    declared = icon_candidates(page.rendered_html or page.html, page.final_url)
+    fallback = urljoin(page.final_url, "/favicon.ico")
+    tries = [(declared[0], True)] if declared else []
+    if fallback not in [u for u, _ in tries]:
+        tries.append((fallback, False))
+    found: list[FetchedIcon] = []
+    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS, follow_redirects=True,
+                      max_redirects=3, transport=transport or ICON_TRANSPORT,
+                      event_hooks=requestlog.httpx_hooks("favicon")) as client:
+        for url, named in tries:
+            if same_site(url, page.final_url) and page.robots and not robots_allows(
+                    page.robots.status, page.robots.text, url):
+                found.append(FetchedIcon(url, url, None, "", False, named, "robots.txt asks us not to load it"))
+                continue
+            found.append(_get_icon(client, url, named))
+            if found[-1].found:
+                break
+    return found
+
+
+def _get_icon(client: httpx.Client, url: str, declared: bool) -> FetchedIcon:
+    try:
+        with client.stream("GET", url) as response:
+            head = b""
+            if response.status_code == 200:
+                for chunk in response.iter_bytes():
+                    head = chunk[:16]
+                    break
+            kind = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            image = kind.startswith("image/") or head.lstrip().startswith(IMAGE_MAGIC)
+            return FetchedIcon(url, str(response.url), response.status_code, kind, image, declared)
+    except httpx.TooManyRedirects:
+        return FetchedIcon(url, url, None, "", False, declared, "redirected more than 3 times")
+    except (httpx.HTTPError, httpx.InvalidURL) as exc:
+        return FetchedIcon(url, url, None, "", False, declared, f"{type(exc).__name__}: {exc}")

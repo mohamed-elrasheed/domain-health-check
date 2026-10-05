@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from site_helpers import healthy_site
 
 from domain_health_check import cli, dns_utils, external
 from domain_health_check.checks import rdap
@@ -48,6 +49,15 @@ def no_network(monkeypatch):
     for secret in ("PAGESPEED_API_KEY", "PLACES_API_KEY", "SMTP_USERNAME", "SMTP_PASSWORD", "REPORT_RECIPIENT"):
         monkeypatch.delenv(secret, raising=False)
     monkeypatch.setattr(cli, "ENV_FILE", Path(__file__).parent / "no-such.env")
+
+
+@pytest.fixture(autouse=True)
+def links_and_icon_answer_offline(monkeypatch):
+    """The link checker and the icon fetch get a local transport by default, so a full report run makes no request.
+    Tests that judge a broken link or a missing icon put their own transport in place."""
+    from domain_health_check import fetcher, linkcheck
+    monkeypatch.setattr(linkcheck, "TRANSPORT", httpx.MockTransport(healthy_site))
+    monkeypatch.setattr(fetcher, "ICON_TRANSPORT", httpx.MockTransport(healthy_site))
 
 
 @pytest.fixture(autouse=True)

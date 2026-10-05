@@ -1,44 +1,75 @@
-# The public price list, word for word, and which line each check's findings point to.
+# The public price lists, word for word, and which rung each check's findings sit on.
 #
-# Every item and price below is copied exactly from https://www.mizangroupllc.com/digital. Nothing in the
-# report invents a price: the last page of every report reads its lines from here and nowhere else. When the
-# page changes, change this file to match, and refresh tests/fixtures/mizangroupllc.com/digital.html, which a
-# test compares every line against.
+# Every item and price below is copied exactly from a page on our own site, named by its "page": digital is
+# https://www.mizangroupllc.com/digital (websites), services is https://www.mizangroupllc.com/services (tech
+# services). Nothing in the report invents a price: the last page of every report reads its lines from here and
+# nowhere else. When a page changes, change this file to match and refresh the saved copy under
+# tests/fixtures/mizangroupllc.com/, which a test compares every line against.
 
-source: https://www.mizangroupllc.com/digital
+pages:
+  digital: https://www.mizangroupllc.com/digital
+  services: https://www.mizangroupllc.com/services
 checked: 2026-10-05
 
 prices:
-  # Websites, Published prices
-  starter: {item: "Starter site, up to five pages", price: "Starting at $900"}
-  business: {item: "Business site, up to ten pages, edit it yourself", price: "Starting at $1,800"}
-  store: {item: "Online store with checkout and payments", price: "Starting at $2,800"}
-  hourly: {item: "Custom work outside a package", price: "$85 per hour"}
-  # After it launches, Care plans
-  essential: {item: "Essential, two changes a month", price: "$35 per month"}
-  standard: {item: "Standard, five changes a month", price: "$60 per month"}
-  priority: {item: "Priority, ten changes a month, first in the queue", price: "$95 per month"}
-  # Marketing
-  seo: {item: "Search engine optimization, ongoing", price: "From $450 per month"}
-  ads: {item: "Google Ads management", price: "From $400 per month"}
-  social: {item: "Social media, posting and replies", price: "From $350 per month"}
+  # /digital, Websites, Published prices
+  starter: {page: digital, item: "Starter site, up to five pages", price: "Starting at $900"}
+  business: {page: digital, item: "Business site, up to ten pages, edit it yourself", price: "Starting at $1,800"}
+  store: {page: digital, item: "Online store with checkout and payments", price: "Starting at $2,800"}
+  hourly: {page: digital, item: "Custom work outside a package", price: "$85 per hour"}
+  # /digital, After it launches, Care plans
+  essential: {page: digital, item: "Essential, two changes a month", price: "$35 per month"}
+  standard: {page: digital, item: "Standard, five changes a month", price: "$60 per month"}
+  priority: {page: digital, item: "Priority, ten changes a month, first in the queue", price: "$95 per month"}
+  # /digital, Marketing
+  seo: {page: digital, item: "Search engine optimization, ongoing", price: "From $450 per month"}
+  ads: {page: digital, item: "Google Ads management", price: "From $400 per month"}
+  social: {page: digital, item: "Social media, posting and replies", price: "From $350 per month"}
+  # /services has no line for email or domain settings yet (checked 2026-10-05). Mo's decision: the email rung
+  # shows its findings with no price line until one is published there. Do not write one here.
 
-# Who can fix a finding, and which price lines match. self has no price line: its fix instruction is the answer.
+# Who can fix a finding, and what the last page shows beside it:
+#   fix      the finding's own instruction, for the owner or for whoever they ask
+#   prices   the rung's lines from the price list
+#   summary  what we found, and nothing to buy
+# Listed in the order the last page shows them.
 rungs:
   self:
     label: "Fix it yourself"
     intro: "You can do these yourself, without a developer."
+    shows: fix
+    column: "What to do"
     prices: []
   tuneup:
     label: "Tune-up of your current site"
     intro: "Work on the site you have now, by us or by any developer you choose."
+    shows: prices
+    column: "From our price list"
     prices: [hourly]
+  email:
+    label: "Email and domain settings"
+    intro: "Settings on your domain and email rather than on your website. Whoever manages your domain or email can make these changes."
+    shows: fix
+    column: "What to ask for"
+    prices: []
   rebuild:
     label: "New site"
     intro: "These point to a new site rather than changes to the current one."
+    shows: prices
+    column: "From our price list"
     prices: [starter, business, store]
+  platform:
+    label: "Set by your website platform"
+    intro: "This is set by your website platform, not by you or a developer. We list it for completeness and do not charge for it."
+    shows: summary
+    column: "What we found"
+    prices: []
 
-# Every check the report can grade, and its rung. A test fails if a check is missing here.
+# On a hosted builder (config/platforms.yaml) these findings move to the platform rung, whatever their rung below.
+platform_checks: ["HSTS (always use HTTPS)", "Content Security Policy", "X-Content-Type-Options"]
+
+# Every check the report can grade, and its rung. A test fails if a check is missing here. platform is never
+# assigned here: a finding reaches it only when a hosted builder is detected.
 checks:
   # Website security
   SSL certificate: tuneup
@@ -48,13 +79,13 @@ checks:
   X-Content-Type-Options: tuneup
   # Domain and DNS
   Domain registration: self
-  Nameservers: tuneup
-  DNSSEC: tuneup
+  Nameservers: email
+  DNSSEC: email
   # Email security
-  Mail servers (MX): tuneup
-  SPF (approved senders): tuneup
-  DKIM (email signatures): tuneup
-  DMARC (anti-spoofing policy): tuneup
+  Mail servers (MX): email
+  SPF (approved senders): email
+  DKIM (email signatures): email
+  DMARC (anti-spoofing policy): email
   # Site health
   Search engine blocking: tuneup
   Page title: self
@@ -69,6 +100,10 @@ checks:
   Sitemap and robots: tuneup
   Page weight: tuneup
   Redirect chain: tuneup
+  Broken links: self
+  Links to other sites: self
+  Mixed content: self
+  Favicon: self
   # Speed, from Google PageSpeed Insights
   Real-world loading speed: tuneup
   Mobile speed: tuneup

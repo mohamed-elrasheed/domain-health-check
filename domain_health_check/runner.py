@@ -6,9 +6,9 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Callable
 
-from . import dns_utils, external, fetcher, requestlog
+from . import dns_utils, external, fetcher, linkcheck, platform, requestlog
 from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
-from .checks.site import content, delivery, indexing, sharing, structured_data
+from .checks.site import content, delivery, favicon, indexing, links, mixed_content, sharing, structured_data
 from .config import DomainConfig
 from .external import Business, ExternalContext
 from .fetcher import FetchError, PageContext, PageStatusError, RobotsDisallowed, status_phrase
@@ -56,6 +56,9 @@ def _checks_for(
         (SITE, "Sitemap and robots", on_page(indexing.check_sitemap_and_robots)),
         (SITE, "Page weight", on_page(delivery.check_page_weight)),
         (SITE, "Redirect chain", on_page(delivery.check_redirects)),
+        (SITE, "Broken links", on_page(links.check_links)),
+        (SITE, "Mixed content", on_page(mixed_content.check_mixed_content)),
+        (SITE, "Favicon", on_page(favicon.check_favicon)),
         (SITE, "Google speed test", lambda: pagespeed.check_speed_test_ran(ext)),
         (SITE, "Real-world loading speed", lambda: pagespeed.check_field_speed(ext)),
         (SITE, "Mobile speed", lambda: pagespeed.check_mobile_speed(ext)),
@@ -87,6 +90,13 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     if render_failure:
         incomplete.append(f"The browser could not load the home page, so the checks that judge what a visitor sees "
                           f"read the page as delivered instead: {render_failure}")
+    page, link_failure = _verify_links(page)
+    if link_failure:
+        incomplete.append(f"The links on the home page could not be verified: {link_failure}")
+    page, icon_failure = _fetch_favicon(page)
+    if icon_failure:
+        incomplete.append(f"The site's icon could not be checked: {icon_failure}")
+    detected = platform.detect(page) if isinstance(page, PageContext) else None
     ext = _fetch_external(domain, page)
     if isinstance(page, PageContext) and not ext.psi_mobile:
         why = ext.errors.get("psi_mobile") or ("PAGESPEED_API_KEY is not set" if not ext.pagespeed_configured
@@ -109,7 +119,8 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
             ))
     return DomainReport(domain.name, now, results, website_loaded=isinstance(page, PageContext),
                         unreachable=_unreachable(page), rendered=isinstance(page, PageContext) and page.rendered,
-                        incomplete=incomplete)
+                        incomplete=incomplete, platform=detected.name if detected else "",
+                        platform_evidence=detected.evidence if detected else "")
 
 
 def _fetch_page(domain: str) -> PageContext | FetchError:
@@ -135,6 +146,26 @@ def _render_in_browser(page: PageContext | FetchError) -> tuple[PageContext | Fe
     try:
         return fetcher.render(page), ""
     except Exception as exc:  # no browser, or it could not load the page: say so, never guess
+        return page, f"{type(exc).__name__}: {exc}"
+
+
+def _verify_links(page: PageContext | FetchError) -> tuple[PageContext | FetchError, str]:
+    """The links on the consented page, each verified once under the cap in CLAUDE.md (linkcheck.py)."""
+    if not isinstance(page, PageContext):
+        return page, ""
+    try:
+        return replace(page, links=linkcheck.verify(page)), ""
+    except Exception as exc:  # the check then says it did not run; the report is marked incomplete
+        return page, f"{type(exc).__name__}: {exc}"
+
+
+def _fetch_favicon(page: PageContext | FetchError) -> tuple[PageContext | FetchError, str]:
+    """The site's icon, resolved the way a browser does, in at most two requests (fetcher.fetch_favicon)."""
+    if not isinstance(page, PageContext):
+        return page, ""
+    try:
+        return replace(page, favicon=fetcher.fetch_favicon(page)), ""
+    except Exception as exc:
         return page, f"{type(exc).__name__}: {exc}"
 
 

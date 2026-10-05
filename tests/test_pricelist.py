@@ -21,13 +21,13 @@ from domain_health_check.external import ExternalContext
 from domain_health_check.models import DOMAIN, EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
 from domain_health_check.report import record, render_markdown
 
-DIGITAL = Path(__file__).parent / "fixtures" / "mizangroupllc.com" / "digital.html"
+OURS = Path(__file__).parent / "fixtures" / "mizangroupllc.com"  # saved copies of our own /digital and /services
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 PRICES = pricelist.load()
 
 
-def page_lines() -> list[str]:
-    tree = HTMLParser(DIGITAL.read_text(encoding="utf-8"))
+def page_lines(page: str = "digital") -> list[str]:
+    tree = HTMLParser((OURS / f"{page}.html").read_text(encoding="utf-8"))
     for node in tree.css("script, style, noscript"):
         node.decompose()
     return [line.strip() for line in tree.body.text(separator="\n").splitlines() if line.strip()]
@@ -62,8 +62,8 @@ def test_every_price_line_is_published_word_for_word():
 
 def test_every_published_price_is_in_the_config():
     """The mirror runs both ways: a price added to the page is a price this file has not caught up with."""
-    published = [line for line in page_lines() if re.search(r"\$\d", line) and len(line) < 40]
-    assert sorted(published) == sorted(line.price for line in PRICES.prices.values())
+    published = [line for line in page_lines("digital") if re.search(r"\$\d", line) and len(line) < 40]
+    assert sorted(published) == sorted(line.price for line in PRICES.prices.values() if line.page == "digital")
 
 
 def test_only_the_paid_rungs_carry_prices_and_self_carries_none():
@@ -131,26 +131,30 @@ def test_a_self_finding_comes_with_a_one_or_two_sentence_instruction(r):
 def test_groups_are_self_then_tuneup_then_rebuild_and_unconfirmed_findings_are_not_priced():
     report = report_of(
         result("Mobile viewport"),
-        result("DMARC (anti-spoofing policy)", category=EMAIL),
+        result("DMARC (anti-spoofing policy)", category=EMAIL, fix="Ask for a DMARC record."),
         result("Meta description", fix="Write a description."),
+        result("Redirect chain"),
         result("Canonical tag", certain=False),
         result("Page title", status=Status.PASS),
         result("SSL certificate", ran=False, category=WEBSITE),
     )
     groups = [(rung.key, [r.name for r in results]) for rung, results in layout.priced(report)]
-    assert groups == [("self", ["Meta description"]), ("tuneup", ["DMARC (anti-spoofing policy)"]),
-                      ("rebuild", ["Mobile viewport"])]
+    assert groups == [("self", ["Meta description"]), ("tuneup", ["Redirect chain"]),
+                      ("email", ["DMARC (anti-spoofing policy)"]), ("rebuild", ["Mobile viewport"])]
     assert layout.prices_note(report) == layout.UNCONFIRMED_NOT_PRICED
 
 
 def test_the_markdown_lists_each_finding_with_its_rung_and_price_line():
-    report = report_of(result("Meta description", fix="Write a description."),
-                       result("DMARC (anti-spoofing policy)", category=EMAIL), result("Mobile viewport"))
+    report = report_of(result("Meta description", fix="Write a description."), result("Canonical tag"),
+                       result("DMARC (anti-spoofing policy)", category=EMAIL, fix="Ask for a DMARC record."),
+                       result("Mobile viewport"))
     md = render_markdown(report)
     section = md[md.index("## " + layout.PRICES_HEADING):]
-    assert section.index("### Fix it yourself") < section.index("### Tune-up") < section.index("### New site")
+    assert (section.index("### Fix it yourself") < section.index("### Tune-up") < section.index("### Email and domain")
+            < section.index("### New site"))
     assert "| Meta description | Write a description. |" in section
-    assert "| DMARC (anti-spoofing policy) | Custom work outside a package: $85 per hour |" in section
+    assert "| Canonical tag | Custom work outside a package: $85 per hour |" in section
+    assert "| Finding | What to ask for |\n|---|---|\n| DMARC (anti-spoofing policy) | Ask for a DMARC record. |" in section
     assert ("| Mobile viewport | Starter site, up to five pages: Starting at $900; Business site, up to ten pages, "
             "edit it yourself: Starting at $1,800; Online store with checkout and payments: Starting at $2,800 |"
             ) in section
@@ -193,7 +197,7 @@ def test_the_record_carries_each_rung():
     report = report_of(result("Meta description"), result("DNSSEC", category=DOMAIN),
                        result("Site health checks", ran=False))
     rungs = {r["name"]: r["rung"] for r in json.loads(json.dumps(record(report), default=str))["results"]}
-    assert rungs == {"Meta description": "self", "DNSSEC": "tuneup", "Site health checks": None}
+    assert rungs == {"Meta description": "self", "DNSSEC": "email", "Site health checks": None}
 
 
 def test_the_pdf_ends_on_the_price_page():
@@ -202,8 +206,7 @@ def test_the_pdf_ends_on_the_price_page():
     except OSError as exc:  # no Pango on this machine; CI installs it
         pytest.skip(f"WeasyPrint cannot load its native libraries: {exc}")
     pypdf = pytest.importorskip("pypdf")
-    report = report_of(result("Meta description", fix="Write a description."),
-                       result("DMARC (anti-spoofing policy)", category=EMAIL))
+    report = report_of(result("Meta description", fix="Write a description."), result("Canonical tag"))
     pages = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report))).pages
     last = " ".join(pages[-1].extract_text().split())
     assert last.startswith(layout.PRICES_HEADING)
