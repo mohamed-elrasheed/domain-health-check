@@ -32,7 +32,7 @@ def test_mizan_page_weight_uses_measured_values(mizan_page):
     [result] = delivery.check_page_weight(mizan_page)
     assert result.status is Status.PASS
     assert "97 KB" in result.summary and "0.15 seconds" in result.summary
-    assert "Time to first byte: 151 ms, including 1 redirect(s)" in result.details
+    assert "Time to first byte: 151 ms, including 1 redirect" in result.details
     assert "Time to last byte: 203 ms" in result.details
 
 

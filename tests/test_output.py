@@ -81,7 +81,7 @@ def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, mizan_pag
     assert len(names) == 25  # TLS gives 2 results, headers 3, and the 13 site checks 1 each
     assert fetched == ["mizangroupllc.com"]  # one page fetch per report
     # No check should have crashed into the runner's "couldn't be completed" fallback.
-    assert not any("couldn't be completed" in r.summary for r in report.results)
+    assert not any("could not be completed" in r.summary for r in report.results)
     site = [(r.name, r.status) for r in report.results if r.category == SITE]
     assert [name for name, status in site if status is not Status.PASS] == ["Meta description"]
     # The two header WARNs the live report shows: response.json has no CSP and no X-Content-Type-Options.
@@ -107,7 +107,7 @@ def test_runner_failed_fetch_becomes_a_warning(monkeypatch):
         (WEBSITE, "Security headers", lambda: http_headers.check_http_headers(page)),
     ])
     [result] = runner.run_checks(DomainConfig("example.com"), NOW).results
-    assert result.status is Status.WARN and "couldn't load https://example.com/" in result.summary
+    assert result.status is Status.WARN and "could not load https://example.com/" in result.summary
 
 
 def test_runner_survives_unexpected_fetch_crash(monkeypatch):

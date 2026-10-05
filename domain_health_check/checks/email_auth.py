@@ -17,7 +17,7 @@ publish rules that receiving mail systems (Gmail, Outlook...) check:
     with a private key, and publishes the matching public key in DNS at
     <selector>._domainkey.<domain>. The "selector" is just a label chosen by
     the email provider (Google uses "google", Microsoft 365 "selector1" and
-    "selector2", Fastmail "fm1".."fm3"), so it can't be discovered; you have
+    "selector2", Fastmail "fm1".."fm3"), so it cannot be discovered; you have
     to know it. That's why selectors are configured per domain.
 
   * DMARC (Domain-based Message Authentication, Reporting and Conformance), a
@@ -41,7 +41,7 @@ SPF_EXPLANATION = (
 )
 DKIM_EXPLANATION = (
     "DKIM adds a tamper-proof digital signature to every email you send. Receivers check the signature "
-    "against a key published in your DNS to confirm the message really came from you and wasn't altered."
+    "against a key published in your DNS to confirm the message really came from you and was not altered."
 )
 DMARC_EXPLANATION = (
     "DMARC tells other mail systems what to do with emails that claim to be from you but fail the SPF and "
@@ -68,7 +68,7 @@ def _is_spf(record: str) -> bool:
 
 
 def _all_qualifier(record: str) -> str | None:
-    """Return '+', '-', '~' or '?' for the record's 'all' mechanism, or None if there isn't one."""
+    """Return '+', '-', '~' or '?' for the record's 'all' mechanism, or None if there is not one."""
     for term in record.split()[1:]:
         term = term.lower()
         if term in ("all", "+all"):
@@ -121,7 +121,7 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
     if "redirect=" in record.lower():
         return result(Status.PASS, "SPF is set up and points to another domain's SPF policy (redirect).")
     return result(
-        Status.WARN, "The SPF record doesn't end with an 'all' rule, so unlisted servers aren't blocked.",
+        Status.WARN, "The SPF record does not end with an 'all' rule, so unlisted servers are not blocked.",
         f"{ask} to finish the SPF record with a rule for servers it does not list.",
         "Add ~all or -all to the end of the SPF record.",
     )
@@ -157,7 +157,7 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
     tags = parse_tags(dmarc[0])
     policy = tags.get("p", "").lower()
     if "rua" not in tags:
-        details.append("No 'rua' address is set, so you won't receive reports about who is sending as you.")
+        details.append("No 'rua' address is set, so you will not receive reports about who is sending as you.")
     pct = tags.get("pct")
     if pct and pct.isdigit() and int(pct) < 100:
         details.append(f"The policy only applies to {pct}% of failing messages (pct={pct}).")
@@ -211,12 +211,13 @@ def check_dkim(domain: str, selectors: list[str] | None = None) -> list[CheckRes
         return result(Status.PASS, f"DKIM signing keys are published (selector: {', '.join(found)}).")
     if revoked:
         return result(
-            Status.WARN, "Only revoked DKIM keys were found, so emails can't be verified with them.",
+            Status.WARN, "Only revoked DKIM keys were found, so emails cannot be verified with them.",
             setup_fix,
         )
     if configured:
         return result(
-            Status.WARN, f"No DKIM key was found for the configured selector(s): {', '.join(selectors)}.",
+            Status.WARN, f"No DKIM key was found for the configured selector{'s' if len(selectors) != 1 else ''}: "
+            f"{', '.join(selectors)}.",
             setup_fix,
         )
     return result(

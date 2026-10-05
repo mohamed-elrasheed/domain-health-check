@@ -37,7 +37,7 @@ TIMEOUT_SECONDS = 10
 
 CERT_EXPLANATION = (
     "The SSL certificate proves to visitors' browsers that they are talking to your real website, "
-    "and encrypts everything sent between them. If it expires or doesn't match your domain, browsers "
+    "and encrypts everything sent between them. If it expires or does not match your domain, browsers "
     "show a full-page security warning and most visitors will leave."
 )
 CERT_FIX = (
@@ -89,7 +89,7 @@ def evaluate_certificate(cert: dict, now: datetime) -> CheckResult:
             Status.WARN,
             f"The certificate expires in {days_left} days.",
             "Confirm with your web host that the certificate will renew automatically before "
-            f"{expires:%d %B %Y}. If it doesn't, renew it manually.",
+            f"{expires:%d %B %Y}. If it does not, renew it manually.",
             measure=days_left / WARN_DAYS,  # a matter of time, not broken yet
         )
     return result(Status.PASS, f"Valid for another {days_left} days, issued by {issuer}.")
@@ -136,13 +136,13 @@ def check_tls(domain: str, now: datetime | None = None) -> list[CheckResult]:
             [f"TLS error: {exc}"], certain=False,  # it failed for us; a browser may still connect
         )]
     except OSError as exc:
-        # Includes timeouts and "connection refused". Some domains simply don't host a website.
+        # Includes timeouts and "connection refused". Some domains simply do not host a website.
         return [CheckResult(
             WEBSITE, "SSL certificate", Status.WARN,
-            f"We couldn't connect to https://{domain}.",
+            f"We could not connect to https://{domain}.",
             CERT_EXPLANATION,
-            "If this domain is meant to have a website, ask your web host why it isn't reachable over "
-            "HTTPS. If it's only used for email, you can ignore this.",
+            "If this domain is meant to have a website, ask your web host why it is not reachable over "
+            "HTTPS. If it is only used for email, you can ignore this.",
             [f"Connection error: {exc}"], certain=False,
         )]
     return [evaluate_certificate(cert, now), evaluate_tls_version(version)]

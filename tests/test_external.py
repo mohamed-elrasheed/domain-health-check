@@ -180,3 +180,38 @@ def test_load_env_reads_keys_without_overriding(tmp_path, monkeypatch):
 def test_tests_never_see_the_real_env_file():
     assert not cli.ENV_FILE.exists()
     assert "PAGESPEED_API_KEY" not in os.environ
+
+
+
+# ---------- the 24-hour rule, enforced at the start of every report run
+
+def test_every_report_run_prunes_pagespeed_responses_older_than_a_day(tmp_path, capsys):
+    pagespeed_cache = external.CACHE_DIR
+    import os
+    import time
+    from domain_health_check import cli
+    pagespeed_cache.mkdir(parents=True)
+    old = pagespeed_cache / "example.com-mobile-1.json"
+    fresh = pagespeed_cache / "example.org-mobile-1.json"
+    for path in (old, fresh):
+        path.write_text("{}")
+    day = 24 * 60 * 60
+    os.utime(old, (time.time() - day - 60, time.time() - day - 60))
+    # The run itself is refused (no --authorized): pruning happens first, whatever follows.
+    assert cli.main(["example.net", "-o", str(tmp_path), "--no-pdf"]) == 2
+    assert not old.exists() and fresh.exists()
+    assert "Deleted a cached PageSpeed response older than 24 hours: example.com-mobile-1.json" in \
+        capsys.readouterr().out
+
+
+def test_prune_cache_reports_exactly_what_it_deleted():
+    pagespeed_cache = external.CACHE_DIR
+    import os
+    pagespeed_cache.mkdir(parents=True)
+    for name, age in (("a.json", 25), ("b.json", 23), ("c.json", 48)):
+        path = pagespeed_cache / name
+        path.write_text("{}")
+        os.utime(path, (1_000_000 - age * 3600, 1_000_000 - age * 3600))
+    removed = external.prune_cache(now=1_000_000)
+    assert [p.name for p in removed] == ["a.json", "c.json"]
+    assert [p.name for p in pagespeed_cache.iterdir()] == ["b.json"]

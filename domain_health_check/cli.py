@@ -7,7 +7,7 @@ import smtplib
 import sys
 from pathlib import Path
 
-from . import __version__, consent, mailer
+from . import __version__, consent, external, mailer
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .models import Status
 from .pdf import write_pdf
@@ -58,9 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     load_env(ENV_FILE)
-    # Registrar names and the like can contain characters the Windows console can't print.
+    # Registrar names and the like can contain characters the Windows console cannot print.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    # CLAUDE.md: cached PageSpeed responses are deleted after 24 hours. Enforced here, on every run.
+    for path in external.prune_cache():
+        print(f"Deleted a cached PageSpeed response older than 24 hours: {path.name}")
 
     try:
         if args.domains:

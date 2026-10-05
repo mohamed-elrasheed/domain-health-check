@@ -1,6 +1,6 @@
 """Domain registration expiry via RDAP.
 
-A domain name is rented, not owned: it's registered for a period (usually one
+A domain name is rented, not owned: it is registered for a period (usually one
 year at a time) through a registrar such as GoDaddy or Namecheap. If the
 renewal is missed, the website and email stop working, and the name can
 eventually be bought by someone else.
@@ -37,11 +37,11 @@ EXPLANATION = (
     "Your domain name is rented from a registrar and has to be renewed, usually every year. If the renewal "
     "is missed, your website and email stop working, and someone else could register the name."
 )
-RENEW_FIX = "Renew the domain with your registrar now, and switch on auto-renew with a payment card that won't expire."
+RENEW_FIX = "Renew the domain with your registrar now, and switch on auto-renew with a payment card that will not expire."
 
 
 class RDAPUnavailable(Exception):
-    """The registry for this TLD doesn't offer RDAP."""
+    """The registry for this TLD does not offer RDAP."""
 
 
 def _get_json(url: str) -> dict:
@@ -108,7 +108,7 @@ def evaluate_registration(data: dict, now: datetime) -> CheckResult:
     if expiry is None:
         return CheckResult(
             DOMAIN, NAME, Status.WARN,
-            "The registry doesn't publish an expiry date for this domain.",
+            "The registry does not publish an expiry date for this domain.",
             EXPLANATION,
             "Log in to your registrar's control panel to confirm the renewal date and that auto-renew is on.",
             details, certain=False,
@@ -144,12 +144,12 @@ def check_registration(domain: str, now: datetime | None = None) -> list[CheckRe
                             certain=False)]
     except RDAPUnavailable as exc:
         return [CheckResult(
-            DOMAIN, NAME, Status.WARN, "This domain's registry doesn't offer an automated lookup.",
+            DOMAIN, NAME, Status.WARN, "This domain's registry does not offer an automated lookup.",
             EXPLANATION, unknown_fix, [str(exc)], certain=False,
         )]
     except (urllib.error.URLError, OSError, ValueError) as exc:
         return [CheckResult(
-            DOMAIN, NAME, Status.WARN, "We couldn't reach the registry to check the expiry date.",
+            DOMAIN, NAME, Status.WARN, "We could not reach the registry to check the expiry date.",
             EXPLANATION, unknown_fix, [f"Error: {getattr(exc, 'reason', exc)}"], certain=False,
         )]
     return [evaluate_registration(data, now)]

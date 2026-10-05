@@ -147,11 +147,22 @@ def _cache_path(domain: str, strategy: str, run: int) -> Path:
     return CACHE_DIR / f"{domain}-{strategy}-{run}.json"
 
 
-def _prune_cache() -> None:
+def prune_cache(now: float | None = None) -> list[Path]:
+    """Delete cached PageSpeed responses older than CACHE_SECONDS. Returns what was deleted. The report
+    command calls this at the start of every run, whether or not PageSpeed is used, so the 24-hour rule
+    holds even when no new response is fetched."""
+    now = time.time() if now is None else now
+    removed = []
     if CACHE_DIR.is_dir():
-        for path in CACHE_DIR.iterdir():
-            if time.time() - path.stat().st_mtime >= CACHE_SECONDS:
+        for path in sorted(CACHE_DIR.iterdir()):
+            if path.is_file() and now - path.stat().st_mtime >= CACHE_SECONDS:
                 path.unlink(missing_ok=True)
+                removed.append(path)
+    return removed
+
+
+def _prune_cache() -> None:
+    prune_cache()
 
 
 def _pagespeed(client: httpx.Client, domain: str, url: str, strategy: str, run: int, key: str) -> dict:
@@ -232,5 +243,9 @@ def _find_place(client: httpx.Client, context: ExternalContext, domain: str, bus
         context.place_outcome = "unconfirmed"
         context.phone_compared = bool(matching.phone_digits(business.phone))
         phone = " or lists the phone number we were given" if context.phone_compared else ""
-        context.errors["place"] = (f'{len(candidates)} listing(s) named like "{business.name}", but none links to '
-                                   f"{domain}{phone}, so we did not use any of them")
+        if len(candidates) == 1:
+            context.errors["place"] = (f'1 listing is named like "{business.name}", but it does not link to '
+                                       f"{domain}{phone}, so we did not use it")
+        else:
+            context.errors["place"] = (f'{len(candidates)} listings are named like "{business.name}", but none '
+                                       f"links to {domain}{phone}, so we did not use any of them")

@@ -31,7 +31,7 @@ def test_null_mx_passes(fake_dns):
     fake_dns[("example.com", "MX")] = ["0 ."]
     [result] = dns_records.check_mx("example.com")
     assert result.status is Status.PASS
-    assert "doesn't receive email" in result.summary
+    assert "does not receive email" in result.summary
 
 
 def test_domain_never_set_up_for_mail_is_informational(fake_dns):
@@ -63,3 +63,11 @@ def test_dnssec_ds_present(fake_dns):
 
 def test_dnssec_missing_warns(fake_dns):
     assert dnssec.check_dnssec("example.com")[0].status is Status.WARN
+
+
+
+@pytest.mark.parametrize("count, summary", [(1, "1 mail server is listed."), (2, "2 mail servers are listed.")])
+def test_mail_servers_are_counted_in_plain_english(fake_dns, count, summary):
+    fake_dns[("example.com", "MX")] = [f"{n * 10} mx{n}.example.net." for n in range(1, count + 1)]
+    [result] = dns_records.check_mx("example.com")
+    assert result.summary == summary

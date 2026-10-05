@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from domain_health_check import cli, dns_utils
+from domain_health_check import cli, dns_utils, external
 from domain_health_check.checks import rdap
 from domain_health_check.fetcher import FetchedFile, PageContext
 
@@ -44,6 +44,14 @@ def no_previews_repository(tmp_path, monkeypatch):
     monkeypatch.setattr(preview_cli, "PREVIEWS", tmp_path / "no-previews-repository")
     # Tests sweep lead lists in temporary folders; tests/test_sweep_board.py tests the guard itself.
     monkeypatch.setattr(sweep_cli, "board_blockers", lambda leads, root: [])
+
+
+@pytest.fixture(autouse=True)
+def pagespeed_cache(tmp_path, monkeypatch) -> Path:
+    """A PageSpeed cache folder of the test's own, so no test prunes or reads the real one."""
+    path = tmp_path / "pagespeed-cache"
+    monkeypatch.setattr(external, "CACHE_DIR", path)
+    return path
 
 
 @pytest.fixture(autouse=True)

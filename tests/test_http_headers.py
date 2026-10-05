@@ -54,7 +54,7 @@ def test_error_page_headers_are_not_judged():
 def test_unreachable_site_gives_single_warning():
     [result] = http_headers.check_http_headers(FetchError("https://example.com/", "ConnectError: refused"))
     assert result.status is Status.WARN
-    assert "couldn't load https://example.com/" in result.summary
+    assert "could not load https://example.com/" in result.summary
     assert result.details == ["Error: ConnectError: refused"]
     assert not result.ran
 

@@ -75,12 +75,12 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
     for category, name, check in _checks_for(domain, now, page, ext):
         try:
             results.extend(check())
-        except Exception as exc:  # one failing lookup shouldn't sink the whole report
+        except Exception as exc:  # one failing lookup should not sink the whole report
             results.append(CheckResult(
                 category, name, Status.WARN,
-                "This check couldn't be completed, so the result is unknown.",
+                "This check could not be completed, so the result is unknown.",
                 "A lookup failed or timed out while running this check.",
-                "Run the check again later. If it keeps failing, ask your IT provider to look at the error below.",
+                "There is nothing for you to do unless the error below names something you recognize; if it does, ask your IT provider to look at it.",
                 [f"Error: {type(exc).__name__}: {exc}"],
                 ran=False,
             ))
@@ -95,7 +95,7 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return fetcher.fetch_page(domain)
     except FetchError as exc:
         return exc
-    except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
+    except Exception as exc:  # same rule as the checks: one failure should not sink the report
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
 
 
@@ -113,7 +113,7 @@ def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) 
     business = Business(domain.business_name, domain.city, domain.phone) if domain.business_name else None
     try:
         return external.fetch_external(domain.name, url, skipped, business=business)
-    except Exception as exc:  # same rule as the checks: one failure shouldn't sink the report
+    except Exception as exc:  # same rule as the checks: one failure should not sink the report
         return ExternalContext(errors={"psi_mobile": f"{type(exc).__name__}"})
 
 

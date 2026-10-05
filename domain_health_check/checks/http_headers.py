@@ -46,7 +46,7 @@ def evaluate_hsts(value: str | None) -> CheckResult:
     fix = "Ask your web developer or host to switch on HSTS, so browsers always use the secure version of your site."
     header = "Header to add: Strict-Transport-Security: max-age=31536000; includeSubDomains"
     if value is None:
-        return result(Status.WARN, "The website doesn't tell browsers to always use HTTPS.", fix, [header])
+        return result(Status.WARN, "The website does not tell browsers to always use HTTPS.", fix, [header])
 
     details = [f"Header value: {value}"]
     match = re.search(r"max-age\s*=\s*\"?(\d+)", value, re.IGNORECASE)
@@ -76,7 +76,7 @@ def evaluate_csp(value: str | None, report_only: str | None) -> CheckResult:
         return result(Status.PASS, "A Content Security Policy is in place.", details=details)
     if report_only:
         return result(
-            Status.WARN, "A Content Security Policy exists but only reports problems; it doesn't block anything.",
+            Status.WARN, "A Content Security Policy exists but only reports problems; it does not block anything.",
             "Once the reports look clean, switch the header from Content-Security-Policy-Report-Only "
             "to Content-Security-Policy so it is enforced.",
             [f"Report-only header: {report_only[:300]}"],
@@ -104,9 +104,9 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
     if isinstance(page, RobotsDisallowed):
         return [CheckResult(
             WEBSITE, "Security headers", Status.WARN,
-            "Your website asks automated tools not to load its home page, so we didn't check its security headers.",
+            "Your website asks automated tools not to load its home page, so we did not check its security headers.",
             "Security headers switch on protections built into visitors' browsers. Your site's robots.txt file, "
-            "which gives instructions to automated tools, doesn't allow us in, and we respect that. "
+            "which gives instructions to automated tools, does not allow us in, and we respect that. "
             "This result is unknown, not a problem we found.",
             "Nothing needs to change if blocking automated tools is intentional. If you would like these "
             "checked, ask your web developer to allow domain-health-check in your robots.txt file.",
@@ -138,10 +138,10 @@ def check_http_headers(page: PageContext | FetchError) -> list[CheckResult]:
     if isinstance(page, FetchError):
         return [CheckResult(
             WEBSITE, "Security headers", Status.WARN,
-            f"We couldn't load {page.url} to check its security headers.",
+            f"We could not load {page.url} to check its security headers.",
             "Security headers switch on protections built into visitors' browsers.",
-            "If this domain is meant to have a website, ask your web host why the home page can't be "
-            "loaded over HTTPS. If it's only used for email, you can ignore this.",
+            "If this domain is meant to have a website, ask your web host why the home page cannot be "
+            "loaded over HTTPS. If it is only used for email, you can ignore this.",
             [f"Error: {page.reason}"],
             ran=False,
         )]

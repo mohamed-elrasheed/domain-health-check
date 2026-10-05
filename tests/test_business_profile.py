@@ -108,7 +108,7 @@ def test_name_match_without_corroboration_is_rejected(with_places_key):
     search = [{"id": "x", "displayName": {"text": "Example Plumbing", "languageCode": "en"}}]
     context = find(places_api(search, {"x": listing("x", website="https://other.test/", phone="(555) 999-0000")}))
     assert context.place is None and context.place_outcome == "unconfirmed" and not context.phone_compared
-    assert "none links to example.com, so" in context.errors["place"]
+    assert "does not link to example.com, so" in context.errors["place"]
 
 
 def test_no_name_match_records_counts_not_other_businesses(with_places_key):

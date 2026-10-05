@@ -67,7 +67,7 @@ def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: in
     details = [
         f"HTML document: {byte_size:,} bytes{' (we stopped reading here)' if truncated else ''}, decompressed. "
         "Images, scripts and styles are not included.",
-        f"Time to first byte: {ttfb_ms:,} ms, including {hops} redirect(s)",
+        f"Time to first byte: {ttfb_ms:,} ms, including {hops} redirect{'s' if hops != 1 else ''}",
         f"Time to last byte: {elapsed_ms:,} ms",
     ]
     problems = []
