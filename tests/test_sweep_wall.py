@@ -19,7 +19,8 @@ PACKAGE = Path(__file__).parent.parent / "domain_health_check"
 
 # Everything sweep may reach inside this package: itself, the User-Agent, and the robots.txt parser it
 # needs in order to honor robots.txt.
-ALLOWED = {"domain_health_check", "domain_health_check.identity", "domain_health_check.robots"}
+ALLOWED = {"domain_health_check", "domain_health_check.identity", "domain_health_check.robots",
+           "domain_health_check.browser"}  # the browser path both modes share; it imports neither
 # Outside libraries sweep has no business importing: DNS lookups, raw TLS and sockets, mail, PDFs.
 FORBIDDEN_LIBRARIES = {"dns", "ssl", "socket", "smtplib", "email", "weasyprint", "whois"}
 

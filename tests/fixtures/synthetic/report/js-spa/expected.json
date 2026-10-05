@@ -1,0 +1,12 @@
+{
+  "about": "A single-page app: an empty shell as delivered, a complete page once its script has run. Rendered, nothing is wrong. Read as delivered, the report would claim the canonical tag and structured data are missing, which is false, and could not check the content at all.",
+  "headers": {"content-type": "text/html; charset=utf-8", "strict-transport-security": "max-age=31536000",
+              "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'",
+              "x-content-type-options": "nosniff"},
+  "findings": [],
+  "findings_without_render": [
+    {"check": "Page content checks", "status": "NOT_CHECKED", "says": "arrives with almost no text"},
+    {"check": "Canonical tag", "status": "WARN", "says": "does not tell search engines which address is its main one"},
+    {"check": "Structured data matches the page", "status": "NOT_CHECKED", "says": "no structured data"}
+  ]
+}

@@ -104,7 +104,11 @@ def _url_key(url: str) -> str:
 
 def evaluate_structured_data(
     blocks: list[str], page_url: str, page_text: str, page_links: set[str], sitemap_urls: set[str],
+    rendered: bool = False,
 ) -> CheckResult:
+    """rendered: page_text and page_links come from the page after a browser ran it, with what a visitor cannot
+    see left out. Otherwise they come from the HTML as delivered, which can include text nobody sees, so the
+    result says "the page", never "the visible page"."""
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, NAME, status, summary, EXPLANATION, fix, list(details), ran, measure=measure)
@@ -114,7 +118,9 @@ def evaluate_structured_data(
                       "Nothing needs fixing. If you would like Google to show details such as your hours, address "
                       "or prices in search results, ask your web developer about adding structured data.",
                       ran=False)
-    measured = "We compared against the page as delivered, before any scripts run."
+    measured = ("We compared against the page after a browser ran its scripts, leaving out anything a visitor "
+                "could not see." if rendered else "We compared against the page as delivered, before any scripts "
+                "run, including any text the page hides.")
     if word_count(page_text) < MIN_WORDS:
         return result(Status.WARN, "Your home page content is built by scripts after it loads, so we could not "
                                    "compare its structured data with what visitors see.",
@@ -163,7 +169,8 @@ def evaluate_structured_data(
         return result(Status.PASS, "Your home page structured data has no prices or links for us to compare.",
                       details=details, ran=False)
     verb = "matches" if _distinct(values) == 1 else "match"
-    return result(Status.PASS, f"The {_counted(values)} in your home page structured data {verb} the visible page.",
+    page = "the visible page" if rendered else "the page"
+    return result(Status.PASS, f"The {_counted(values)} in your home page structured data {verb} {page}.",
                   details=details)
 
 
@@ -192,4 +199,4 @@ def check_structured_data(page: PageContext) -> list[CheckResult]:
     ]
     links = {urljoin(page.final_url, node.attributes.get("href") or "") for node in tree.css("a[href]")}
     return [evaluate_structured_data(blocks, page.final_url, visible_text(page.html), links,
-                                     sitemap_pages(page.sitemap))]
+                                     sitemap_pages(page.sitemap), rendered=page.rendered)]

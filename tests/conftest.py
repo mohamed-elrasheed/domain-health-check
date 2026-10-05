@@ -17,6 +17,9 @@ from domain_health_check.fetcher import FetchedFile, PageContext
 MIZAN = Path(__file__).parent / "fixtures" / "mizangroupllc.com"
 
 
+REAL_SOCKETS = (socket.create_connection, socket.getaddrinfo, socket.socket.connect)
+
+
 def _blocked(*args, **kwargs):
     raise RuntimeError("Tests must never touch the network; mock the lookup instead.")
 
@@ -44,6 +47,35 @@ def no_previews_repository(tmp_path, monkeypatch):
     monkeypatch.setattr(preview_cli, "PREVIEWS", tmp_path / "no-previews-repository")
     # Tests sweep lead lists in temporary folders; tests/test_sweep_board.py tests the guard itself.
     monkeypatch.setattr(sweep_cli, "board_blockers", lambda leads, root: [])
+
+
+@pytest.fixture
+def local_browser(monkeypatch):
+    """For the few tests that drive a real browser on a page from disk. Playwright talks to its driver over a
+    local pipe, which Python builds from sockets on Windows, so those come back; the browser itself runs with
+    its network switched off (browser_render(offline=True)), so nothing leaves the machine."""
+    pytest.importorskip("playwright")
+    create, resolve, connect = REAL_SOCKETS
+    monkeypatch.setattr(socket, "create_connection", create)
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(socket.socket, "connect", connect)
+    from domain_health_check.browser import BrowserUnavailable, Session
+    try:
+        with Session(offline=True):
+            pass
+    except BrowserUnavailable as exc:
+        pytest.skip(f"no browser here: {exc}")
+
+
+@pytest.fixture(autouse=True)
+def no_browser(monkeypatch):
+    """The browser is a separate process the socket guard cannot reach, so no test may start one unless it
+    asks to, by putting a renderer of its own in place."""
+    from domain_health_check import fetcher
+
+    def refuse(url):
+        raise fetcher.RenderFailed("tests do not start a browser unless they ask for one")
+    monkeypatch.setattr(fetcher, "RENDERER", refuse)
 
 
 @pytest.fixture(autouse=True)

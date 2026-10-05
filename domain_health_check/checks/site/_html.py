@@ -13,8 +13,16 @@ from selectolax.parser import HTMLParser, Node
 INVISIBLE = ["script", "style", "template", "noscript"]
 
 
+HIDDEN = "data-dhc-hidden"  # browser.mark_hidden: not on screen at phone or desktop width
+
+
 def parse(html: str) -> HTMLParser:
-    return HTMLParser(html)
+    """The page, with every element a browser found off screen left out. Only a rendered page carries those
+    marks; a page read as delivered is read as delivered."""
+    tree = HTMLParser(html)
+    for node in tree.css(f"[{HIDDEN}]"):
+        node.decompose()
+    return tree
 
 
 def collapse(text: str | None) -> str:
@@ -37,7 +45,7 @@ def text_with_alt(node: Node) -> str:
 
 
 def visible_text(html: str) -> str:
-    tree = HTMLParser(html)
+    tree = parse(html)
     tree.strip_tags(INVISIBLE)
     return collapse(tree.body.text(separator=" ") if tree.body else "")
 

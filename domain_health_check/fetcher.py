@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from http import HTTPStatus
-from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -54,6 +55,16 @@ class PageContext:
     ttfb_ms: int  # first request until the final response's headers arrived, including redirects
     robots: FetchedFile | None
     sitemap: FetchedFile | None  # None when robots.txt disallows it or it could not be reached
+    # When the delivered page was an empty shell that scripts fill in, html is the page after a browser ran
+    # them (with what a visitor cannot see marked), and delivered_html keeps what the server sent. Checks
+    # whose real-world reader does not run scripts (link previews) read delivered_html.
+    rendered: bool = False
+    delivered_html: str = ""
+
+    @property
+    def as_delivered(self) -> str:
+        """The HTML exactly as the server sent it, whether or not the page was also rendered."""
+        return self.delivered_html if self.rendered else self.html
 
     @property
     def truncated(self) -> bool:
@@ -210,3 +221,39 @@ def _get(client: httpx.Client, url: str, max_bytes: int) -> tuple[httpx.Response
     except (httpx.HTTPError, httpx.InvalidURL) as exc:
         raise FetchError(url, f"{type(exc).__name__}: {exc}") from exc
     return response, b"".join(chunks), ttfb_ms, int((time.monotonic() - started) * 1000)
+
+
+
+# ---------- the second look, for pages that scripts build
+
+@dataclass
+class Rendered:
+    html: str  # the DOM after scripts ran, with elements a visitor cannot see marked data-dhc-hidden
+    final_url: str
+
+
+class RenderFailed(Exception):
+    pass
+
+
+def browser_render(url: str, offline: bool = False) -> Rendered:
+    """Load url in a real browser, through the path sweep uses, and return the rendered page. This is a
+    second view of the home page, made only when the first came back as an empty shell."""
+    from .browser import BrowserUnavailable, NavigationFailed, Session, mark_hidden
+    try:
+        with Session(hint=" to read pages that scripts build", offline=offline) as session,                 session.tab(url) as (tab, response):
+            if response.status and response.status >= 400:
+                raise RenderFailed(f"the browser got status {response.status} ({status_phrase(response.status)})")
+            mark_hidden(tab)
+            return Rendered(tab.content(), response.url)
+    except (BrowserUnavailable, NavigationFailed) as exc:
+        raise RenderFailed(str(exc)) from exc
+
+
+RENDERER: Callable[[str], Rendered] = browser_render  # tests put a renderer of their own here
+
+
+def render(page: PageContext, renderer: Callable[[str], Rendered] | None = None) -> PageContext:
+    """The page as a browser shows it. Raises RenderFailed; the caller keeps the delivered page."""
+    rendered = (renderer or RENDERER)(page.final_url)
+    return replace(page, html=rendered.html, rendered=True, delivered_html=page.html)

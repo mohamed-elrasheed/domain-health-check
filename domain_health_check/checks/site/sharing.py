@@ -43,7 +43,9 @@ def evaluate_social_preview(tags: dict[str, str]) -> CheckResult:
 
 
 def check_social_preview(page: PageContext) -> list[CheckResult]:
-    tree = parse(page.html)
+    # The apps that draw link previews read the page as delivered and run no scripts, so this is judged on what
+    # the server sent even when the page was also rendered: a tag that scripts add never reaches a preview.
+    tree = parse(page.as_delivered)
     tags = {}
     for prop in REQUIRED:
         # The standard is property="og:...", but name="og:..." is common and every major app reads it.

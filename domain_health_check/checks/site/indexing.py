@@ -131,8 +131,11 @@ def check_search_blocking(page: PageContext | FetchError) -> list[CheckResult]:
         return [evaluate_search_blocking([], None, rule, robots.url)] if rule else []
 
     path = urlsplit(page.final_url).path or "/"
-    tree = parse(page.html)
-    meta_robots = [(name, content) for name in ("robots", "googlebot") for content in meta(tree, name)]
+    # A noindex counts wherever it is: in the page as delivered (Google may not render a page that says
+    # noindex) or added by scripts (Google honors that too once it renders).
+    meta_robots = list(dict.fromkeys(
+        (name, content) for html in dict.fromkeys((page.as_delivered, page.html))
+        for name in ("robots", "googlebot") for content in meta(parse(html), name)))
     rule = googlebot_block(robots.text, path) if readable else None
     return [evaluate_search_blocking(meta_robots, page.headers.get("x-robots-tag"), rule,
                                      robots.url if robots else "")]

@@ -276,8 +276,9 @@ def useful_alt(alt: str | None, address: str) -> bool:
     return alt_problem(alt, address) is None
 
 
-def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
-    """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold."""
+def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = False) -> CheckResult:
+    """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold. rendered: the
+    images come from the page after a browser ran it, with any a visitor cannot see already left out."""
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran,
@@ -288,8 +289,10 @@ def evaluate_alt_text(images: list[tuple[str, str | None]]) -> CheckResult:
     problems = [(address, alt_problem(alt, address)) for address, alt in images]
     lacking = [f"{address or '(no address)'}: {problem}" for address, problem in problems if problem]
     described = len(images) - len(lacking)
-    details = [f"{described} of {len(images)} images have a real description. We counted every image in the "
-               "page, including ones that only load when a visitor scrolls down."]
+    counted = ("We counted every image a visitor can see once the page has run its scripts, including ones that "
+               "only load when a visitor scrolls down." if rendered else "We counted every image in the page as "
+               "delivered, including ones that only load when a visitor scrolls down and any the page hides.")
+    details = [f"{described} of {len(images)} images have a real description. {counted}"]
     if described / len(images) < ALT_TEXT_PASS_SHARE:
         return result(
             Status.WARN, f"{len(lacking)} of the {len(images)} images on your home page have no real description.",
@@ -308,5 +311,5 @@ def check_alt_text(page: PageContext) -> list[CheckResult]:
         for node in parse(page.html).css("img")
         if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
     ]
-    return [evaluate_alt_text(images)]
+    return [evaluate_alt_text(images, rendered=page.rendered)]
 

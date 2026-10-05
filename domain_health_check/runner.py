@@ -69,7 +69,7 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
     now = now or datetime.now(timezone.utc)
     if _domain_exists(domain.name) is False:
         return _unregistered(domain.name, now)
-    page = _fetch_page(domain.name)
+    page = _render_if_built_by_scripts(_fetch_page(domain.name))
     ext = _fetch_external(domain, page)
     results: list[CheckResult] = []
     for category, name, check in _checks_for(domain, now, page, ext):
@@ -80,12 +80,13 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
                 category, name, Status.WARN,
                 "This check could not be completed, so the result is unknown.",
                 "A lookup failed or timed out while running this check.",
-                "There is nothing for you to do unless the error below names something you recognize; if it does, ask your IT provider to look at it.",
+                "There is nothing for you to do unless the error below names something you recognize; if it does, "
+                "ask your IT provider to look at it.",
                 [f"Error: {type(exc).__name__}: {exc}"],
                 ran=False,
             ))
     return DomainReport(domain.name, now, results, website_loaded=isinstance(page, PageContext),
-                        unreachable=_unreachable(page))
+                        unreachable=_unreachable(page), rendered=isinstance(page, PageContext) and page.rendered)
 
 
 def _fetch_page(domain: str) -> PageContext | FetchError:
@@ -97,6 +98,19 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return exc
     except Exception as exc:  # same rule as the checks: one failure should not sink the report
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
+
+
+def _render_if_built_by_scripts(page: PageContext | FetchError) -> PageContext | FetchError:
+    """A delivered page with almost no text and almost no headings is an empty shell that scripts fill in, and
+    judging it would report things missing that a visitor and Google both see. Such a page, and only such a
+    page, is read again in a real browser. When that fails the delivered page stands, and check_page_rendered
+    says the content checks did not run."""
+    if not isinstance(page, PageContext) or not site.built_by_scripts(page):
+        return page
+    try:
+        return fetcher.render(page)
+    except Exception:  # no browser, or it could not load the page: fall back to saying so, never to guessing
+        return page
 
 
 def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) -> ExternalContext:

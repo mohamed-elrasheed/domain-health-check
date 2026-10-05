@@ -18,7 +18,7 @@ OFFER = ld_json('{"@context": "https://schema.org", "@type": "Service", "name": 
 def test_mizan_structured_data_matches(mizan_page):
     [result] = structured_data.check_structured_data(mizan_page)
     assert result.status is Status.PASS and result.ran
-    assert result.summary == "The 4 links in your home page structured data match the visible page."
+    assert result.summary == "The 4 links in your home page structured data match the page."
     assert "URL https://www.mizangroupllc.com/tech at block 1: department[0].url: found (page link)" in result.details
 
 
@@ -106,3 +106,13 @@ def test_a_url_repeated_in_several_places_counts_once(mizan_page):
     repeated = ld_json('{"@graph": [{"url": "https://www.mizangroupllc.com/tech"}, {"url": "https://www.mizangroupllc.com/tech"}]}')
     [result] = structured_data.check_structured_data(with_body(mizan_page, repeated))
     assert result.summary.startswith("The 4 links")
+
+
+def test_only_a_rendered_page_is_called_visible(mizan_page):
+    from dataclasses import replace
+    [delivered] = structured_data.check_structured_data(mizan_page)
+    assert delivered.summary.endswith("match the page.")
+    assert "including any text the page hides" in delivered.details[0]
+    [rendered] = structured_data.check_structured_data(replace(mizan_page, rendered=True, delivered_html=mizan_page.html))
+    assert rendered.summary.endswith("match the visible page.")
+    assert "leaving out anything a visitor could not see" in rendered.details[0]

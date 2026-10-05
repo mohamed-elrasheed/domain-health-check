@@ -18,6 +18,9 @@ else that could be better, including missing HSTS, CSP or DMARC, is a WARN.
 > Each report touches public DNS and registry (RDAP) records, one TLS handshake, and a single page
 > view: the home page plus the `robots.txt` and sitemap files search engines read, the same footprint
 > as one ordinary visitor. It honors `robots.txt` and never opens the sitemaps a sitemap index lists.
+> One exception, stated in the report itself when it happens: if the home page arrives as an empty shell
+> that scripts fill in, the report loads it once more in a standard browser to read what a visitor sees,
+> rather than reporting things missing that are not.
 > It does **not** port-scan, probe paths, test for vulnerabilities, touch a login, crawl other pages,
 > or send email. Every request
 > identifies itself with the User-Agent `domain-health-check/0.1 (+https://www.mizangroupllc.com/digital)`

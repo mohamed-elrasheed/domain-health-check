@@ -1,0 +1,9 @@
+{
+  "about": "WordPress with a lazy-load plugin: placeholders in src, real addresses in data-src and data-lazy-src. Two of four images have their file name as alt text, and an h3 follows the h1 directly.",
+  "headers": {"content-type": "text/html; charset=UTF-8", "strict-transport-security": "max-age=31536000",
+              "content-security-policy": "default-src 'self' https:", "x-content-type-options": "nosniff"},
+  "findings": [
+    {"check": "Heading order", "status": "WARN", "says": "skips a heading level in 1 place"},
+    {"check": "Image alt text", "status": "WARN", "says": "2 of the 4 images on your home page have no real description"}
+  ]
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- A single-page app as delivered: a title, the viewport and link-preview tags, an empty root and a script.
+     Everything else (the description, the canonical tag, structured data, every heading, image and paragraph)
+     is built by the script after the page loads. Read as delivered, the page looks empty; rendered, it is a
+     complete home page. Two elements a visitor cannot see are built on purpose: a second h1 hidden with
+     display:none, and a zero-size tracking image with no alt text. Neither may count. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Example Kitchen | Neighborhood restaurant in Springfield</title>
+<meta property="og:title" content="Example Kitchen | Neighborhood restaurant in Springfield">
+<meta property="og:description" content="Seasonal plates, a short wine list and a table for six by the window.">
+<meta property="og:image" content="https://www.example.com/static/media/dining-room.jpg">
+</head>
+<body>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<div id="root"></div>
+<script>
+(function () {
+  function add(parent, tag, attrs, text) {
+    var el = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    if (text) el.textContent = text;
+    parent.appendChild(el);
+    return el;
+  }
+  add(document.head, "meta", {name: "description", content: "Seasonal plates and a short wine list in Springfield. Open for dinner Tuesday to Sunday, with a table for six by the window."});
+  add(document.head, "link", {rel: "canonical", href: "https://www.example.com/"});
+  add(document.head, "script", {type: "application/ld+json"},
+      JSON.stringify({"@context": "https://schema.org", "@type": "Restaurant", "name": "Example Kitchen", "url": "https://www.example.com/"}));
+
+  var root = document.getElementById("root");
+  var header = add(root, "header", {});
+  add(header, "a", {href: "/"}, "Example Kitchen");
+  var nav = add(header, "nav", {});
+  add(nav, "a", {href: "/menu"}, "Menu");
+  add(nav, "a", {href: "/book"}, "Book a table");
+
+  var main = add(root, "main", {});
+  add(main, "h1", {style: "display:none"}, "Example Kitchen old menu");
+  add(main, "h1", {}, "A neighborhood restaurant in Springfield");
+  add(main, "p", {}, "We cook what the farms around Springfield send us that week, so the menu changes often and " +
+      "the plates stay simple. There is a short wine list, a few good beers, and a table for six by the window " +
+      "that is worth booking ahead.");
+  add(main, "img", {src: "/static/media/dining-room.jpg", alt: "The dining room with a long table by the window",
+                    width: "640", height: "427"});
+  add(main, "img", {src: "/static/media/pixel.gif", style: "width:0;height:0;position:absolute"});
+  add(main, "h2", {}, "Menu");
+  add(main, "p", {}, "Starters, four mains and two desserts, written up on the board each afternoon.");
+  add(main, "h2", {}, "Visit us");
+  add(main, "p", {}, "100 Main Street, Springfield. Dinner Tuesday to Sunday from five o'clock.");
+  add(root, "footer", {}, "Example Kitchen, 100 Main Street, Springfield");
+})();
+</script>
+</body>
+</html>
