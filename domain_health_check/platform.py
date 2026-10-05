@@ -24,7 +24,8 @@ PATH = Path(__file__).parent.parent / "config" / "platforms.yaml"
 class Platform:
     name: str
     generator: tuple[str, ...]
-    headers: tuple[str, ...]
+    headers: tuple[str, ...]  # response header name prefixes
+    server: tuple[str, ...]  # exact values of the Server response header
     attributes: tuple[str, ...]
     hosts: tuple[str, ...]
     default_icons: tuple[str, ...]
@@ -48,12 +49,31 @@ def _icons(name: str, entries: list | None) -> tuple[str, ...]:
     return tuple(fragments)
 
 
+SIGNALS = ("generator", "headers", "server", "attributes", "hosts")
+
+
+def _signals(name: str, kind: str, entries: list | None) -> tuple[str, ...]:
+    """The enabled values of one kind of signal. Each entry is {value, source} or {value, disabled}: a signal is
+    used only when the builder's own documentation (or, for Webflow, our own page) is cited for it, and one we
+    could not source stays in the file, switched off, with the reason. Raises ValueError for anything else."""
+    values = []
+    for entry in entries or []:
+        value = str(entry.get("value") or "").strip() if isinstance(entry, dict) else ""
+        source = str(entry.get("source") or "").strip() if isinstance(entry, dict) else ""
+        disabled = str(entry.get("disabled") or "").strip() if isinstance(entry, dict) else ""
+        if not value or bool(source) == bool(disabled):
+            raise ValueError(f"{name} {kind}: every signal needs a value and either a source to cite or the reason "
+                             f"it is disabled, not {entry!r}")
+        if source:
+            values.append(value.lower())
+    return tuple(values)
+
+
 @lru_cache(maxsize=4)
 def load(path: Path | None = None) -> tuple[list[Platform], dict[str, tuple[str, ...]]]:
-    """(hosted builders, every default icon fragment by platform name)."""
+    """(hosted builders with their enabled signals, every default icon fragment by platform name)."""
     data = yaml.safe_load((path or PATH).read_text(encoding="utf-8"))
-    hosted = [Platform(name, *(tuple(s.lower() for s in spec.get(key) or [])
-                               for key in ("generator", "headers", "attributes", "hosts")),
+    hosted = [Platform(name, *(_signals(name, kind, spec.get(kind)) for kind in SIGNALS),
                        _icons(name, spec.get("default_icons")))
               for name, spec in data["platforms"].items()]
     icons = {p.name: p.default_icons for p in hosted}
@@ -91,7 +111,7 @@ def evaluate_platform(headers: dict[str, str], html: str, assets: list[str]) -> 
         header = next((h for h in headers for prefix in p.headers if h.startswith(prefix)), None)
         if header:
             return Detected(p.name, f"response header: {header}")
-        if (headers.get("server") or "").lower() == p.name.lower():
+        if (headers.get("server") or "").strip().lower() in p.server:
             return Detected(p.name, f"response header: server: {headers['server']}")
         attribute = next((a for a in p.attributes if tree.css_first(f"[{a}]") is not None), None)
         if attribute:

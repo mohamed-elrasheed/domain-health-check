@@ -25,8 +25,10 @@ prices:
   seo: {page: digital, item: "Search engine optimization, ongoing", price: "From $450 per month"}
   ads: {page: digital, item: "Google Ads management", price: "From $400 per month"}
   social: {page: digital, item: "Social media, posting and replies", price: "From $350 per month"}
-  # /services has no line for email or domain settings yet (checked 2026-10-05). Mo's decision: the email rung
-  # shows its findings with no price line until one is published there. Do not write one here.
+  # The email and domain settings line will be published on /digital, not /services: on the live site
+  # /tech-services/email-and-domains redirects to /digital. Until that line exists, the email rung shows its
+  # findings with no price (Mo's decision, 2026-10-05). When it is published, copy it here word for word with
+  # page: digital and add it to the email rung's prices. Do not write one before then.
 
 # Who can fix a finding, and what the last page shows beside it:
 #   fix      the finding's own instruction, for the owner or for whoever they ask

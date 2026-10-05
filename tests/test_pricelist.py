@@ -21,7 +21,7 @@ from domain_health_check.external import ExternalContext
 from domain_health_check.models import DOMAIN, EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
 from domain_health_check.report import record, render_markdown
 
-OURS = Path(__file__).parent / "fixtures" / "mizangroupllc.com"  # saved copies of our own /digital and /services
+OURS = Path(__file__).parent / "fixtures" / "mizangroupllc.com"  # saved copies of our own /digital and /services pages
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 PRICES = pricelist.load()
 
@@ -53,11 +53,24 @@ def test_every_check_has_a_rung():
 
 
 def test_every_price_line_is_published_word_for_word():
-    lines = page_lines()
+    """Each line against the saved copy of the page it names."""
     for key, line in PRICES.prices.items():
-        assert line.item in lines, f"{key}: {line.item!r} is not on /digital"
-        assert lines[lines.index(line.item) + 1] == line.price, f"{key}: /digital does not price {line.item!r} " \
-                                                                 f"at {line.price!r}"
+        lines = page_lines(line.page)
+        assert line.item in lines, f"{key}: {line.item!r} is not on /{line.page}"
+        assert lines[lines.index(line.item) + 1] == line.price, (
+            f"{key}: /{line.page} does not price {line.item!r} at {line.price!r}")
+
+
+def test_email_and_domain_settings_carry_no_price_until_digital_publishes_one():
+    """The email and domain line will be published on /digital (/tech-services/email-and-domains redirects
+    there). Until it is, that rung shows each finding's own fix and no price. When the line exists, it goes in
+    the config and this test changes with it."""
+    email = PRICES.rungs["email"]
+    assert email.label == "Email and domain settings" and email.prices == () and email.shows == "fix"
+    assert sorted(n for n, r in PRICES.checks.items() if r == "email") == [
+        "DKIM (email signatures)", "DMARC (anti-spoofing policy)", "DNSSEC", "Mail servers (MX)", "Nameservers",
+        "SPF (approved senders)"]
+    assert not [line for line in PRICES.prices.values() if "email" in line.item.lower()]
 
 
 def test_every_published_price_is_in_the_config():

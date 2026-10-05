@@ -128,7 +128,7 @@ The last page, on a page of its own. Every confirmed finding again, grouped by i
 |---|---|---|
 | `self` | The owner can do it from their website builder, Google Business Profile or domain registrar. | The finding's own fix, one or two sentences. |
 | `tuneup` | Work on the site they have now: headers, redirects, speed, structured data. | The published hourly rate on /digital. |
-| `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | The finding's own fix. /services publishes no line for this yet, so there is no price. |
+| `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | The finding's own fix. The line will be published on /digital; until it is, there is no price. |
 | `rebuild` | The problem is the site itself, not a setting on it. | The three published build packages. |
 | `platform` | Set by a hosted website builder the report recognized: HSTS, Content Security Policy and nosniff only. | What we found, under "Set by your website platform", with the sentence "This is set by your website platform, not by you or a developer. We list it for completeness and do not charge for it." |
 
@@ -137,11 +137,13 @@ and /services pages word for word. A test compares each line with a saved copy o
 cannot drift from it unnoticed. Nothing in the report writes a price of its own. A check with no rung stops the
 report rather than guessing one.
 
-`platform` is never assigned in that file. A finding reaches it only when `platform.py` recognizes Webflow, Wix,
-Squarespace, Shopify or GoDaddy Website Builder from what the report already fetched: the response headers, the
-generator tag, attributes on the page, and the hosts its own assets load from (`config/platforms.yaml`). Nothing
-is requested to find out. When no builder is recognized those three findings stay `tuneup`. The rung never changes
-the score.
+`platform` is never assigned in that file. A finding reaches it only when `platform.py` recognizes a hosted
+builder from what the report already fetched: the response headers, the generator tag, attributes on the page, and
+the hosts its own assets load from. Nothing is requested to find out. Every signal in `config/platforms.yaml` cites
+the builder's own documentation (for Webflow, our own Webflow site) or is disabled with the reason. Today that
+leaves Webflow, Wix, Squarespace and Shopify recognizable; GoDaddy Website Builder has no sourced signal, so it is
+never recognized. When no builder is recognized those three findings stay `tuneup`. The rung never changes the
+score.
 
 A finding we could not confirm is never priced. When nothing confirmed is left to list, the page says so in one
 sentence and nothing else. No urgency, no "limited time", and no recommendation beyond the rung: the owner can take

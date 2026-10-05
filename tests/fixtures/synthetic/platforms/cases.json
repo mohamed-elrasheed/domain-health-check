@@ -1,9 +1,9 @@
 {
   "webflow": {"headers": {"content-type": "text/html"}, "platform": "Webflow"},
   "wix": {"headers": {"content-type": "text/html"}, "platform": "Wix"},
-  "squarespace": {"headers": {"content-type": "text/html", "server": "Squarespace"}, "platform": "Squarespace"},
+  "squarespace": {"headers": {"content-type": "text/html", "server": "Squarespace"}, "platform": null},
   "shopify": {"headers": {"content-type": "text/html", "x-shopid": "1234567"}, "platform": "Shopify"},
-  "godaddy": {"headers": {"content-type": "text/html"}, "platform": "GoDaddy Website Builder"},
+  "godaddy": {"headers": {"content-type": "text/html"}, "platform": null},
   "wordpress": {"headers": {"content-type": "text/html", "server": "nginx"}, "platform": null},
   "squarespace-markup-only": {"headers": {"content-type": "text/html;charset=utf-8"}, "platform": null},
   "custom": {"headers": {"content-type": "text/html", "server": "Apache"}, "platform": null}

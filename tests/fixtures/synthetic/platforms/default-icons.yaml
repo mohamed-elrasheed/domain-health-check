@@ -2,10 +2,8 @@
 # shipping any real builder's address. The source field is required by the loader, as it is in config/.
 platforms:
   Example Builder:
-    generator: ["example builder"]
-    headers: []
-    attributes: []
-    hosts: ["builder.example.net"]
+    generator: [{value: "example builder", source: "synthetic test entry"}]
+    hosts: [{value: "builder.example.net", source: "synthetic test entry"}]
     default_icons:
       - {fragment: "builder.example.net/img/default-favicon.ico", source: "synthetic test entry"}
 default_icons_only:

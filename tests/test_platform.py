@@ -31,7 +31,8 @@ def test_each_builder_is_recognized_from_one_kind_of_signal(name, make_page):
 
 
 @pytest.mark.parametrize("archetype, expected", [
-    ("webflow", "Webflow"), ("wix", "Wix"), ("godaddy-builder", "GoDaddy Website Builder"),
+    ("webflow", "Webflow"), ("wix", "Wix"),
+    ("godaddy-builder", None),  # every GoDaddy signal is disabled: none has a source in GoDaddy's documentation
     ("squarespace", "Squarespace"),  # its assets load from static1.squarespace.com
     ("wordpress-lazyload", None), ("js-spa", None),
 ])
@@ -119,3 +120,23 @@ def test_with_only_platform_findings_there_is_nothing_to_pass_on():
     only = DomainReport("example.com", NOW, [finding(n) for n in HEADERS], platform="Wix")
     assert layout.next_steps(only)[0][1] == "Nothing here needs fixing, so there is nothing you need to do with this report."
     assert "## Needs a developer" not in render_markdown(only)
+
+
+def test_every_signal_cites_a_source_or_is_disabled(tmp_path):
+    """Nothing from memory ships: the loader refuses a signal with neither a source nor a reason it is off."""
+    import yaml
+    data = yaml.safe_load(platform.PATH.read_text(encoding="utf-8"))
+    for name, spec in data["platforms"].items():
+        for kind in platform.SIGNALS:
+            for entry in spec.get(kind) or []:
+                assert bool(entry.get("source")) != bool(entry.get("disabled")), (name, kind, entry)
+    bad = tmp_path / "platforms.yaml"
+    bad.write_text('platforms:\n  X:\n    hosts: [{value: "x.example.net"}]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="source to cite or the reason"):
+        platform.load(bad)
+
+
+def test_a_disabled_signal_is_not_used(make_page):
+    page = make_page(html="<html><head></head></html>", final_url="https://www.example.com/",
+                     headers={"x-wf-region": "us-east-1", "server": "Squarespace", "x-shopid": "1"})
+    assert platform.detect(page) is None

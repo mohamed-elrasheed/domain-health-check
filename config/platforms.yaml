@@ -1,9 +1,14 @@
 # Hosted website builders, and how to recognize them from what a report has already fetched.
 #
 # Read by domain_health_check/platform.py. Detection uses only the home page response: its headers, its
-# <meta name="generator">, attributes on the page, and the hosts its assets load from. It never makes a request
-# of its own. On a hosted builder the platform sets the response headers, so the HSTS, Content Security Policy
-# and nosniff findings are listed as set by the platform rather than priced (see config/pricelist.yaml).
+# <meta name="generator">, attributes on the page, and the hosts its own assets load from. It never makes a
+# request of its own. On a hosted builder the platform sets the response headers, so the HSTS, Content Security
+# Policy and nosniff findings are listed as set by the platform rather than priced (see config/pricelist.yaml).
+#
+# Every signal is {value, source} or {value, disabled}. source cites the builder's own public documentation
+# (for Webflow, our own Webflow site, saved in tests/fixtures/mizangroupllc.com/). A signal we could not source
+# stays here, switched off, with the reason; the loader refuses an entry with neither. Sources checked
+# 2026-10-05. Host values match that host and its subdomains.
 #
 # default_icons: the browser tab icon each builder shows when the owner has not uploaded one, as
 #   - {fragment: "<part of the icon address>", source: "<where this is documented or observed, citable>"}
@@ -14,34 +19,97 @@
 
 platforms:
   Webflow:
-    generator: ["webflow"]
-    headers: ["x-wf-"]
-    attributes: ["data-wf-site", "data-wf-page"]
-    hosts: ["website-files.com", "webflow.com", "webflow.io"]
+    generator:
+      - value: "webflow"
+        source: "our own Webflow site: <meta content=\"Webflow\" name=\"generator\"/> in tests/fixtures/mizangroupllc.com/home.html"
+    headers:
+      - value: "x-wf-"
+        disabled: "not in Webflow's help center or developer docs; its webhooks use x-webflow-*, a different prefix"
+    server: []
+    attributes:
+      - value: "data-wf-site"
+        source: "our own Webflow site: data-wf-site on <html> in tests/fixtures/mizangroupllc.com/home.html"
+      - value: "data-wf-page"
+        source: "our own Webflow site: data-wf-page on <html> in tests/fixtures/mizangroupllc.com/home.html"
+    hosts:
+      - value: "website-files.com"
+        source: "our own Webflow site: scripts and images from cdn.prod.website-files.com in tests/fixtures/mizangroupllc.com/home.html"
+      - value: "webflow.io"
+        source: "https://help.webflow.com/hc/en-us/articles/33961419650067-Webflow-staging-subdomain : \"your Webflow staging subdomain (e.g., yoursite.webflow.io)\""
+      - value: "webflow.com"
+        disabled: "no Webflow page states that site assets are served from webflow.com"
     default_icons: []
+
   Wix:
-    generator: ["wix.com"]
-    headers: ["x-wix-"]
+    generator:
+      - value: "wix.com"
+        disabled: "not in Wix's help center or developer docs"
+    headers:
+      - value: "x-wix-"
+        disabled: "Wix documents x-wix-request-id on responses to calls to its APIs, not on site pages"
+    server: []
     attributes: []
-    hosts: ["wixstatic.com", "parastorage.com"]
+    hosts:
+      - value: "static.wixstatic.com"
+        source: "https://support.wix.com/en/article/wix-media-request-replacing-the-staticwixstaticcommedia-part-of-an-image-url-with-your-domain-name : \"Static.wixstatic.com/media is the server where Wix hosts all its images.\""
+      - value: "static.parastorage.com"
+        source: "https://support.wix.com/en/article/site-performance-removing-unused-javascript : \"Any code delivered through static.parastorage.com is packaged by Wix\""
     default_icons: []
+
   Squarespace:
-    generator: ["squarespace"]
-    headers: ["x-squarespace-"]
+    generator:
+      - value: "squarespace"
+        disabled: "Squarespace documents system-generated meta tags but does not name a generator tag"
+    headers:
+      - value: "x-squarespace-"
+        disabled: "not in Squarespace's help center or developer docs"
+    server:
+      - value: "squarespace"
+        disabled: "not in Squarespace's help center or developer docs"
     attributes: []
-    hosts: ["squarespace.com", "squarespace-cdn.com", "sqspcdn.com"]
+    hosts:
+      - value: "static1.squarespace.com"
+        source: "https://support.squarespace.com/hc/en-us/articles/205812748-Image-and-file-URLs-in-Squarespace : \"URLs that begin with images.squarespace-cdn.com, static.squarespace.com, or static1.squarespace.com\""
+      - value: "static.squarespace.com"
+        source: "https://support.squarespace.com/hc/en-us/articles/205812748-Image-and-file-URLs-in-Squarespace (same sentence)"
+      - value: "images.squarespace-cdn.com"
+        source: "https://support.squarespace.com/hc/en-us/articles/205812748-Image-and-file-URLs-in-Squarespace (same sentence)"
+      - value: "sqspcdn.com"
+        disabled: "seen only on customer sites and forum posts, not in Squarespace's documentation"
     default_icons: []
+
   Shopify:
-    generator: ["shopify"]
-    headers: ["x-shopid", "x-shopify-"]
+    generator:
+      - value: "shopify"
+        disabled: "Shopify's content_for_header docs describe scripts, not a generator tag"
+    headers:
+      - value: "x-shopid"
+        disabled: "not in Shopify's documentation"
+      - value: "x-shopify-"
+        disabled: "Shopify documents X-Shopify-* headers on Admin API responses and webhooks, not on storefront pages"
+    server: []
     attributes: []
-    hosts: ["cdn.shopify.com", "myshopify.com"]
+    hosts:
+      - value: "cdn.shopify.com"
+        source: "https://shopify.dev/changelog/posts/replacing-or-deleting-a-shopify-hosted-file-no-longer-purges-its-cdn-url : \"Hardcoded cdn.shopify.com/... URLs in product descriptions, blog posts, theme code\""
+      - value: "myshopify.com"
+        source: "https://help.shopify.com/en/manual/domains/domain-type : \"the primary domain for your store is the .myshopify.com domain name that was generated when you signed up\""
     default_icons: []
+
   GoDaddy Website Builder:
-    generator: ["go daddy website builder", "starfield technologies"]
+    generator:
+      - value: "go daddy website builder"
+        disabled: "not in GoDaddy's help center"
+      - value: "starfield technologies"
+        disabled: "GoDaddy's help center names Starfield Technologies only as an SSL certificate issuer"
     headers: []
+    server: []
     attributes: []
-    hosts: ["img1.wsimg.com", "isteam.wsimg.com"]
+    hosts:
+      - value: "img1.wsimg.com"
+        disabled: "no GoDaddy help article describes it"
+      - value: "isteam.wsimg.com"
+        disabled: "seen only in GoDaddy Community forum posts, not in GoDaddy's documentation"
     default_icons: []
 
 # Platforms that are not hosted builders, listed only for a default icon (with a source, as above). A platform
