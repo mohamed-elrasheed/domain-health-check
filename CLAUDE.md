@@ -15,6 +15,13 @@ Two modes. The wall between them is the point.
 /digital. Consent comes from the submission. A report is never sent to anyone who did not ask for one, and a
 human reviews every one before it goes out.
 
+Report mode may verify the links found on the consented page with a capped
+set of HEAD requests (GET only when HEAD is refused), at most 80 URLs, one
+request each, no more than 3 redirect hops, no response bodies stored,
+same-origin and external alike. This is verification of the submitted page,
+not discovery. Sweep mode never does this. The one-fetch rule stays
+unchanged for sweep.
+
 **`sweep` — our own prospecting.** Loads the publicly visible home page of a local business and classifies it
 (no site / weak site / could not open / fine) for our own lead list. Same footprint as one visitor. Its output
 goes to us and never to the business. It must not call the report path, write a report, or send anything.

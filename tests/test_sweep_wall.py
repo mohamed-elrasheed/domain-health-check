@@ -98,6 +98,35 @@ def test_the_report_path_cannot_reach_sweep():
     assert not {m for m in ours if m.startswith(("domain_health_check.sweep", "domain_health_check.preview"))}
 
 
+# The link checker (CLAUDE.md, report mode): requests to every link on the consented page. Sweep must never reach
+# it. Named here before it exists, so the first commit that wires it into sweep fails, whichever side it lands on.
+LINK_CHECKER = ("domain_health_check.linkcheck", "domain_health_check.checks.site.links")
+
+
+def imports_toward_link_checker(modules: set[str]) -> list[str]:
+    """Every import, in the modules reachable from these, that names the link checker or anything inside it."""
+    ours, _ = closure(modules)
+    return sorted({f"{module} imports {name}" for module in ours for name in imports_of(module)
+                   if name.startswith(LINK_CHECKER)})
+
+
+def test_sweep_cannot_reach_the_link_checker():
+    assert imports_toward_link_checker(sweep_modules()) == []
+    assert not set(LINK_CHECKER) & ALLOWED
+
+
+def test_the_link_checker_guard_would_catch_a_wiring_mistake(monkeypatch):
+    real = imports_of
+
+    def wired(name: str) -> set[str]:
+        found = real(name)
+        return found | {"domain_health_check.linkcheck"} if name == "domain_health_check.sweep.run" else found
+
+    monkeypatch.setitem(globals(), "imports_of", wired)
+    assert imports_toward_link_checker(sweep_modules()) == [
+        "domain_health_check.sweep.run imports domain_health_check.linkcheck"]
+
+
 def test_the_closure_would_catch_a_wiring_mistake():
     """Guard the guard: a sweep module that imported the runner must show up as outside the wall."""
     ours, _ = closure({"domain_health_check.cli"})
@@ -142,6 +171,7 @@ def test_a_real_sweep_run_never_loads_report_code(tmp_path):
     outside = [m for m in report["loaded"] if m not in ALLOWED and not m.startswith(
         ("domain_health_check.sweep", "domain_health_check.preview"))]
     assert outside == [], f"a sweep run loaded: {outside}"
+    assert not [m for m in report["loaded"] if m.startswith(LINK_CHECKER)]
 
     written = sorted(p.relative_to(tmp_path / "sweep-output").as_posix()
                      for p in (tmp_path / "sweep-output").rglob("*") if p.is_file())

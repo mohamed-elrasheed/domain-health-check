@@ -200,6 +200,16 @@ A clean report sent to someone who expected a sales pitch is worth more than a l
 - No em-dashes, no exclamation marks, American English. Team voice, never "I".
 - Never imply we scanned anything we did not. The report describes public records and one page view.
 
+## Exit codes
+
+The exit code says whether the run did its job, not what the report found.
+
+- `0`: a complete report was written.
+- `2`: the run could not do what was asked: a configuration error, a refused domain, or a PDF that could not be written.
+- `3`: a report was written but is incomplete, and the reasons are printed and recorded in `report.json`.
+
+A FAIL finding no longer exits `1`. It is a finding, and a complete report that contains one exits `0`.
+
 ## Formats
 
 Both formats render **from the `DomainReport` object**, through the same `layout.py` that decides what
