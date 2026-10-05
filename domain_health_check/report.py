@@ -14,7 +14,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from . import __version__, layout
+from . import __version__, layout, pricelist
 from .models import CheckResult, DomainReport, Status
 
 ICON = {Status.PASS: "✅", Status.WARN: "⚠️", Status.FAIL: "❌", Status.INFO: "ℹ️"}
@@ -85,15 +85,12 @@ def render_markdown(report: DomainReport) -> str:
             lines += _brief(r)
     yourself = layout.fix_yourself(report)
     if yourself:
-        lines += ["", "## Fix it yourself", "",
-                  "You can do these from your website builder or your Google Business Profile, without a developer."]
+        lines += ["", "## Fix it yourself", "", layout.SELF_INTRO]
         for r in yourself:
             lines += _finding(r)
     developer = layout.needs_developer(report)
     if developer:
-        lines += ["", "## Needs a developer", "",
-                  "These involve your domain settings, your server or your site's code. Pass them to whoever looks "
-                  "after your website and email."]
+        lines += ["", "## Needs a developer", "", layout.DEVELOPER_INTRO]
         for r in developer:
             lines += _finding(r)
         lines += ["", layout.PRICING]
@@ -124,8 +121,26 @@ def render_markdown(report: DomainReport) -> str:
     lines += ["", "## What happens next", ""]
     for lead, rest in layout.next_steps(report):
         lines += [f"**{lead}** {rest}" if lead else rest, ""]
-    lines += ["---", "", f"*{layout.about(report)}*", "", f"*{layout.stamp(report)}*", ""]
+    lines += _prices(report)
+    lines += ["", "---", "", f"*{layout.about(report)}*", "", f"*{layout.stamp(report)}*", ""]
     return "\n".join(lines)
+
+
+def _prices(report: DomainReport) -> list[str]:
+    """The last section: each confirmed finding under its rung, with its fix (self) or its price lines."""
+    lines = ["## " + layout.PRICES_HEADING, ""]
+    groups = layout.priced(report)
+    if not groups:
+        return lines + [layout.prices_note(report)]
+    lines.append(layout.PRICES_INTRO)
+    for rung, results in groups:
+        column = "What to do" if rung.key == "self" else "From our price list"
+        lines += ["", f"### {rung.label}", "", rung.intro, "", f"| Finding | {column} |", "|---|---|"]
+        for r in results:
+            answer = r.fix if rung.key == "self" else "; ".join(str(line) for line in rung.prices)
+            lines.append(f"| {_cell(r.name)} | {_cell(answer)} |")
+    note = layout.prices_note(report)
+    return lines + (["", note] if note else [])
 
 
 def report_dir(report: DomainReport, output_dir: Path) -> Path:
@@ -156,9 +171,15 @@ def record(report: DomainReport) -> dict:
         "website_loaded": report.website_loaded,
         "rendered": report.rendered,
         "unreachable": report.unreachable,
-        "results": [{**asdict(r), "status": r.status.name} for r in report.results],
+        "results": [{**asdict(r), "status": r.status.name, "rung": _rung_key(r)} for r in report.results],
         "requests": [r.as_dict() for r in report.requests],
     }
+
+
+def _rung_key(r: CheckResult) -> str | None:
+    """The rung for a graded check; None for a row that grades nothing (a check that did not run, or a note)."""
+    found = pricelist.load().rung_of(r.name)
+    return found.key if found else None
 
 
 def write_record(report: DomainReport, output_dir: Path) -> Path:

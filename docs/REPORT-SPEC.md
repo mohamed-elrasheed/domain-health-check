@@ -30,6 +30,7 @@ closing section.
 5. Worth checking    findings we could not confirm, in honest wording
 6. Everything we checked        full results, grouped by category
 7. What happens next
+8. Findings and our published prices    the last page
 ```
 
 Sections 3 and 4 are a re-cut of the same findings, not new content. A finding appears in exactly one of
@@ -118,6 +119,25 @@ Three short lines:
 Re-checking is a **feature of the paid relationship**, not a giveaway. Monthly re-checks belong to care
 plan clients, and saying so turns an ongoing cost into a reason to buy. If the closing mentions it at
 all, it mentions it that way.
+
+### 7. Findings and our published prices
+
+The last page, on a page of its own. Every confirmed finding again, grouped by its **rung**, `self` first:
+
+| Rung | Means | The page shows |
+|---|---|---|
+| `self` | The owner can do it from their website builder, Google Business Profile or domain registrar. | The finding's own fix, one or two sentences. |
+| `tuneup` | Work on the site they have now: DNS, headers, redirects, speed, structured data. | The published hourly rate. |
+| `rebuild` | The problem is the site itself, not a setting on it. | The three published build packages. |
+
+Rungs, rung labels and every price line come from one file, `config/pricelist.yaml`, which mirrors the price list
+on https://www.mizangroupllc.com/digital word for word. A test compares each line with a saved copy of that page,
+so the file cannot drift from it unnoticed. Nothing in the report writes a price of its own. A check with no rung
+stops the report rather than guessing one.
+
+A finding we could not confirm is never priced. When nothing confirmed is left to list, the page says so in one
+sentence and nothing else. No urgency, no "limited time", and no recommendation beyond the rung: the owner can take
+any of it to whoever they like.
 
 ## The score
 

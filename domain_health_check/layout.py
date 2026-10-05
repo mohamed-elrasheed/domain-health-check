@@ -13,6 +13,7 @@ Sections, per docs/REPORT-SPEC.md:
   5. worth checking: findings we could not confirm, near the end, in honest wording
   6. everything we checked, what is already working, what we could not check
   7. what happens next: what to do with the report, and how to reach us
+  8. findings and our published prices: the last page, each confirmed finding under its rung (pricelist.py)
 
 Findings are ranked by what the problem costs the business (the ladder below), not by score weight:
 weight was a proxy for severity and the wrong one. On a real report it opened with two email records
@@ -21,7 +22,7 @@ while the missing main heading and 31 undescribed images sat further down.
 
 from __future__ import annotations
 
-from . import __version__
+from . import __version__, pricelist
 from .checks import pagespeed, site
 from .ladder import CUSTOMER_FACING, LADDER, TIER
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
@@ -34,9 +35,17 @@ TOP = 3
 NO_SCORE = "Score: not available - we could not load your website."
 
 
-# What an owner can fix from their website builder or their Google profile, without DNS, server settings or code.
-SELF_FIX = {"Page title", "Meta description", "Image alt text", "Main heading", "Heading order", "Social preview",
-            "Google Business Profile", "Profile completeness", "Profile website link", "Reviews"}
+SELF_INTRO = ("You can do these yourself, from your website builder, your Google Business Profile or your domain "
+              "registrar, without a developer.")
+DEVELOPER_INTRO = ("These involve your domain settings, your server or your site's code. Pass them to whoever looks "
+                   "after your website and email.")
+PRICES_HEADING = "Findings and our published prices"
+PRICES_INTRO = ("Each finding in this report, grouped by who can fix it, with the matching line from the price list we "
+                "publish at https://www.mizangroupllc.com/digital#pricing. Prices are fixed in writing before anything "
+                "starts.")
+NOTHING_TO_PRICE = "Every check we ran passed, so there is nothing here to fix or to price."
+NOTHING_CONFIRMED = "Nothing we could confirm needs fixing, so there is nothing here to price."
+UNCONFIRMED_NOT_PRICED = "Findings we could not confirm are not listed here."
 # This report sells Mizan Digital Services, which lives at /digital; /services is the physical and networking
 # division.
 PRICING = ("If you would like us to take care of these, our prices are at "
@@ -92,12 +101,42 @@ def worth_doing(report: DomainReport) -> list[CheckResult]:
     return costing_customers(report)[:TOP]
 
 
+def rung(r: CheckResult) -> pricelist.Rung:
+    """Which rung a finding sits on. Raises KeyError for a check config/pricelist.yaml does not map, rather than
+    guessing: a finding with no rung would leave the last page without a price line or an instruction."""
+    found = pricelist.load().rung_of(r.name)
+    if found is None:
+        raise KeyError(f"{r.name} has no rung in config/pricelist.yaml")
+    return found
+
+
 def fix_yourself(report: DomainReport) -> list[CheckResult]:
-    return [r for r in confirmed(report) if r.name in SELF_FIX]
+    """Confirmed findings on the self rung, so this section and the last page cannot disagree."""
+    return [r for r in confirmed(report) if rung(r).key == "self"]
 
 
 def needs_developer(report: DomainReport) -> list[CheckResult]:
-    return [r for r in confirmed(report) if r.name not in SELF_FIX]
+    return [r for r in confirmed(report) if rung(r).key != "self"]
+
+
+def priced(report: DomainReport) -> list[tuple[pricelist.Rung, list[CheckResult]]]:
+    """The last page: confirmed findings grouped by rung, self first, each group in the report's order. A finding
+    we could not confirm is never priced. A rung with no findings is left out."""
+    found = confirmed(report)
+    groups = []
+    for key in pricelist.RUNGS:
+        members = [r for r in found if rung(r).key == key]
+        if members:
+            groups.append((pricelist.load().rungs[key], members))
+    return groups
+
+
+def prices_note(report: DomainReport) -> str:
+    """The one sentence the last page says when it lists nothing, or the note under the list when a finding we
+    could not confirm was left out of it."""
+    if not priced(report):
+        return NOTHING_CONFIRMED if worth_checking(report) else NOTHING_TO_PRICE
+    return UNCONFIRMED_NOT_PRICED if worth_checking(report) else ""
 
 
 def worth_checking(report: DomainReport) -> list[CheckResult]:
@@ -186,8 +225,8 @@ def next_steps(report: DomainReport) -> list[tuple[str, str]]:
         first = ("The items marked as needing action are broken today, so they are worth doing first. The rest are "
                  "worth passing to whoever looks after your website and email.")
     elif fix_yourself(report):
-        first = ("Nothing here is urgent. You can do the items under \"Fix it yourself\" from your website builder; "
-                 "the rest are worth passing to whoever looks after your website and email.")
+        first = ("Nothing here is urgent. You can do the items under \"Fix it yourself\" without a developer; the "
+                 "rest are worth passing to whoever looks after your website and email.")
     else:
         first = ("Nothing here is urgent. The items above are worth passing to whoever looks after your website and "
                  "email.")

@@ -62,6 +62,7 @@ domain_health_check/
 ├── external.py     # outside services (PageSpeed, Places) -> ExternalContext
 ├── robots.py       # robots.txt as RFC 9309 reads it, for us and for Googlebot
 ├── scoring.py      # WEIGHTS and the 0 to 100 score
+├── pricelist.py    # config/pricelist.yaml: each check's rung and the published price lines
 ├── layout.py       # what each report section says, shared by both formats
 ├── report.py       # DomainReport -> markdown
 ├── pdf.py          # DomainReport -> PDF (WeasyPrint)

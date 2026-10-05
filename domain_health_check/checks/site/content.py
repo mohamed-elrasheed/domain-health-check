@@ -150,8 +150,7 @@ def evaluate_description(descriptions: list[str], context: list[str] = ()) -> Ch
 
     fix = (
         "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
-        f"description\". Write one or two sentences, {DESCRIPTION_MIN} to {DESCRIPTION_MAX} characters, saying "
-        "what you do and where."
+        f"description\". Write {DESCRIPTION_MIN} to {DESCRIPTION_MAX} characters saying what you do and where."
     )
     description = next((d for d in descriptions if d), "")
     if not description:

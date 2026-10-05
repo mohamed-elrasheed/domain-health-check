@@ -30,8 +30,8 @@ def evaluate_social_preview(tags: dict[str, str]) -> CheckResult:
                            "Your home page has a title, description and image for link previews.", EXPLANATION,
                            details=details)
     fix = (
-        "In your website builder, open the home page settings and look for \"social sharing\" or \"Open Graph\". "
-        "Fill in the title, description and image. A picture of 1200 by 630 pixels works well everywhere."
+        "In your website builder, open the home page settings and look for \"social sharing\" or \"Open Graph\", "
+        "then fill in the title, description and image. A picture of 1200 by 630 pixels works well everywhere."
     )
     if len(missing) == len(REQUIRED):
         summary = "Your home page has no link preview settings, so shared links may show no picture or description."

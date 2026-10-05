@@ -1,0 +1,81 @@
+# The public price list, word for word, and which line each check's findings point to.
+#
+# Every item and price below is copied exactly from https://www.mizangroupllc.com/digital. Nothing in the
+# report invents a price: the last page of every report reads its lines from here and nowhere else. When the
+# page changes, change this file to match, and refresh tests/fixtures/mizangroupllc.com/digital.html, which a
+# test compares every line against.
+
+source: https://www.mizangroupllc.com/digital
+checked: 2026-10-05
+
+prices:
+  # Websites, Published prices
+  starter: {item: "Starter site, up to five pages", price: "Starting at $900"}
+  business: {item: "Business site, up to ten pages, edit it yourself", price: "Starting at $1,800"}
+  store: {item: "Online store with checkout and payments", price: "Starting at $2,800"}
+  hourly: {item: "Custom work outside a package", price: "$85 per hour"}
+  # After it launches, Care plans
+  essential: {item: "Essential, two changes a month", price: "$35 per month"}
+  standard: {item: "Standard, five changes a month", price: "$60 per month"}
+  priority: {item: "Priority, ten changes a month, first in the queue", price: "$95 per month"}
+  # Marketing
+  seo: {item: "Search engine optimization, ongoing", price: "From $450 per month"}
+  ads: {item: "Google Ads management", price: "From $400 per month"}
+  social: {item: "Social media, posting and replies", price: "From $350 per month"}
+
+# Who can fix a finding, and which price lines match. self has no price line: its fix instruction is the answer.
+rungs:
+  self:
+    label: "Fix it yourself"
+    intro: "You can do these yourself, without a developer."
+    prices: []
+  tuneup:
+    label: "Tune-up of your current site"
+    intro: "Work on the site you have now, by us or by any developer you choose."
+    prices: [hourly]
+  rebuild:
+    label: "New site"
+    intro: "These point to a new site rather than changes to the current one."
+    prices: [starter, business, store]
+
+# Every check the report can grade, and its rung. A test fails if a check is missing here.
+checks:
+  # Website security
+  SSL certificate: tuneup
+  TLS version: tuneup
+  HSTS (always use HTTPS): tuneup
+  Content Security Policy: tuneup
+  X-Content-Type-Options: tuneup
+  # Domain and DNS
+  Domain registration: self
+  Nameservers: tuneup
+  DNSSEC: tuneup
+  # Email security
+  Mail servers (MX): tuneup
+  SPF (approved senders): tuneup
+  DKIM (email signatures): tuneup
+  DMARC (anti-spoofing policy): tuneup
+  # Site health
+  Search engine blocking: tuneup
+  Page title: self
+  Meta description: self
+  Canonical tag: tuneup
+  Main heading: self
+  Mobile viewport: rebuild
+  Structured data matches the page: tuneup
+  Heading order: self
+  Image alt text: self
+  Social preview: self
+  Sitemap and robots: tuneup
+  Page weight: tuneup
+  Redirect chain: tuneup
+  # Speed, from Google PageSpeed Insights
+  Real-world loading speed: tuneup
+  Mobile speed: tuneup
+  Accessibility: tuneup
+  Best practices: tuneup
+  # Google Business Profile
+  Google Business Profile: self
+  Profile completeness: self
+  Profile website link: self
+  Reviews: self

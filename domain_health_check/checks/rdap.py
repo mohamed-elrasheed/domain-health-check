@@ -38,8 +38,7 @@ EXPLANATION = (
     "Your domain name is rented from a registrar and has to be renewed, usually every year. If the renewal "
     "is missed, your website and email stop working, and someone else could register the name."
 )
-RENEW_FIX = ("Renew the domain with your registrar now, and switch on auto-renew with a payment card that will not "
-             "expire.")
+RENEW_FIX = "Renew the domain with your registrar, and switch on auto-renew with a payment card that will not expire."
 
 
 class RDAPUnavailable(Exception):

@@ -111,6 +111,14 @@ col.area { width: 23%; } col.check { width: 26%; } col.result { width: 17%; } co
 .next p { font-size: 9.5pt; margin: 0 0 9pt; }
 .next strong { color: #c6a761; }
 .about { color: #5d6b67; font-size: 8pt; border-top: 1px solid #e2e6e2; padding-top: 12pt; }
+
+.prices { break-before: page; }
+.prices h2 { margin-top: 0; }
+.prices h3 { color: #1f4b47; font-size: 11pt; margin: 18pt 0 4pt; break-after: avoid; }
+.prices p.intro { margin: 0 0 8pt; }
+.prices p.note { margin-top: 12pt; }
+.prices td p { margin: 0 0 3pt; }
+col.finding { width: 34%; } col.answer { width: 66%; }
 """
 
 
@@ -146,6 +154,29 @@ def _summary_card(r: CheckResult, kind: str) -> str:
             f'{_details(r)}</div>')
 
 
+def _prices(report: DomainReport) -> str:
+    """The last page: each confirmed finding under its rung, with its fix (self) or its lines from the price list."""
+    groups = layout.priced(report)
+    note = layout.prices_note(report)
+    if not groups:
+        return f'<div class="prices"><h2>{escape(layout.PRICES_HEADING)}</h2><p>{escape(note)}</p></div>'
+    body = [f'<p class="intro">{escape(layout.PRICES_INTRO)}</p>']
+    for rung, results in groups:
+        column = "What to do" if rung.key == "self" else "From our price list"
+        if rung.key == "self":
+            answer = {r.name: f"<p>{escape(r.fix)}</p>" for r in results}
+        else:
+            lines = "".join(f"<p>{escape(str(line))}</p>" for line in rung.prices)
+            answer = {r.name: lines for r in results}
+        rows = "".join(f'<tr><td class="name">{escape(r.name)}</td><td>{answer[r.name]}</td></tr>' for r in results)
+        body.append(f'<h3>{escape(rung.label)}</h3><p class="intro">{escape(rung.intro)}</p>'
+                    f'<table><colgroup><col class="finding"><col class="answer"></colgroup><thead><tr><th>Finding</th>'
+                    f"<th>{column}</th></tr></thead><tbody>{rows}</tbody></table>")
+    if note:
+        body.append(f'<p class="intro note">{escape(note)}</p>')
+    return f'<div class="prices"><h2>{escape(layout.PRICES_HEADING)}</h2>{"".join(body)}</div>'
+
+
 def render_html(report: DomainReport) -> str:
     value, sentence = layout.headline(report)
     number = f'<div class="number">{value}<small>/100</small></div>' if value is not None else ""
@@ -165,10 +196,8 @@ def render_html(report: DomainReport) -> str:
     if worth:
         parts.append("<h2>Worth doing</h2>" + "".join(_brief(r) for r in worth))
     sections = [
-        ("Fix it yourself", "You can do these from your website builder or your Google Business Profile, without a "
-                            "developer.", layout.fix_yourself(report), ""),
-        ("Needs a developer", "These involve your domain settings, your server or your site's code. Pass them to "
-                              "whoever looks after your website and email.", layout.needs_developer(report),
+        ("Fix it yourself", layout.SELF_INTRO, layout.fix_yourself(report), ""),
+        ("Needs a developer", layout.DEVELOPER_INTRO, layout.needs_developer(report),
          f'<p class="pricing">{escape(layout.PRICING)}</p>'),
         ("Worth checking", "We could not confirm these, so they may turn out to be fine. They are worth a quick check.",
          layout.worth_checking(report), ""),
@@ -198,6 +227,7 @@ def render_html(report: DomainReport) -> str:
                     for lead, rest in layout.next_steps(report))
     parts.append(f'<div class="next"><h2>What happens next</h2>{steps}</div>'
                  f'<p class="about">{escape(layout.about(report))}</p>')
+    parts.append(_prices(report))
 
     title = f"Website health report · {escape(report.domain)}"
     footer = f"Mizan Group LLC · mizangroupllc.com · {layout.stamp(report)}".replace('"', "")
