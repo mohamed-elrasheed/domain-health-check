@@ -175,9 +175,10 @@ class Session:
         self._playwright.stop()
 
     @contextmanager
-    def tab(self, url: str) -> Iterator[tuple[object, object]]:
+    def tab(self, url: str, on_request=None) -> Iterator[tuple[object, object]]:
         """Navigate once to url at phone width and let it settle. Yields (tab, response). Raises
-        NavigationFailed when the browser could not load it at all."""
+        NavigationFailed when the browser could not load it at all. on_request(method, url, outcome) is called
+        for every request the page makes, so a caller can keep a record of them."""
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
@@ -186,6 +187,16 @@ class Session:
             user_agent=self.user_agent, service_workers="block", offline=self.offline)
         try:
             tab = context.new_page()
+            if on_request is not None:
+                def answered(response):
+                    if not response.url.startswith(("data:", "blob:")):
+                        on_request(response.request.method, response.url, response.status)
+
+                def failed(request):
+                    if not request.url.startswith(("data:", "blob:")):
+                        on_request(request.method, request.url, request.failure or "failed")
+                tab.on("response", answered)
+                tab.on("requestfailed", failed)
             try:
                 response = tab.goto(url, wait_until="load", timeout=LOAD_SECONDS * 1000)
             except PlaywrightTimeout:

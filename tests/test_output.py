@@ -129,9 +129,21 @@ def test_cli_exit_codes(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.PASS, Status.WARN))
     assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 0
 
+    # A FAIL is a finding, not a failed run: a complete report exits 0 whatever it found.
     monkeypatch.setattr(cli, "run_checks", lambda d: sample_report(Status.FAIL))
-    assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 1
-    assert (out / "example.com-2026-03-14.md").exists()
+    assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 0
+    run = out / "example.com" / "2026-03-14"
+    assert sorted(p.name for p in run.iterdir()) == ["report.json", "report.md", "requests.log"]
+
+    # An incomplete report is written in full and exits 3, with the reasons on stderr.
+    def incomplete(d):
+        report = sample_report(Status.PASS)
+        report.incomplete = ["The browser could not load the home page"]
+        return report
+    monkeypatch.setattr(cli, "run_checks", incomplete)
+    assert cli.main(["report", "-c", str(config), "-o", str(out), "--no-color"]) == 3
+    assert "The browser could not load the home page" in capsys.readouterr().err
+    assert (run / "report.json").exists()
 
 
 def test_cli_config_error_exit_code(tmp_path, capsys):
@@ -182,7 +194,7 @@ def test_cli_without_pango_keeps_the_markdown_and_exits_2(tmp_path, monkeypatch,
     monkeypatch.setattr(cli_module, "run_checks", lambda d: sample_report(Status.PASS))
     monkeypatch.setattr(cli_module, "write_pdf", no_pango)
     assert cli.main(["report", "example.com", "-o", str(tmp_path), "--no-color"]) == 2
-    assert (tmp_path / "example.com-2026-03-14.md").exists()
+    assert (tmp_path / "example.com" / "2026-03-14" / "report.md").exists()
     assert "PDF output" in capsys.readouterr().err
 
 

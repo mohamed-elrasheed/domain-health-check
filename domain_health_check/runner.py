@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Callable
 
-from . import dns_utils, external, fetcher
+from . import dns_utils, external, fetcher, requestlog
 from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
 from .checks.site import content, delivery, indexing, sharing, structured_data
 from .config import DomainConfig
@@ -69,16 +69,35 @@ def _checks_for(
 
 
 def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainReport:
-    now = now or datetime.now(timezone.utc)
+    """The report for one domain, with every request it made recorded on it."""
+    with requestlog.recording() as requests:
+        report = _run_checks(domain, now or datetime.now(timezone.utc))
+    report.requests = list(requests)
+    return report
+
+
+def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     if _domain_exists(domain.name) is False:
         return _unregistered(domain.name, now)
-    page = _render_in_browser(_fetch_page(domain.name))
+    incomplete: list[str] = []
+    page = _fetch_page(domain.name)
+    if isinstance(page, FetchError):
+        incomplete.append(f"The home page could not be loaded, so the site health checks did not run: {page.reason}")
+    page, render_failure = _render_in_browser(page)
+    if render_failure:
+        incomplete.append(f"The browser could not load the home page, so the checks that judge what a visitor sees "
+                          f"read the page as delivered instead: {render_failure}")
     ext = _fetch_external(domain, page)
+    if isinstance(page, PageContext) and not ext.psi_mobile:
+        why = ext.errors.get("psi_mobile") or ("PAGESPEED_API_KEY is not set" if not ext.pagespeed_configured
+                                               else "no run succeeded")
+        incomplete.append(f"Google's speed test did not run: {why}")
     results: list[CheckResult] = []
     for category, name, check in _checks_for(domain, now, page, ext):
         try:
             results.extend(check())
         except Exception as exc:  # one failing lookup should not sink the whole report
+            incomplete.append(f"{name} could not be completed: {type(exc).__name__}: {exc}")
             results.append(CheckResult(
                 category, name, Status.WARN,
                 "This check could not be completed, so the result is unknown.",
@@ -89,7 +108,8 @@ def run_checks(domain: DomainConfig, now: datetime | None = None) -> DomainRepor
                 ran=False,
             ))
     return DomainReport(domain.name, now, results, website_loaded=isinstance(page, PageContext),
-                        unreachable=_unreachable(page), rendered=isinstance(page, PageContext) and page.rendered)
+                        unreachable=_unreachable(page), rendered=isinstance(page, PageContext) and page.rendered,
+                        incomplete=incomplete)
 
 
 def _fetch_page(domain: str) -> PageContext | FetchError:
@@ -103,19 +123,19 @@ def _fetch_page(domain: str) -> PageContext | FetchError:
         return FetchError(f"https://{domain}/", f"{type(exc).__name__}: {exc}")
 
 
-def _render_in_browser(page: PageContext | FetchError) -> PageContext | FetchError:
+def _render_in_browser(page: PageContext | FetchError) -> tuple[PageContext | FetchError, str]:
     """Every report reads the page a second time, in a real browser, so the checks an owner verifies by looking
     at their own screen (main heading, heading order, image descriptions, structured data against the page)
     are judged on what that screen shows. Whether the delivered page is an empty shell is decided first, on
     what the server sent. When the browser fails the delivered page stands, and those checks say they read
     the page as delivered rather than claiming what is visible."""
     if not isinstance(page, PageContext):
-        return page
+        return page, ""
     page = replace(page, script_built=site.built_by_scripts(page))
     try:
-        return fetcher.render(page)
-    except Exception:  # no browser, or it could not load the page: say so, never guess
-        return page
+        return fetcher.render(page), ""
+    except Exception as exc:  # no browser, or it could not load the page: say so, never guess
+        return page, f"{type(exc).__name__}: {exc}"
 
 
 def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) -> ExternalContext:

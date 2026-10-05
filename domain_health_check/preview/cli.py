@@ -27,8 +27,9 @@ PREVIEWS = Path("..") / "mizan-previews"  # the private previews repository; tes
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="domain-health-check-preview",
-                                     description="Write a proposal page for one lead into the private previews repository.")
+    parser = argparse.ArgumentParser(
+        prog="domain-health-check-preview",
+        description="Write a proposal page for one lead into the private previews repository.")
     parser.add_argument("lead_id", nargs="?",
                         help="the lead to write a proposal for; leave out with --push to push what is there "
                              "(screenshots sweep published, for instance)")

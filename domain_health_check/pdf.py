@@ -23,7 +23,7 @@ from pathlib import Path
 
 from . import layout
 from .models import CheckResult, DomainReport, Status
-from .report import DETAILS_HEADING, output_path, prune_older
+from .report import DETAILS_HEADING, prune_older, report_dir
 
 ASSETS = Path(__file__).parent / "assets"
 MSYS2_BIN = Path(r"C:\msys64\ucrt64\bin")
@@ -200,8 +200,10 @@ def render_html(report: DomainReport) -> str:
                  f'<p class="about">{escape(layout.about(report))}</p>')
 
     title = f"Website health report · {escape(report.domain)}"
+    footer = f"Mizan Group LLC · mizangroupllc.com · {layout.stamp(report)}".replace('"', "")
+    page_footer = f'@page {{ @bottom-left {{ content: "{footer}"; }} }}'
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{title}</title>'
-            f"<style>{CSS}</style></head><body>{''.join(parts)}</body></html>")
+            f"<style>{CSS}{page_footer}</style></head><body>{''.join(parts)}</body></html>")
 
 
 def _weasyprint():
@@ -217,8 +219,9 @@ def render_pdf(report: DomainReport) -> bytes:
 
 
 def write_pdf(report: DomainReport, output_dir: Path) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_path(report, output_dir, ".pdf")
+    folder = report_dir(report, output_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "report.pdf"
     path.write_bytes(render_pdf(report))
     prune_older(report, output_dir)
     return path

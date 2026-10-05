@@ -85,7 +85,8 @@ def extract_values(blocks: list[str], page_url: str) -> tuple[list[Value], list[
         try:
             data = json.loads(block)
         except json.JSONDecodeError as exc:
-            invalid.append(f"Block {n} is not valid JSON ({exc.msg} at line {exc.lineno}), so search engines ignore it.")
+            invalid.append(f"Block {n} is not valid JSON ({exc.msg} at line {exc.lineno}), so search engines ignore "
+                           "it.")
             continue
         for path, key, value in _walk(data, ""):
             label = f"block {n}: {path}"

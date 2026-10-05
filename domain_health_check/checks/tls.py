@@ -17,6 +17,7 @@ import socket
 import ssl
 from datetime import datetime, timezone
 
+from .. import requestlog
 from ..models import WEBSITE, CheckResult, Status
 
 WARN_DAYS = 30
@@ -58,9 +59,15 @@ def fetch_tls_info(domain: str) -> tuple[dict, str | None]:
     certificate matches the hostname, raising SSLCertVerificationError if not.
     """
     context = ssl.create_default_context()
-    with socket.create_connection((domain, 443), timeout=TIMEOUT_SECONDS) as sock:
-        with context.wrap_socket(sock, server_hostname=domain) as tls:
-            return tls.getpeercert(), tls.version()
+    entry = requestlog.record("tls", "CONNECT", f"{domain}:443")
+    try:
+        with socket.create_connection((domain, 443), timeout=TIMEOUT_SECONDS) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as tls:
+                requestlog.settle(entry, tls.version())
+                return tls.getpeercert(), tls.version()
+    except Exception as exc:
+        requestlog.settle(entry, type(exc).__name__)
+        raise
 
 
 def _issuer_name(cert: dict) -> str:

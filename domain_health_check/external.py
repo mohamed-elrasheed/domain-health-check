@@ -35,7 +35,7 @@ from pathlib import Path
 
 import httpx
 
-from . import matching
+from . import matching, requestlog
 from .fetcher import USER_AGENT
 
 PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
@@ -100,7 +100,8 @@ def fetch_external(
     context = ExternalContext()
     places_key = os.environ.get("PLACES_API_KEY", "").strip()
     if places_key:
-        with httpx.Client(timeout=PLACES_TIMEOUT_SECONDS, transport=transport) as client:
+        with httpx.Client(timeout=PLACES_TIMEOUT_SECONDS, transport=transport,
+                          event_hooks=requestlog.httpx_hooks("places")) as client:
             _find_place(client, context, domain, business, places_key)
     key = os.environ.get("PAGESPEED_API_KEY", "").strip()
     if not key:
@@ -111,7 +112,8 @@ def fetch_external(
 
     _prune_cache()
     jobs = [("mobile", run) for run in range(1, MOBILE_RUNS + 1)] + [("desktop", 1)]
-    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=PSI_TIMEOUT_SECONDS, transport=transport) as client:
+    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=PSI_TIMEOUT_SECONDS, transport=transport,
+                      event_hooks=requestlog.httpx_hooks("pagespeed")) as client:
         failed = _run_jobs(client, context, domain, url, key, jobs)
         # A mobile run that failed gets one more try, so the median really is the middle of three when it can be.
         # Whatever still fails is recorded, and the checks say how many runs the figure came from.

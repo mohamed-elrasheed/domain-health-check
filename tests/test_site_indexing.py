@@ -1,11 +1,11 @@
 from dataclasses import replace
 
 import pytest
+from site_helpers import edited
 
 from domain_health_check.checks.site import indexing
 from domain_health_check.fetcher import FetchedFile, FetchError, RobotsDisallowed
 from domain_health_check.models import Status
-from site_helpers import edited
 
 CANONICAL = '<link href="https://www.mizangroupllc.com" rel="canonical"/>'
 

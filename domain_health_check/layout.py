@@ -21,9 +21,10 @@ while the missing main heading and 31 undescribed images sat further down.
 
 from __future__ import annotations
 
+from . import __version__
 from .checks import pagespeed, site
-from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .ladder import CUSTOMER_FACING, LADDER, TIER
+from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, credit, score
 
 WORD = {Status.PASS: "Good", Status.WARN: "Could be improved", Status.FAIL: "Needs action",
@@ -209,3 +210,8 @@ def about(report: DomainReport) -> str:
     return (f"These results come only from information that is publicly visible to anyone on the internet: {sources}. "
             "Nothing was scanned, probed or logged into. The checks show how things looked at the time above; "
             "settings can change at any time.")
+
+
+def stamp(report: DomainReport) -> str:
+    """Which build of the tool wrote this report, and when it ran, for the footer of every page."""
+    return f"domain-health-check {__version__} · run {report.checked_at.day} {report.checked_at:%B %Y}"

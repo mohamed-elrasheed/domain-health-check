@@ -35,7 +35,8 @@ def _long_date(day: date) -> str:
 def numbers(p: Proposal, css: str = "number") -> str:
     if not p.numbers:
         return '    <p class="none">No rating on file yet.</p>'
-    return "\n".join(f'    <div class="{css}"><b>{esc(big)}</b><span>{esc(small)}</span></div>' for big, small in p.numbers)
+    return "\n".join(f'    <div class="{css}"><b>{esc(big)}</b><span>{esc(small)}</span></div>'
+                     for big, small in p.numbers)
 
 
 def hours_list(h: Hours | None, empty: str) -> str:
@@ -114,7 +115,9 @@ ROOT_PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Mizan Group LLC</title>
-<style>body{margin:0;padding:48px 16px;background:#f6f3ee;color:#10201f;font:17px/1.5 system-ui,sans-serif;text-align:center}</style>
+<style>
+body{margin:0;padding:48px 16px;background:#f6f3ee;color:#10201f;font:17px/1.5 system-ui,sans-serif;text-align:center}
+</style>
 </head>
 <body><p>Nothing to see here. <a href="https://www.mizangroupllc.com/">Mizan Group LLC</a></p></body>
 </html>

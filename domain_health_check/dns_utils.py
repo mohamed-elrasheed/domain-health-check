@@ -14,6 +14,8 @@ from __future__ import annotations
 import dns.exception
 import dns.resolver
 
+from . import requestlog
+
 TIMEOUT_SECONDS = 5.0
 
 
@@ -22,9 +24,13 @@ class DNSLookupError(Exception):
 
 
 def _resolve(name: str, rdtype: str):
+    entry = requestlog.record("dns", "QUERY", f"{name} {rdtype}")
     try:
-        return dns.resolver.resolve(name, rdtype, lifetime=TIMEOUT_SECONDS)
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        answer = dns.resolver.resolve(name, rdtype, lifetime=TIMEOUT_SECONDS)
+        requestlog.settle(entry, f"{len(answer)} records")
+        return answer
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer) as exc:
+        requestlog.settle(entry, type(exc).__name__)
         # The name doesn't exist, or exists but has no records of this type.
         return None
     except dns.exception.DNSException as exc:
@@ -34,9 +40,12 @@ def _resolve(name: str, rdtype: str):
 def domain_exists(name: str) -> bool | None:
     """False when DNS says the name does not exist at all (NXDOMAIN), True when it does, None when we could not
     tell. Every other lookup reads NXDOMAIN as "no records", which is why this question is asked separately."""
+    entry = requestlog.record("dns", "QUERY", f"{name} SOA")
     try:
         dns.resolver.resolve(name, "SOA", lifetime=TIMEOUT_SECONDS)
+        requestlog.settle(entry, "found")
     except dns.resolver.NXDOMAIN:
+        requestlog.settle(entry, "NXDOMAIN")
         return False
     except dns.resolver.NoAnswer:
         return True

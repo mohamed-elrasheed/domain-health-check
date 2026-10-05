@@ -173,8 +173,11 @@ def hours(record: dict | None) -> Hours | None:
             rows[-1][0].append(day)
         else:
             rows.append(([day], times))
-    label = lambda days: DAY_NAMES[days[0]] if len(days) == 1 else (
-        f"{DAY_NAMES[days[0]]} and {DAY_NAMES[days[1]]}" if len(days) == 2 else
-        f"{DAY_NAMES[days[0]]} to {DAY_NAMES[days[-1]]}")
+    def label(days: list[str]) -> str:
+        if len(days) == 1:
+            return DAY_NAMES[days[0]]
+        if len(days) == 2:
+            return f"{DAY_NAMES[days[0]]} and {DAY_NAMES[days[1]]}"
+        return f"{DAY_NAMES[days[0]]} to {DAY_NAMES[days[-1]]}"
     return Hours([(label(days), times) for days, times in rows], (record.get("note") or "").strip(),
                  complete=len(known) == len(DAYS))

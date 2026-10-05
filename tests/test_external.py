@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from domain_health_check import cli, external, runner
-from domain_health_check.config import DomainConfig, load_env
+from domain_health_check.config import load_env
 from domain_health_check.fetcher import FetchError, RobotsDisallowed
 
 KEY = "test-key-not-real"
@@ -189,6 +189,7 @@ def test_every_report_run_prunes_pagespeed_responses_older_than_a_day(tmp_path, 
     pagespeed_cache = external.CACHE_DIR
     import os
     import time
+
     from domain_health_check import cli
     pagespeed_cache.mkdir(parents=True)
     old = pagespeed_cache / "example.com-mobile-1.json"

@@ -6,7 +6,7 @@ import pytest
 
 from domain_health_check import layout, scoring
 from domain_health_check.models import EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
-from domain_health_check.report import output_path, prune_older, render_markdown, write_report
+from domain_health_check.report import prune_older, record, render_markdown, report_dir, write_record, write_report
 
 NOW = datetime(2026, 3, 14, 9, 30, tzinfo=timezone.utc)
 
@@ -85,27 +85,50 @@ def test_about_mentions_google_only_when_its_test_ran():
     assert "Google's own PageSpeed Insights test" in layout.about(with_speed)
 
 
-def test_write_report_uses_domain_and_date(tmp_path):
+def test_write_report_uses_a_folder_per_domain_and_date(tmp_path):
     path = write_report(report_of(Status.PASS), tmp_path / "reports")
-    assert path.name == "example.com-2026-03-14.md"
+    assert path == tmp_path / "reports" / "example.com" / "2026-03-14" / "report.md"
     assert path.read_text(encoding="utf-8").startswith("# Website health report")
 
 
 def test_only_the_latest_report_per_domain_is_kept(tmp_path):
     folder = tmp_path / "reports"
-    folder.mkdir()
-    for name in ("example.com-2026-02-01.md", "example.com-2026-02-01.pdf", "example.com-2026-03-01.md",
+    old_run = folder / "example.com" / "2026-03-01"
+    old_run.mkdir(parents=True)
+    (old_run / "report.pdf").write_bytes(b"%PDF")
+    other = folder / "other.com" / "2026-02-01"
+    other.mkdir(parents=True)
+    for name in ("example.com-2026-02-01.md", "example.com-2026-03-14.pdf", "Website-health-report-example.com.pdf",
                  "other.com-2026-02-01.md", "sub.example.com-2026-02-01.md", "notes.txt"):
         (folder / name).write_text("old", encoding="utf-8")
     write_report(report_of(Status.PASS), folder)
+    assert not old_run.exists() and other.exists()
     assert sorted(p.name for p in folder.iterdir()) == [
-        "example.com-2026-03-14.md", "notes.txt", "other.com-2026-02-01.md", "sub.example.com-2026-02-01.md"]
+        "example.com", "notes.txt", "other.com", "other.com-2026-02-01.md", "sub.example.com-2026-02-01.md"]
+    assert [p.name for p in (folder / "example.com").iterdir()] == ["2026-03-14"]
 
 
-def test_same_day_pdf_is_kept(tmp_path):
+def test_the_folder_being_written_is_kept(tmp_path):
     report = report_of(Status.PASS)
-    tmp_path.joinpath(output_path(report, tmp_path, ".pdf").name).write_bytes(b"%PDF")
+    folder = report_dir(report, tmp_path)
+    folder.mkdir(parents=True)
+    (folder / "report.pdf").write_bytes(b"%PDF")
     assert prune_older(report, tmp_path) == []
+
+
+def test_the_record_holds_results_completeness_and_requests(tmp_path):
+    from domain_health_check.requestlog import Request
+    report = report_of(Status.WARN)
+    report.incomplete = ["Google's speed test did not run: PAGESPEED_API_KEY is not set"]
+    report.requests = [Request("2026-03-14T09:00:00+00:00", "page", "GET", "https://example.com/", "200")]
+    path = write_record(report, tmp_path)
+    data = __import__("json").loads(path.read_text(encoding="utf-8"))
+    assert data["complete"] is False and data["incomplete"] == report.incomplete
+    assert data["tool"]["name"] == "domain-health-check" and data["results"][0]["status"] == "WARN"
+    assert data["requests"][0]["target"] == "https://example.com/"
+    assert (path.parent / "requests.log").read_text(encoding="utf-8") == (
+        "2026-03-14T09:00:00+00:00\tpage\tGET\thttps://example.com/\t200\n")
+    assert record(report)["domain"] == "example.com"
 
 
 def test_no_score_when_nothing_ran():
@@ -377,7 +400,7 @@ def test_filter_and_sort_are_different_measures_on_purpose():
 
 
 
-def test_keep_latest_removes_the_first_naming_for_that_domain_only(tmp_path):
+def test_keep_latest_removes_the_old_layouts_for_that_domain_only(tmp_path):
     from datetime import datetime, timezone
     tmp_path = tmp_path / "reports"
     tmp_path.mkdir()
@@ -388,6 +411,14 @@ def test_keep_latest_removes_the_first_naming_for_that_domain_only(tmp_path):
         (tmp_path / name).write_text("x")
     report = DomainReport("example.com", datetime(2026, 10, 5, tzinfo=timezone.utc), [])
     removed = sorted(p.name for p in prune_older(report, tmp_path))
-    assert removed == ["Website-health-report-example.com.pdf", "example.com-2026-10-01.md"]
+    # The flat layout is superseded by the folder, whatever the date on the file.
+    assert removed == ["Website-health-report-example.com.pdf", "example.com-2026-10-01.md", "example.com-2026-10-05.md"]
     assert sorted(p.name for p in tmp_path.iterdir()) == [
-        "Website-health-report-example.org.pdf", "example.com-2026-10-05.md", "example.org-2026-10-01.md"]
+        "Website-health-report-example.org.pdf", "example.org-2026-10-01.md"]
+
+
+def test_every_page_is_stamped_with_the_version_and_run_date():
+    from domain_health_check import __version__
+    report = report_of(Status.PASS)
+    assert layout.stamp(report) == f"domain-health-check {__version__} · run 14 March 2026"
+    assert layout.stamp(report) in render_markdown(report)

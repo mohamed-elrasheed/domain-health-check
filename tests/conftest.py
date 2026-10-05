@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import urllib.request
 from pathlib import Path
@@ -18,6 +19,17 @@ MIZAN = Path(__file__).parent / "fixtures" / "mizangroupllc.com"
 
 
 REAL_SOCKETS = (socket.create_connection, socket.getaddrinfo, socket.socket.connect)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """With DHC_NO_SKIPS=1 (CI sets it) a skipped test fails instead. Every skip here means a missing browser
+    or missing Pango; on a developer's machine that is fine, in CI it would hide the tests that matter most."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.skipped and os.environ.get("DHC_NO_SKIPS") == "1":
+        report.outcome = "failed"
+        report.longrepr = f"skipped, but DHC_NO_SKIPS=1 requires it to run: {report.longrepr}"
 
 
 def _blocked(*args, **kwargs):

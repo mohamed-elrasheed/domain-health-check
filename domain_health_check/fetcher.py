@@ -24,8 +24,10 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+from . import requestlog
 from . import robots as robots_txt
 from .identity import ROBOTS_TOKEN, USER_AGENT  # noqa: F401 (re-exported: fetcher owns the report's fetch)
+
 TIMEOUT_SECONDS = 10  # per connect / read, as httpx measures it
 TOTAL_SECONDS = 30  # one download, including redirects and a slow trickle of bytes
 MAX_REDIRECTS = 5
@@ -111,7 +113,8 @@ class PageStatusError(FetchError):
         super().__init__(url, f"{where} answered with HTTP status {status} ({status_phrase(status)})", robots)
         self.status = status
         self.where = where  # the URL that answered with the error
-        self.stage = stage  # "robots": we stopped at robots.txt and never requested the home page; "page": the home page
+        # "robots": we stopped at robots.txt and never requested the home page; "page": the home page answered.
+        self.stage = stage
 
 
 def robots_blocks_search(status: int) -> bool:
@@ -161,6 +164,7 @@ def fetch_page(domain: str, *, transport: httpx.BaseTransport | None = None) -> 
     with httpx.Client(
         headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS,
         follow_redirects=True, max_redirects=MAX_REDIRECTS, transport=transport,
+        event_hooks=requestlog.httpx_hooks("page"),
     ) as client:
         robots_requested = f"https://{domain}/robots.txt"
         try:
@@ -258,7 +262,11 @@ def browser_render(url: str, offline: bool = False) -> Rendered:
     verifies by looking at their own screen are judged on what that screen shows."""
     from .browser import BrowserUnavailable, NavigationFailed, Session, mark_hidden
     try:
-        with Session(hint=" to read pages that scripts build", offline=offline) as session,                 session.tab(url) as (tab, response):
+        def seen(method: str, target: str, outcome: object) -> None:
+            requestlog.record("browser", method, target, outcome)
+
+        with Session(hint=" to read the page the way a visitor sees it", offline=offline) as session, \
+                session.tab(url, on_request=seen) as (tab, response):
             if response.status and response.status >= 400:
                 raise RenderFailed(f"the browser got status {response.status} ({status_phrase(response.status)})")
             mark_hidden(tab)

@@ -50,6 +50,14 @@ class DomainReport:
     website_loaded: bool = True  # False: no score is shown, because one would cover DNS and email alone
     unreachable: str = ""  # set when a visitor cannot reach the site; the report leads with it
     rendered: bool = False  # the home page was loaded a second time, in a browser, to judge what a visitor sees
+    # Why this report is not complete: a check that crashed, a page or browser load that failed, a speed test
+    # that did not run. Empty means every part of the report ran. The CLI exits 0 only when it is empty.
+    incomplete: list[str] = field(default_factory=list)
+    requests: list = field(default_factory=list)  # requestlog.Request, every request the report made
+
+    @property
+    def complete(self) -> bool:
+        return not self.incomplete
 
     # A result that did not run verified nothing, so its status never counts as a pass, a warning or a failure.
 

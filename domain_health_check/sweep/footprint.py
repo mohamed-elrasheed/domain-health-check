@@ -87,8 +87,8 @@ class Footprint:
             reason = f"rate limited us with HTTP 429; backed off {days} days"
         else:
             days, reason = COOLDOWN_DAYS, "fetched"
-        self.state[domain(visit.url)] = {"last_fetch": on.isoformat(), "retry_after": (on + timedelta(days)).isoformat(),
-                                         "reason": reason}
+        self.state[domain(visit.url)] = {"last_fetch": on.isoformat(),
+                                         "retry_after": (on + timedelta(days)).isoformat(), "reason": reason}
         self.save()
 
     def save(self) -> None:

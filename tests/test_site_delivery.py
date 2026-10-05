@@ -1,10 +1,11 @@
 from dataclasses import replace
 
+from site_helpers import edited
+
 from domain_health_check.checks import site
 from domain_health_check.checks.site import delivery, sharing
 from domain_health_check.fetcher import FetchError, RobotsDisallowed
 from domain_health_check.models import Status
-from site_helpers import edited
 
 VIEWPORT = '<meta content="width=device-width, initial-scale=1" name="viewport"/>'
 OG_IMAGE = 'property="og:image"'

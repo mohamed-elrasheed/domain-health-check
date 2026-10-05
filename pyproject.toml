@@ -11,17 +11,17 @@ requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-    "dnspython>=2.4",
-    "httpx>=0.27",
-    "PyYAML>=6.0",
-    "selectolax>=0.3.21",
-    "weasyprint>=62",
+    "dnspython==2.8.0",
+    "httpx==0.28.1",
+    "PyYAML==6.0.3",
+    "selectolax==0.4.13",
+    "weasyprint==70.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pypdf>=4"]
+dev = ["pytest==9.1.1", "pypdf==6.19.0", "ruff==0.16.10"]
 # sweep loads each page in a real browser so it can photograph it. Then: playwright install chromium
-sweep = ["playwright>=1.45"]
+sweep = ["playwright==1.63.0"]
 
 [project.scripts]
 domain-health-check = "domain_health_check.cli:main"
@@ -40,3 +40,14 @@ testpaths = ["tests"]
 # Integration tests hit real servers and are opt-in: pytest -m integration
 addopts = "-m 'not integration'"
 markers = ["integration: reaches real servers; opt-in with pytest -m integration"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["scripts"]  # scripts/ holds the gitignored lead comparison
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]  # an expected sentence reads better on one line than split to fit

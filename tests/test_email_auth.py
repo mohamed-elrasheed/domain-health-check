@@ -3,7 +3,6 @@ import pytest
 from domain_health_check.checks import email_auth
 from domain_health_check.models import Status
 
-
 # --- SPF ---
 
 @pytest.mark.parametrize("records, expected", [

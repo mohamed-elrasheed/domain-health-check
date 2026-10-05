@@ -10,10 +10,13 @@ Writing a report removes that domain's earlier ones.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+from dataclasses import asdict
 from pathlib import Path
 
-from . import layout
+from . import __version__, layout
 from .models import CheckResult, DomainReport, Status
 
 ICON = {Status.PASS: "✅", Status.WARN: "⚠️", Status.FAIL: "❌", Status.INFO: "ℹ️"}
@@ -58,7 +61,8 @@ def _brief(r: CheckResult) -> list[str]:
 
 
 def _summary_only(r: CheckResult) -> list[str]:
-    return ["", f"### {_icon(r)} {r.name}", "", r.summary, "", f"*Why it matters:* {r.explanation}"] + _details(r.details)
+    return (["", f"### {_icon(r)} {r.name}", "", r.summary, "", f"*Why it matters:* {r.explanation}"]
+            + _details(r.details))
 
 
 def render_markdown(report: DomainReport) -> str:
@@ -122,33 +126,70 @@ def render_markdown(report: DomainReport) -> str:
     lines += ["", "## What happens next", ""]
     for lead, rest in layout.next_steps(report):
         lines += [f"**{lead}** {rest}" if lead else rest, ""]
-    lines += ["---", "", f"*{layout.about(report)}*", ""]
+    lines += ["---", "", f"*{layout.about(report)}*", "", f"*{layout.stamp(report)}*", ""]
     return "\n".join(lines)
 
 
-def output_path(report: DomainReport, output_dir: Path, suffix: str) -> Path:
-    return output_dir / f"{report.domain}-{report.checked_at:%Y-%m-%d}{suffix}"
+def report_dir(report: DomainReport, output_dir: Path) -> Path:
+    """reports/<domain>/<date>/, one folder per run day, holding every file the run wrote."""
+    return output_dir / report.domain / f"{report.checked_at:%Y-%m-%d}"
 
 
 def prune_older(report: DomainReport, output_dir: Path) -> list[Path]:
-    """Delete this domain's reports from earlier days, Markdown and PDF alike, including any written under the
-    first naming scheme (Website-health-report-<domain>.pdf), which carried no date and is always older than
-    the report being written. Returns what was removed."""
-    pattern = re.compile(re.escape(report.domain) + r"-(\d{4}-\d{2}-\d{2})\.(md|pdf)")
-    first_naming = f"Website-health-report-{report.domain}.pdf"
-    today = f"{report.checked_at:%Y-%m-%d}"
+    """Delete everything older this domain has in output_dir: run folders from earlier days, files left by the
+    flat layout (<domain>-<date>.md and .pdf), and the first naming scheme (Website-health-report-<domain>.pdf).
+    The run folder being written is kept. Returns what was removed."""
     removed = []
-    for path in output_dir.iterdir() if output_dir.is_dir() else []:
-        match = pattern.fullmatch(path.name)
-        if (match and match.group(1) != today) or path.name == first_naming:
+    current = report_dir(report, output_dir)
+    domain_dir = output_dir / report.domain
+    if domain_dir.is_dir():
+        for path in sorted(domain_dir.iterdir()):
+            if path.is_dir() and path != current and re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.name):
+                shutil.rmtree(path)
+                removed.append(path)
+    flat = re.compile(re.escape(report.domain) + r"-\d{4}-\d{2}-\d{2}\.(md|pdf)")
+    for path in sorted(output_dir.iterdir()) if output_dir.is_dir() else []:
+        if path.is_file() and (flat.fullmatch(path.name) or path.name == f"Website-health-report-{report.domain}.pdf"):
             path.unlink()
             removed.append(path)
     return removed
 
 
 def write_report(report: DomainReport, output_dir: Path) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_path(report, output_dir, ".md")
+    folder = report_dir(report, output_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "report.md"
     path.write_text(render_markdown(report), encoding="utf-8")
+    prune_older(report, output_dir)
+    return path
+
+
+def record(report: DomainReport) -> dict:
+    """Everything the report found and did, for report.json: the same results the documents render, the score,
+    whether the run was complete and why not, and every request it made."""
+    score, band = layout.headline(report)
+    return {
+        "domain": report.domain,
+        "checked_at": report.checked_at.isoformat(timespec="seconds"),
+        "tool": {"name": "domain-health-check", "version": __version__},
+        "complete": report.complete,
+        "incomplete": list(report.incomplete),
+        "score": score,
+        "reading": band,
+        "website_loaded": report.website_loaded,
+        "rendered": report.rendered,
+        "unreachable": report.unreachable,
+        "results": [{**asdict(r), "status": r.status.name} for r in report.results],
+        "requests": [r.as_dict() for r in report.requests],
+    }
+
+
+def write_record(report: DomainReport, output_dir: Path) -> Path:
+    """report.json, and requests.log with one line per request made (time, source, method, target, outcome)."""
+    folder = report_dir(report, output_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "report.json"
+    path.write_text(json.dumps(record(report), indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    (folder / "requests.log").write_text("".join(f"{r.line()}\n" for r in report.requests), encoding="utf-8")
     prune_older(report, output_dir)
     return path

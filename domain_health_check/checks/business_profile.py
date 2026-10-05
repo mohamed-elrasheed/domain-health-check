@@ -114,7 +114,8 @@ def evaluate_completeness(external: ExternalContext) -> CheckResult:
     listed = missing[0] if len(missing) == 1 else ", ".join(missing[:-1]) + f" and {missing[-1]}"
     return CheckResult(LOCAL, COMPLETENESS, Status.WARN, f"Your Google Business Profile is missing your {listed}.",
                        COMPLETENESS_EXPLANATION,
-                       f"Sign in at {MANAGE}, open your profile and add your {listed}. It takes a few minutes.", details,
+                       f"Sign in at {MANAGE}, open your profile and add your {listed}. It takes a few minutes.",
+                       details,
                        measure=(len(wanted) - len(missing)) / len(wanted))
 
 

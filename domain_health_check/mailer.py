@@ -87,8 +87,10 @@ def build_message(cfg: MailerConfig, domain: str, pdf: Path, *, score: int | Non
     msg["To"] = cfg.recipient
     # The fixed phrase is what a mail filter matches on. Do not reword it.
     msg["Subject"] = f"Website health report · {domain}" + (f" · {score} out of 100" if score is not None else "")
-    msg.set_content(_plain_body(domain, score, band, counts, headlines, pdf.name, unreachable))
-    msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf", filename=pdf.name)
+    # Every report is report.pdf on disk; the attachment is named for the domain and the run day.
+    attachment = f"{domain}-{pdf.parent.name}.pdf" if pdf.name == "report.pdf" else pdf.name
+    msg.set_content(_plain_body(domain, score, band, counts, headlines, attachment, unreachable))
+    msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf", filename=attachment)
     return msg
 
 

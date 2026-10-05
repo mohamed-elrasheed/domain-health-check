@@ -114,7 +114,8 @@ def evaluate_spf(txt_records: list[str]) -> CheckResult:
         return result(Status.PASS, "SPF is set up and flags email from unlisted servers as suspicious (~all).")
     if qualifier == "?":
         return result(
-            Status.WARN, "SPF is present but takes no position on unlisted servers (?all), so it offers little protection.",
+            Status.WARN,
+            "SPF is present but takes no position on unlisted servers (?all), so it offers little protection.",
             f"{ask} to change the SPF record so email from servers it does not list is marked as suspicious.",
             "Change ?all at the end of the SPF record to ~all or -all.",
         )

@@ -5,10 +5,10 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from site_helpers import ld_json, with_body
 
 from domain_health_check.checks.site import structured_data
 from domain_health_check.models import Status
-from site_helpers import edited, ld_json, with_body
 
 OFFER = ld_json('{"@context": "https://schema.org", "@type": "Service", "name": "Monthly support", '
                 '"url": "https://www.mizangroupllc.com/tech-services/monthly-support", '

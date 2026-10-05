@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NamedTuple
 
 import httpx
 
 from . import hosts
-from typing import NamedTuple
-
 from .faults import FLAGS, collapse, evaluate_visit, rank
 from .footprint import Footprint
 from .load import ATTEMPTS, RETRYABLE, LoadFailure, Pacer, attempt, fetch_page, visit_robots
-from .models import Business, Fault, SweepResult, Visit, fault_from_dict, visit_from_dict
+from .models import Business, Fault, SweepResult, Visit, visit_from_dict
 from .names import display_name
 
 

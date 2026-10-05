@@ -59,7 +59,8 @@ def check_mx(domain: str) -> list[CheckResult]:
         return [evaluate_missing_mx(*_mail_records(domain))]
     details = [f"Priority {priority}: {host.rstrip('.')}" for priority, host in records]
     return [CheckResult(
-        EMAIL, "Mail servers (MX)", Status.PASS, (f"{len(records)} mail servers are listed." if len(records) != 1 else "1 mail server is listed."), MX_EXPLANATION,
+        EMAIL, "Mail servers (MX)", Status.PASS,
+        f"{len(records)} mail servers are listed." if len(records) != 1 else "1 mail server is listed.", MX_EXPLANATION,
         details=details,
     )]
 

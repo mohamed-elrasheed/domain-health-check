@@ -16,9 +16,8 @@ from pathlib import Path
 
 from . import __version__, consent, external, mailer
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
-from .models import Status
 from .pdf import write_pdf
-from .report import write_report
+from .report import write_record, write_report
 from .runner import run_checks
 from .terminal import format_summary, use_color
 
@@ -153,24 +152,31 @@ def report(args) -> int:
             return 2
 
     color = use_color(sys.stdout, disabled=args.no_color)
-    any_fail = output_failed = False
+    output_failed = incomplete = False
     for domain in domains:
         consent.log_run(domain.name, consent.submitted(domain.name, records), RUN_LOG)
         print(f"Checking {domain.name}...", flush=True)
         result = run_checks(domain)
         path = write_report(result, args.output)
         print(format_summary(result, color, path))
-        any_fail = any_fail or result.overall is Status.FAIL
+        record_path = write_record(result, args.output)
+        print(f"  Record: {record_path} ({len(result.requests)} requests in {record_path.with_name('requests.log')})")
         if not args.no_pdf or mail:
             pdf_path = _write_pdf(result, args.output)
             output_failed = output_failed or pdf_path is None
             if mail and pdf_path:
                 output_failed = not _email(result, pdf_path, mail) or output_failed
+        if not result.complete:
+            incomplete = True
+            print("  This report is not complete:", file=sys.stderr)
+            for reason in result.incomplete:
+                print(f"    - {reason}", file=sys.stderr)
 
-    # A non-zero exit code lets scripts and schedulers notice problems.
+    # The exit code says whether the run worked, not what it found: 0 only for a complete report, written in full.
+    # 2: a file could not be written. 3: written, but some part of the report did not run (see above).
     if output_failed:
         return 2
-    return 1 if any_fail else 0
+    return 3 if incomplete else 0
 
 
 def _write_pdf(report, output_dir: Path) -> Path | None:

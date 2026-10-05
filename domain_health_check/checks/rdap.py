@@ -22,6 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 from functools import lru_cache
 
+from .. import requestlog
 from ..fetcher import USER_AGENT
 from ..models import DOMAIN, CheckResult, Status
 
@@ -37,7 +38,8 @@ EXPLANATION = (
     "Your domain name is rented from a registrar and has to be renewed, usually every year. If the renewal "
     "is missed, your website and email stop working, and someone else could register the name."
 )
-RENEW_FIX = "Renew the domain with your registrar now, and switch on auto-renew with a payment card that will not expire."
+RENEW_FIX = ("Renew the domain with your registrar now, and switch on auto-renew with a payment card that will not "
+             "expire.")
 
 
 class RDAPUnavailable(Exception):
@@ -48,8 +50,17 @@ def _get_json(url: str) -> dict:
     request = urllib.request.Request(
         url, headers={"Accept": "application/rdap+json, application/json", "User-Agent": USER_AGENT}
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-        return json.load(response)
+    entry = requestlog.record("rdap", "GET", url)
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            requestlog.settle(entry, response.status)
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        requestlog.settle(entry, exc.code)
+        raise
+    except (urllib.error.URLError, OSError) as exc:
+        requestlog.settle(entry, type(exc).__name__)
+        raise
 
 
 @lru_cache(maxsize=1)

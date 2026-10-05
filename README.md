@@ -183,8 +183,12 @@ git clone https://github.com/mohamed-elrasheed/domain-health-check.git
 cd domain-health-check
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1        # macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -c requirements.lock -e ".[dev]"
 ```
+
+Every dependency is pinned. `pyproject.toml` pins the direct ones and `requirements.lock` pins everything they
+pull in, so a report run today and one run next month use the same code. Installing with `-c requirements.lock`
+is how CI installs; plain `pip install -e ".[dev]"` also works but lets the indirect packages float.
 
 To include the speed checks, copy `.env.example` to `.env` and add a PageSpeed Insights API key.
 `.env` is gitignored; the tool reads it at startup and never overrides a variable already set.
@@ -226,9 +230,22 @@ record the report refuses and prints the `record-submission` command to add one.
 refused whatever the record says. Every run is appended to `logs/report-runs.log` (gitignored) with the record
 it ran on.
 
-Every report is written to `reports/<domain>-<date>.md` and `.pdf` (gitignored; `--no-pdf` skips the PDF). Only the
-latest report per domain is kept: writing a new one deletes that domain's older reports. A stale scan is
-misleading, and the check is cheap to run again.
+Every report is written to its own folder, `reports/<domain>/<date>/` (gitignored):
+
+| File | What it is |
+|---|---|
+| `report.pdf` | The report for the owner, after a human has reviewed it. `--no-pdf` skips it. |
+| `report.md` | The same report as Markdown. Both are rendered from the same data, never one from the other. |
+| `report.json` | Every result with its status and details, whether the run was complete, and if not, why. |
+| `requests.log` | Every request the run made, one per line: time, source, method, target, outcome. |
+
+`requests.log` covers the page fetch (robots.txt, the home page, the sitemap), every request the browser made
+while rendering the page, RDAP, the TLS handshake, each DNS query, and the PageSpeed and Places calls. API keys
+are masked before anything is written. Every PDF page is stamped with the package version and the run date, so
+a report in someone's inbox says exactly which code produced it.
+
+Only the latest report per domain is kept: writing a new one deletes that domain's older folders, and any report
+in the older flat layout. A stale scan is misleading, and the check is cheap to run again.
 
 ### Sweep (our own prospecting)
 
@@ -319,8 +336,13 @@ object, so they cannot disagree. WeasyPrint needs the Pango libraries, which pip
 
 Without Pango the Markdown report is still written and the run exits with code `2`.
 
-The exit code is `0` when nothing is broken, `1` if any check FAILed, and `2` for a configuration
-error or a requested PDF that could not be written, which makes the tool easy to use from a scheduled task.
+The exit code says whether the run did its job, not what it found:
+
+| Code | Meaning |
+|---|---|
+| `0` | A complete report was written. FAIL findings are findings, so they still exit `0`. |
+| `2` | The run could not do what was asked: a configuration error, a refused domain, or a requested PDF that could not be written. |
+| `3` | A report was written but is not complete: the browser could not load the page, PageSpeed did not run, or a check crashed. The reasons are printed and recorded in `report.json`. A report that exits `3` is not sent. |
 
 ## Sample output
 
@@ -343,7 +365,7 @@ example.com
   PASS  DKIM (email signatures)       DKIM signing keys are published (selector: google).
   WARN  DMARC (anti-spoofing policy)  No DMARC record was found.
   8 pass, 4 warn, 0 fail
-  Report: reports\example.com-2026-09-27.md
+  Report: reports\example.com\2026-09-27\report.md
 ```
 
 An excerpt from the matching Markdown report:
@@ -386,6 +408,11 @@ pytest
 The tests never touch real domains: every DNS lookup, TLS handshake and HTTP request is replaced
 with fake data, and a fixture in `tests/conftest.py` makes any real network connection fail the test.
 A test also checks that `domains.example.yaml` only contains reserved example domains.
+
+The browser and PDF tests need Chromium (`playwright install chromium`) and Pango. Without them those tests
+skip on a developer's machine. CI (`.github/workflows/ci.yml`) runs `ruff check .` and then `pytest` on Python
+3.10 and 3.13 with both installed and `DHC_NO_SKIPS=1`, which turns any skip into a failure, so the browser
+tests always run there.
 
 ## Project layout
 

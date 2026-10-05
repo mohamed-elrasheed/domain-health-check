@@ -50,7 +50,8 @@ def check_page_loaded(page: PageContext | FetchError) -> list[CheckResult]:
                "checks like ours, and this says nothing about what your visitors see. If it does not load for them "
                f"either, ask your web host why it answers with status {page.status}.")
     elif isinstance(page, RobotsDisallowed):
-        summary = "Your website asks automated tools not to load its home page, so we did not run the site health checks."
+        summary = ("Your website asks automated tools not to load its home page, so we did not run the site health "
+                   "checks.")
         fix = ("Nothing needs to change if blocking automated tools is intentional. If you would like these checks, "
                "ask your web developer to allow domain-health-check in your robots.txt file.")
     else:

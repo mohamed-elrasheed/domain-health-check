@@ -1,8 +1,8 @@
 import pytest
+from site_helpers import edited, with_body
 
 from domain_health_check.checks.site import content
 from domain_health_check.models import Status
-from site_helpers import edited, with_body
 
 TITLE = "<title>Mizan Group LLC · Centreville, Virginia</title>"
 H1 = "<h1>Professional service, delivered personally"

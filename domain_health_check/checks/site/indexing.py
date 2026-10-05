@@ -20,8 +20,15 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
 from ... import robots as robots_txt
-from ...fetcher import (SITEMAP_MAX_BYTES, FetchedFile, FetchError, PageContext, robots_blocks_search,
-                        same_site, status_phrase)
+from ...fetcher import (
+    SITEMAP_MAX_BYTES,
+    FetchedFile,
+    FetchError,
+    PageContext,
+    robots_blocks_search,
+    same_site,
+    status_phrase,
+)
 from ...models import SITE, CheckResult, Status
 from ._html import meta, parse
 
@@ -286,8 +293,10 @@ def check_sitemap_and_robots(page: PageContext) -> list[CheckResult]:
                 f"The file {file.url} answered with an error (status {file.status}), so we could not check your "
                 "sitemap.",
                 SITEMAP_EXPLANATION, "Nothing to do based on this report.",
-                [f"robots.txt: {page.robots.url} (status {page.robots.status})" if page.robots else "robots.txt: not read",
-                 f"Sitemap: {page.sitemap.url} (status {page.sitemap.status})" if page.sitemap else "Sitemap: not read"],
+                [f"robots.txt: {page.robots.url} (status {page.robots.status})" if page.robots
+                 else "robots.txt: not read",
+                 f"Sitemap: {page.sitemap.url} (status {page.sitemap.status})" if page.sitemap
+                 else "Sitemap: not read"],
                 ran=False,
             )]
     if page.robots is None or page.sitemap is None:

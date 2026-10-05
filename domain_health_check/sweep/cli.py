@@ -164,7 +164,8 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
                             continue
                     write(result, args.output)
                     results.append(result)
-                    by_hand = "[found by hand, check before using] " if result.fault and                         result.fault.found_by == "hand" else ""
+                    by_hand = ("[found by hand, check before using] "
+                               if result.fault and result.fault.found_by == "hand" else "")
                     when = (f" [deferred: {result.deferred_until}]" if result.deferred_until else
                             next((f" [from the visit on {v.cached_on}]" for v in result.visits if v.cached_on), ""))
                     print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}{when}", flush=True)

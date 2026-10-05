@@ -41,4 +41,5 @@ def check_dnssec(domain: str) -> list[CheckResult]:
         key_tag, algorithm, *_ = record.split()
         name = ALGORITHMS.get(int(algorithm), f"algorithm {algorithm}")
         details.append(f"DS record: key tag {key_tag}, {name}")
-    return [CheckResult(DOMAIN, "DNSSEC", Status.PASS, "DNSSEC is switched on for this domain.", EXPLANATION, details=details)]
+    return [CheckResult(DOMAIN, "DNSSEC", Status.PASS, "DNSSEC is switched on for this domain.", EXPLANATION,
+                        details=details)]
