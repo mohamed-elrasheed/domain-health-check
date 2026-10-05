@@ -183,10 +183,10 @@ These produced wrong findings in a real audit. Encode them, do not rediscover th
   show a screenshot of their current site. It lives on our own domain, is marked as a proposal rather than
   their site, carries `noindex` and a `robots.txt` disallow, and its link goes to that business and nobody
   else. Never commit a prospect's page content or screenshot to the repository.
-- **We keep the most recent report per domain and nothing older.** A stale scan is misleading, and holding
-  data we have no use for is a liability. If someone wants a current picture we run it again; the check
-  is cheap. `write_report` and `write_pdf` delete a domain's older reports, and cached PageSpeed
-  responses are deleted after 24 hours.
+- **We keep every report run, each in its own `reports/<domain>/<date>/` folder.** A second report on the
+  same domain later is how we show what changed, so nothing deletes an older run automatically. Each report
+  states its run date, so an old one cannot pass for current. `reports/` stays gitignored. Cached PageSpeed
+  responses are still deleted after 24 hours.
 
 ## Do not
 

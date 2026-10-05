@@ -23,7 +23,7 @@ from pathlib import Path
 
 from . import layout
 from .models import CheckResult, DomainReport, Status
-from .report import DETAILS_HEADING, prune_older, report_dir
+from .report import DETAILS_HEADING, report_dir
 
 ASSETS = Path(__file__).parent / "assets"
 MSYS2_BIN = Path(r"C:\msys64\ucrt64\bin")
@@ -223,5 +223,4 @@ def write_pdf(report: DomainReport, output_dir: Path) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "report.pdf"
     path.write_bytes(render_pdf(report))
-    prune_older(report, output_dir)
     return path

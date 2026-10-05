@@ -244,8 +244,9 @@ while rendering the page, RDAP, the TLS handshake, each DNS query, and the PageS
 are masked before anything is written. Every PDF page is stamped with the package version and the run date, so
 a report in someone's inbox says exactly which code produced it.
 
-Only the latest report per domain is kept: writing a new one deletes that domain's older folders, and any report
-in the older flat layout. A stale scan is misleading, and the check is cheap to run again.
+Every run is kept. A new report goes in a new dated folder and never deletes an older one: a second report on the
+same domain later is how we show what changed. Two runs on the same day share a folder, and the later one replaces
+the earlier.
 
 ### Sweep (our own prospecting)
 

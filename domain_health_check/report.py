@@ -3,16 +3,14 @@
 What goes in each section is decided in layout.py, which the PDF renderer
 shares, so the two documents always say the same thing.
 
-Retention: we keep the most recent report per domain and nothing older. A
-stale scan is misleading, and holding data we have no use for is a liability.
-Writing a report removes that domain's earlier ones.
+Retention: every run is kept in its own reports/<domain>/<date>/ folder, and
+nothing here deletes one. A second report on the same domain later is how we
+show what changed.
 """
 
 from __future__ import annotations
 
 import json
-import re
-import shutil
 from dataclasses import asdict
 from pathlib import Path
 
@@ -135,32 +133,11 @@ def report_dir(report: DomainReport, output_dir: Path) -> Path:
     return output_dir / report.domain / f"{report.checked_at:%Y-%m-%d}"
 
 
-def prune_older(report: DomainReport, output_dir: Path) -> list[Path]:
-    """Delete everything older this domain has in output_dir: run folders from earlier days, files left by the
-    flat layout (<domain>-<date>.md and .pdf), and the first naming scheme (Website-health-report-<domain>.pdf).
-    The run folder being written is kept. Returns what was removed."""
-    removed = []
-    current = report_dir(report, output_dir)
-    domain_dir = output_dir / report.domain
-    if domain_dir.is_dir():
-        for path in sorted(domain_dir.iterdir()):
-            if path.is_dir() and path != current and re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.name):
-                shutil.rmtree(path)
-                removed.append(path)
-    flat = re.compile(re.escape(report.domain) + r"-\d{4}-\d{2}-\d{2}\.(md|pdf)")
-    for path in sorted(output_dir.iterdir()) if output_dir.is_dir() else []:
-        if path.is_file() and (flat.fullmatch(path.name) or path.name == f"Website-health-report-{report.domain}.pdf"):
-            path.unlink()
-            removed.append(path)
-    return removed
-
-
 def write_report(report: DomainReport, output_dir: Path) -> Path:
     folder = report_dir(report, output_dir)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "report.md"
     path.write_text(render_markdown(report), encoding="utf-8")
-    prune_older(report, output_dir)
     return path
 
 
@@ -191,5 +168,4 @@ def write_record(report: DomainReport, output_dir: Path) -> Path:
     path = folder / "report.json"
     path.write_text(json.dumps(record(report), indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     (folder / "requests.log").write_text("".join(f"{r.line()}\n" for r in report.requests), encoding="utf-8")
-    prune_older(report, output_dir)
     return path
