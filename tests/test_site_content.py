@@ -243,3 +243,13 @@ def test_plurals_and_variants_count_as_shared_words():
 def test_mizan_title_and_description_are_not_placeholder(mizan_page):
     assert "placeholder" not in content.check_title(mizan_page)[0].summary
     assert "placeholder" not in content.check_description(mizan_page)[0].summary
+
+
+@pytest.mark.parametrize("images, summary", [
+    ([("a.jpg", "A shop front")], "The one image on your home page has a description."),
+    ([("a.jpg", None)], "The one image on your home page has no real description."),
+    ([("a.jpg", None), ("b.jpg", None), ("c.jpg", "A van")], "2 of the 3 images on your home page have no real description."),
+    ([("a.jpg", None)] + [(f"{n}.jpg", "A van") for n in range(9)], "9 of the 10 images on your home page have a description."),
+])
+def test_alt_text_counts_read_as_english(images, summary):
+    assert content.evaluate_alt_text(images).summary == summary

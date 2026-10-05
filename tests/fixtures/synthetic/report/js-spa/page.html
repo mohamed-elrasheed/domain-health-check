@@ -3,7 +3,8 @@
      Everything else (the description, the canonical tag, structured data, every heading, image and paragraph)
      is built by the script after the page loads. Read as delivered, the page looks empty; rendered, it is a
      complete home page. Two elements a visitor cannot see are built on purpose: a second h1 hidden with
-     display:none, and a zero-size tracking image with no alt text. Neither may count. -->
+     display:none, and a zero-size tracking image with no alt text. Neither may count. A heading far down the
+     page is held at opacity 0 until it scrolls into view; it must count. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -48,6 +49,12 @@
   add(main, "img", {src: "/static/media/pixel.gif", style: "width:0;height:0;position:absolute"});
   add(main, "h2", {}, "Menu");
   add(main, "p", {}, "Starters, four mains and two desserts, written up on the board each afternoon.");
+  // Held at opacity 0 until it scrolls into view, as page builders commonly do. A visitor who scrolls sees it.
+  var reveal = add(main, "section", {style: "margin-top:2400px;opacity:0;transition:opacity .2s"});
+  add(reveal, "h2", {}, "From our kitchen");
+  new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) e.target.style.opacity = "1"; });
+  }).observe(reveal);
   add(main, "h2", {}, "Visit us");
   add(main, "p", {}, "100 Main Street, Springfield. Dinner Tuesday to Sunday from five o'clock.");
   add(root, "footer", {}, "Example Kitchen, 100 Main Street, Springfield");

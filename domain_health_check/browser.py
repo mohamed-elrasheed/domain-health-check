@@ -51,20 +51,33 @@ _CANDIDATES = """
   /^(H[1-6]|IMG|A)$/.test(el.tagName) ||
   Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent.trim()))
 """
+SEEN = "data-dhc-seen"
+# Scroll the whole page the way a visitor would, pausing so scroll-triggered reveals and lazy images can run,
+# and note every judged element that is on screen at some point. Builders commonly hold sections at opacity 0
+# until they scroll into view; judged only at the top of the page, they would all count as hidden. On the last
+# pass, every element never seen is marked hidden. Returns how many were marked (0 on the first pass).
 MARK_HIDDEN = f"""
-(phase) => {{
+async (last) => {{
   const onScreen = {_JUDGE};
-  const els = ({_CANDIDATES})();
-  if (phase === "phone") {{
-    els.forEach((el, i) => {{ if (!onScreen(el)) el.setAttribute("{HIDDEN}-phone", ""); }});
-    return 0;
+  const pause = ms => new Promise(done => setTimeout(done, ms));
+  const note = () => ({_CANDIDATES})().forEach(el => {{ if (!el.hasAttribute("{SEEN}") && onScreen(el))
+    el.setAttribute("{SEEN}", ""); }});
+  const step = Math.max(200, Math.floor(innerHeight * 0.6));
+  for (let y = 0; y <= 60000; y += step) {{
+    scrollTo(0, y);
+    await pause(250);
+    note();
+    if (y + innerHeight >= document.documentElement.scrollHeight) break;
   }}
+  scrollTo(0, 0);
+  await pause(250);
+  note();
+  if (!last) return 0;
   let marked = 0;
-  els.forEach(el => {{
-    const hiddenOnPhone = el.hasAttribute("{HIDDEN}-phone");
-    el.removeAttribute("{HIDDEN}-phone");
-    if (hiddenOnPhone && !onScreen(el)) {{ el.setAttribute("{HIDDEN}", ""); marked++; }}
+  ({_CANDIDATES})().forEach(el => {{
+    if (!el.hasAttribute("{SEEN}")) {{ el.setAttribute("{HIDDEN}", ""); marked++; }}
   }});
+  document.querySelectorAll("[{SEEN}]").forEach(el => el.removeAttribute("{SEEN}"));
   return marked;
 }}
 """
@@ -119,12 +132,13 @@ def displayed_text(tab) -> str:
 
 
 def mark_hidden(tab) -> int:
-    """Put data-dhc-hidden on every judged element that is on screen at neither phone nor desktop width, so the
-    page's HTML can be read afterwards with what a visitor cannot see left out. Returns how many were marked."""
-    tab.evaluate(MARK_HIDDEN, "phone")
+    """Put data-dhc-hidden on every judged element that is on screen at no point while a visitor scrolls the
+    page, at phone width or at desktop width, so its HTML can be read afterwards with what a visitor cannot see
+    left out. Returns how many were marked."""
+    tab.evaluate(MARK_HIDDEN, False)
     tab.set_viewport_size(DESKTOP)
     tab.wait_for_timeout(300)
-    marked = tab.evaluate(MARK_HIDDEN, "desktop")
+    marked = tab.evaluate(MARK_HIDDEN, True)
     tab.set_viewport_size(PHONE)
     tab.wait_for_timeout(300)
     return marked

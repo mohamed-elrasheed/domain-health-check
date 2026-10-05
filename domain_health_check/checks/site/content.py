@@ -276,6 +276,13 @@ def useful_alt(alt: str | None, address: str) -> bool:
     return alt_problem(alt, address) is None
 
 
+def _of_images(n: int, total: int) -> str:
+    """"3 of the 5 images on your home page have", "1 of the 5 ... has", "The one image on your home page has"."""
+    if total == 1:
+        return "The one image on your home page has"
+    return f"{n} of the {total} images on your home page {'has' if n == 1 else 'have'}"
+
+
 def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = False) -> CheckResult:
     """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold. rendered: the
     images come from the page after a browser ran it, with any a visitor cannot see already left out."""
@@ -295,13 +302,13 @@ def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = Fal
     details = [f"{described} of {len(images)} images have a real description. {counted}"]
     if described / len(images) < ALT_TEXT_PASS_SHARE:
         return result(
-            Status.WARN, f"{len(lacking)} of the {len(images)} images on your home page have no real description.",
+            Status.WARN, f"{_of_images(len(lacking), len(images))} no real description.",
             "In your website builder, open each image listed under Fix it yourself and fill in its alt text "
             "(sometimes called \"image description\") with a short phrase describing the picture the way you would "
             "describe it to someone over the phone. Images that are purely decorative can stay blank.",
             details + _more(lacking), measure=described / len(images),
         )
-    return result(Status.PASS, f"{described} of the {len(images)} images on your home page have a description.",
+    return result(Status.PASS, f"{_of_images(described, len(images))} a description.",
                   details=details + _more(lacking))
 
 

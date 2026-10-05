@@ -114,8 +114,10 @@ def test_what_a_visitor_cannot_see_does_not_count(local_renderer):
     assert rendered.rendered and HIDDEN in rendered.rendered_html
     [heading] = content.check_main_heading(rendered)
     assert heading.status is Status.PASS and "A neighborhood restaurant in Springfield" in heading.summary
+    [order] = content.check_heading_order(rendered)
+    assert order.details[0] == "Order: h1 h2 h2 h2"  # the heading revealed on scroll counts
     [alt] = content.check_alt_text(rendered)
-    assert alt.status is Status.PASS and "1 of the 1 images" in alt.summary
+    assert alt.status is Status.PASS and alt.summary == "The one image on your home page has a description."
     unmarked = fetcher.PageContext(**{**rendered.__dict__,
                                       "rendered_html": rendered.rendered_html.replace(HIDDEN, "data-was-hidden")})
     assert content.check_main_heading(unmarked)[0].summary == "Your home page has 2 main headings instead of one."
