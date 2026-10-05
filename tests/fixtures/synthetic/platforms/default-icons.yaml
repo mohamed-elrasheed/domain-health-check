@@ -1,0 +1,14 @@
+# For tests only: an invented builder with an invented standard icon, so the default-icon logic is tested without
+# shipping any real builder's address. The source field is required by the loader, as it is in config/.
+platforms:
+  Example Builder:
+    generator: ["example builder"]
+    headers: []
+    attributes: []
+    hosts: ["builder.example.net"]
+    default_icons:
+      - {fragment: "builder.example.net/img/default-favicon.ico", source: "synthetic test entry"}
+default_icons_only:
+  Example CMS:
+    default_icons:
+      - {fragment: "/cms-assets/default-site-icon.png", source: "synthetic test entry"}

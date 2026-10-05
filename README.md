@@ -133,8 +133,9 @@ left out of the score rather than passed.
   each link on the consented page, once, under the cap in CLAUDE.md (at most 80, HEAD and GET only when HEAD is
   refused, 3 redirects, no response bodies). That is `linkcheck.py`, which sweep can never reach.
 - **Mixed content** reads the resource list of the page as the browser loaded it, so files a script adds count.
-- **Favicon** resolves the icon the way a browser does, in at most two requests. The standard icons of each
-  website builder are listed in `config/platforms.yaml`.
+- **Favicon** resolves the icon the way a browser does, in at most two requests. It can also flag a website
+  builder's standard icon, but only from entries in `config/platforms.yaml` that cite a source. None is listed
+  yet, so for now it reports a missing icon and nothing else.
 
 ### Speed (optional, from Google PageSpeed Insights)
 

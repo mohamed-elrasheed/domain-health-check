@@ -216,3 +216,8 @@ def test_the_pdf_ends_on_the_price_page():
     clean = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report_of(result("Page title", Status.PASS))))).pages
     text = " ".join(clean[-1].extract_text().split())
     assert text.startswith(f"{layout.PRICES_HEADING} {layout.NOTHING_TO_PRICE}")
+
+
+def test_the_intro_says_a_price_line_applies_only_where_one_does():
+    assert ("with the matching line from our published price list, where one applies: "
+            "https://www.mizangroupllc.com/digital#pricing") in layout.PRICES_INTRO

@@ -15,4 +15,4 @@ ever requested from the internet.
 | `mixed-fail.html` | Seven assets over plain http, more than the five a report lists. |
 | `favicon-pass.html` | Names its own icon. |
 | `favicon-fail.html` | Names no icon, and the site has no /favicon.ico. |
-| `favicon-default.html` | Names a website builder's standard icon. |
+| `favicon-default.html` | Names the standard icon of an invented builder, listed only in the test config `../platforms/default-icons.yaml`. |

@@ -5,9 +5,12 @@
 # of its own. On a hosted builder the platform sets the response headers, so the HSTS, Content Security Policy
 # and nosniff findings are listed as set by the platform rather than priced (see config/pricelist.yaml).
 #
-# default_icons: the browser tab icon each builder shows when the owner has not uploaded one. A resolved icon
-# address containing any of these fragments is that builder's default. Keep them specific: a fragment that also
-# matches a real uploaded icon would tell an owner their own logo is a placeholder.
+# default_icons: the browser tab icon each builder shows when the owner has not uploaded one, as
+#   - {fragment: "<part of the icon address>", source: "<where this is documented or observed, citable>"}
+# A resolved icon address containing the fragment is that builder's default. Nothing from memory ships: an entry
+# without a source is refused when this file loads. Keep fragments specific: one that also matches a real
+# uploaded icon would tell an owner their own logo is a placeholder. None is listed yet, so the Favicon check
+# reports a missing icon but never a default one until an entry with a source is added.
 
 platforms:
   Webflow:
@@ -15,19 +18,19 @@ platforms:
     headers: ["x-wf-"]
     attributes: ["data-wf-site", "data-wf-page"]
     hosts: ["website-files.com", "webflow.com", "webflow.io"]
-    default_icons: ["website-files.com/img/favicon.ico", "webflow.com/img/favicon.ico"]
+    default_icons: []
   Wix:
     generator: ["wix.com"]
     headers: ["x-wix-"]
     attributes: []
     hosts: ["wixstatic.com", "parastorage.com"]
-    default_icons: ["www.wix.com/favicon.ico"]
+    default_icons: []
   Squarespace:
     generator: ["squarespace"]
     headers: ["x-squarespace-"]
     attributes: []
     hosts: ["squarespace.com", "squarespace-cdn.com", "sqspcdn.com"]
-    default_icons: ["squarespace.com/universal/default-favicon.ico"]
+    default_icons: []
   Shopify:
     generator: ["shopify"]
     headers: ["x-shopid", "x-shopify-"]
@@ -41,9 +44,6 @@ platforms:
     hosts: ["img1.wsimg.com", "isteam.wsimg.com"]
     default_icons: []
 
-# Not a hosted builder: WordPress sites control their own headers, so this entry never makes a finding
-# "set by the platform". It is here only for its default icon, which WordPress serves at /favicon.ico when no
-# site icon has been set.
-default_icons_only:
-  WordPress:
-    default_icons: ["/wp-includes/images/w-logo-blue-white-bg.png"]
+# Platforms that are not hosted builders, listed only for a default icon (with a source, as above). A platform
+# here never makes a finding "set by the platform": its sites control their own headers.
+default_icons_only: {}

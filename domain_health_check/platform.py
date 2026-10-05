@@ -36,15 +36,29 @@ class Detected:
     evidence: str  # what gave it away, for the technical details
 
 
-@lru_cache(maxsize=1)
-def load(path: Path = PATH) -> tuple[list[Platform], dict[str, tuple[str, ...]]]:
+def _icons(name: str, entries: list | None) -> tuple[str, ...]:
+    """The fragments of one platform's default icons. Raises ValueError for an entry with no source: nothing
+    from memory ships."""
+    fragments = []
+    for entry in entries or []:
+        if not isinstance(entry, dict) or not str(entry.get("fragment") or "").strip() or not str(
+                entry.get("source") or "").strip():
+            raise ValueError(f"{name}: every default icon needs a fragment and a source to cite, not {entry!r}")
+        fragments.append(str(entry["fragment"]).lower())
+    return tuple(fragments)
+
+
+@lru_cache(maxsize=4)
+def load(path: Path | None = None) -> tuple[list[Platform], dict[str, tuple[str, ...]]]:
     """(hosted builders, every default icon fragment by platform name)."""
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = yaml.safe_load((path or PATH).read_text(encoding="utf-8"))
     hosted = [Platform(name, *(tuple(s.lower() for s in spec.get(key) or [])
-                               for key in ("generator", "headers", "attributes", "hosts", "default_icons")))
+                               for key in ("generator", "headers", "attributes", "hosts")),
+                       _icons(name, spec.get("default_icons")))
               for name, spec in data["platforms"].items()]
     icons = {p.name: p.default_icons for p in hosted}
-    icons.update({name: tuple(spec.get("default_icons") or []) for name, spec in data["default_icons_only"].items()})
+    icons.update({name: _icons(name, spec.get("default_icons"))
+                  for name, spec in (data.get("default_icons_only") or {}).items()})
     return hosted, icons
 
 
@@ -65,7 +79,7 @@ def asset_urls(html: str, base: str) -> list[str]:
 
 def evaluate_platform(headers: dict[str, str], html: str, assets: list[str]) -> Detected | None:
     """The first builder with any signal, or None. headers have lowercased keys."""
-    hosted, _ = load()
+    hosted, _ = load(PATH)
     tree = HTMLParser(html)
     generators = [(node.attributes.get("content") or "").lower() for node in tree.css("meta[name]")
                   if (node.attributes.get("name") or "").lower() == "generator"]
@@ -98,7 +112,7 @@ def detect(page) -> Detected | None:
 
 def default_icon(*urls: str) -> str | None:
     """The platform whose default icon any of these addresses is, or None."""
-    _, icons = load()
+    _, icons = load(PATH)
     for url in urls:
         lowered = url.lower()
         for name, fragments in icons.items():

@@ -9,7 +9,7 @@ import httpx
 import pytest
 from site_helpers import PNG, healthy_site
 
-from domain_health_check import fetcher, linkcheck, requestlog
+from domain_health_check import fetcher, linkcheck, platform, requestlog
 from domain_health_check.checks.site import favicon, links, mixed_content
 from domain_health_check.fetcher import FetchedFile, FetchedIcon
 from domain_health_check.models import Status
@@ -82,6 +82,17 @@ def test_a_broken_link_is_never_a_fail(make_page):
     page = make_page(html='<a href="/a">A</a><a href="https://other.example.org/">B</a>', final_url=URL)
     results = linkcheck.verify(page, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     assert {r.status for r in links.check_links(fetcher_replace(page, results))} == {Status.WARN}
+
+
+def test_only_an_href_in_the_page_is_a_link():
+    """A link is an href on an <a> in the page. A path a script could assemble from a slug, a data attribute, or
+    a URL in text is never requested or reported: an address we guessed is not a link the owner published."""
+    html = ('<div class="card" data-slug="email-and-domains" data-href="/old/path">Email and domains</div>'
+            '<a data-slug="networks">Networks</a><a href="">Empty</a>'
+            '<script>const base = "/tech-services/"; cards.forEach(c => c.href = base + c.dataset.slug);</script>'
+            '<p>See /tech-services/email-and-domains or https://www.example.com/written-out</p>'
+            '<a href="/tech-services/networks-and-wi-fi">Networks and Wi-Fi</a>')
+    assert linkcheck.links_on(html, URL) == [(f"{URL}tech-services/networks-and-wi-fi", "Networks and Wi-Fi")]
 
 
 def test_head_then_get_only_when_head_is_refused(make_page):
@@ -252,20 +263,39 @@ def test_a_named_icon_that_fails_falls_back_once(make_page):
     assert len(seen) == 2 and favicon.evaluate_favicon(attempts).status is Status.PASS
 
 
-def test_favicon_default_builder_icon(make_page):
+@pytest.fixture
+def test_icons(monkeypatch):
+    """Default icons from the test config: the shipped config lists none without a source to cite."""
+    monkeypatch.setattr(platform, "PATH", Path(__file__).parent / "fixtures" / "synthetic" / "platforms" /
+                        "default-icons.yaml")
+
+
+def test_favicon_default_builder_icon(make_page, test_icons):
     attempts = icons(site({}), fixture("favicon-default.html"), make_page=make_page)
     result = favicon.evaluate_favicon(attempts)
     assert result.status is Status.WARN
-    assert result.summary == "Your site shows the standard Webflow icon in browser tabs rather than your own."
+    assert result.summary == "Your site shows the standard Example Builder icon in browser tabs rather than your own."
 
 
-def test_the_wordpress_default_is_recognized_after_its_redirect(make_page):
-    transport = site({"/favicon.ico": httpx.Response(302, headers={
-        "location": "/wp-includes/images/w-logo-blue-white-bg.png"}),
-        "/wp-includes/images/w-logo-blue-white-bg.png": httpx.Response(
-            200, headers={"content-type": "image/png"}, content=PNG)})
+def test_a_default_icon_is_recognized_after_its_redirect(make_page, test_icons):
+    transport = site({"/favicon.ico": httpx.Response(302, headers={"location": "/cms-assets/default-site-icon.png"}),
+                      "/cms-assets/default-site-icon.png": httpx.Response(
+                          200, headers={"content-type": "image/png"}, content=PNG)})
     result = favicon.evaluate_favicon(icons(transport, fixture("favicon-fail.html"), make_page=make_page))
-    assert "standard WordPress icon" in result.summary
+    assert "standard Example CMS icon" in result.summary
+
+
+def test_the_shipped_config_recognizes_no_default_icon(make_page):
+    """Nothing from memory ships: with no sourced entry, the invented builder's icon is just an icon."""
+    attempts = icons(site({}), fixture("favicon-default.html"), make_page=make_page)
+    assert favicon.evaluate_favicon(attempts).status is Status.PASS
+
+
+def test_a_default_icon_without_a_source_is_refused(tmp_path):
+    config = tmp_path / "platforms.yaml"
+    config.write_text('platforms:\n  X:\n    default_icons: ["x.example.net/favicon.ico"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="a source to cite"):
+        platform.load(config)
 
 
 def test_no_answer_is_not_a_missing_icon(make_page):

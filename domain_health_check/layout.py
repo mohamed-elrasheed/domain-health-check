@@ -41,9 +41,9 @@ SELF_INTRO = ("You can do these yourself, from your website builder, your Google
 DEVELOPER_INTRO = ("These involve your domain settings, your server or your site's code. Pass them to whoever looks "
                    "after your website and email.")
 PRICES_HEADING = "Findings and our published prices"
-PRICES_INTRO = ("Each finding in this report, grouped by who can fix it, with the matching line from the price list we "
-                "publish at https://www.mizangroupllc.com/digital#pricing. Prices are fixed in writing before anything "
-                "starts.")
+PRICES_INTRO = ("Each finding in this report, grouped by who can fix it, with the matching line from our published "
+                "price list, where one applies: https://www.mizangroupllc.com/digital#pricing. Prices are fixed in "
+                "writing before anything starts.")
 NOTHING_TO_PRICE = "Every check we ran passed, so there is nothing here to fix or to price."
 NOTHING_CONFIRMED = "Nothing we could confirm needs fixing, so there is nothing here to price."
 UNCONFIRMED_NOT_PRICED = "Findings we could not confirm are not listed here."
@@ -126,7 +126,17 @@ def fix_yourself(report: DomainReport) -> list[CheckResult]:
 
 
 def needs_developer(report: DomainReport) -> list[CheckResult]:
-    return [r for r in confirmed(report) if rung(r, report).key != "self"]
+    """Everything else confirmed, except what a hosted builder sets: neither the owner nor a developer can change
+    that, so it appears once, on the last page, with the platform sentence."""
+    return [r for r in confirmed(report) if rung(r, report).key not in ("self", "platform")]
+
+
+def _actionable(report: DomainReport) -> list[CheckResult]:
+    """Findings someone can act on: every finding but the ones a hosted builder sets."""
+    def platform_set(r: CheckResult) -> bool:
+        found = pricelist.load().rung_of(r.name, report.platform)
+        return found is not None and found.key == "platform"
+    return [r for r in _findings(report) if not platform_set(r)]
 
 
 def priced(report: DomainReport) -> list[tuple[pricelist.Rung, list[CheckResult]]]:
@@ -228,7 +238,7 @@ def counts(report: DomainReport) -> str:
 def next_steps(report: DomainReport) -> list[tuple[str, str]]:
     """(lead, rest) lines. What they can do with the report and how to reach us; nothing else.
     In particular no promise to run the checks again: re-checks belong to the paid care plan."""
-    if not _findings(report):
+    if not _actionable(report):
         return [("", "Nothing here needs fixing, so there is nothing you need to do with this report."),
                 ("Questions?", "Reply to the email this came with.")]
     if report.count(Status.FAIL):

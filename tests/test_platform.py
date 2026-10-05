@@ -32,10 +32,8 @@ def test_each_builder_is_recognized_from_one_kind_of_signal(name, make_page):
 
 @pytest.mark.parametrize("archetype, expected", [
     ("webflow", "Webflow"), ("wix", "Wix"), ("godaddy-builder", "GoDaddy Website Builder"),
+    ("squarespace", "Squarespace"),  # its assets load from static1.squarespace.com
     ("wordpress-lazyload", None), ("js-spa", None),
-    # Squarespace's markup patterns only (data-src images), with no Squarespace header, host or generator tag:
-    # nothing that names the platform, so nothing is moved off the price list on a guess.
-    ("squarespace", None),
 ])
 def test_the_golden_archetypes(archetype, expected, make_page):
     html = (GOLDEN / archetype / "page.html").read_text(encoding="utf-8")
@@ -55,7 +53,8 @@ def test_resources_the_browser_loaded_count_but_a_framed_page_does_not(make_page
 
 
 def finding(name: str, category: str = WEBSITE) -> CheckResult:
-    return CheckResult(category, name, Status.WARN, f"{name} summary.", "Why.", "Ask your host.", [])
+    return CheckResult(category, name, Status.WARN, f"{name} summary.", "Why.",
+                       f"Ask your web developer or host about {name}.", [])
 
 
 def report(platform_name: str) -> DomainReport:
@@ -94,3 +93,29 @@ def test_the_record_names_the_platform_and_the_rung():
 def test_platform_is_never_assigned_by_hand():
     assert "platform" not in pricelist.load().checks.values()
     assert pricelist.load().platform_checks == frozenset(HEADERS)
+
+
+def test_on_a_builder_the_headers_appear_once_and_never_under_needs_a_developer():
+    """The owner cannot change them and neither can a developer, so they are not in "Needs a developer", no
+    finding tells the owner to ask a developer or host about them, and they appear once: on the last page, with
+    the platform sentence."""
+    on_builder = report("Webflow")
+    assert [r.name for r in layout.needs_developer(on_builder)] == ["Canonical tag"]
+    md = render_markdown(on_builder)
+    developer = md[md.index("## Needs a developer"):md.index("## Everything we checked")]
+    assert not any(name in developer for name in HEADERS)
+    sentence = pricelist.load().rungs["platform"].intro
+    for name in HEADERS:
+        findings = [line for line in md.splitlines() if line.startswith(("### ", "| ")) and name in line
+                    and not line.startswith(("| Website security", "| Site health"))]
+        assert findings == [f"| {name} | {name} summary. |"], findings
+    assert md.count(sentence) == 1
+    assert md.index(sentence) < md.index("| HSTS (always use HTTPS) | HSTS (always use HTTPS) summary. |")
+    # Their fix is the developer advice, and it is nowhere in the report.
+    assert not [name for name in HEADERS if f"Ask your web developer or host about {name}." in md]
+
+
+def test_with_only_platform_findings_there_is_nothing_to_pass_on():
+    only = DomainReport("example.com", NOW, [finding(n) for n in HEADERS], platform="Wix")
+    assert layout.next_steps(only)[0][1] == "Nothing here needs fixing, so there is nothing you need to do with this report."
+    assert "## Needs a developer" not in render_markdown(only)

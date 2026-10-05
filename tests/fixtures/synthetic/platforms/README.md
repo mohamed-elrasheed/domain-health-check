@@ -12,4 +12,5 @@ platform the report must detect (`null` for none). Every name and domain is inve
 | `shopify.html` | `x-shopid` response header and Shopify's asset host |
 | `godaddy.html` | GoDaddy Website Builder's generator tag |
 | `wordpress.html` | a WordPress generator tag: self-hosted, so not a builder that sets headers |
+| `squarespace-markup-only.html` | Squarespace's markup patterns (`data-src` images, its context script) and no Squarespace header, host or generator tag: must not match, since nothing names the platform |
 | `custom.html` | a hand-built site that only links to a builder's site, which is a link and not an asset |
