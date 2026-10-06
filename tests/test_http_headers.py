@@ -64,3 +64,12 @@ def test_robots_block_says_so_instead_of_blaming_the_host():
     assert result.status is Status.WARN
     assert "asks automated tools not to load" in result.summary
     assert "web host" not in result.fix
+
+
+
+def test_hsts_advice_leaves_out_subdomains_until_they_all_serve_https():
+    from domain_health_check.checks import http_headers
+    result = http_headers.evaluate_hsts(None)
+    assert "Header to add: Strict-Transport-Security: max-age=31536000" in result.details
+    assert not any("includeSubDomains;" in d or d.endswith("includeSubDomains") for d in result.details)
+    assert "Add includeSubDomains only after every subdomain serves HTTPS." in result.details

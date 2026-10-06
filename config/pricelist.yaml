@@ -33,6 +33,7 @@ prices:
 #   fix      the finding's own instruction, for the owner or for whoever they ask
 #   prices   the rung's lines from the price list, on every finding's row
 #   summary  what we found, and nothing to buy
+#   name     the finding's name only, because its instruction is already printed in its own section
 # price_line: once prints the rung's price lines a single time, directly under the group heading, because a
 # starting price is for the whole job, not for each finding; the rows then show each finding's own fix.
 # Listed in the order the last page shows them.
@@ -40,8 +41,8 @@ rungs:
   self:
     label: "Fix it yourself"
     intro: "Changes you, or whoever edits your site, can make in its editor."
-    shows: fix
-    column: "What to do"
+    shows: name
+    column: ""
     prices: []
   tuneup:
     label: "Tune-up of your current site"

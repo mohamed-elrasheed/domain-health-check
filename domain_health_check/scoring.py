@@ -40,10 +40,10 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from .ladder import TIER, TIER_WEIGHT
+from .ladder import TIER, TIER_WEIGHT, WEIGHT_OVERRIDE
 from .models import CheckResult, Status
 
-WEIGHTS: dict[str, int] = {name: TIER_WEIGHT[tier] for name, (tier, _) in TIER.items()}
+WEIGHTS: dict[str, int] = {name: WEIGHT_OVERRIDE.get(name, TIER_WEIGHT[tier]) for name, (tier, _) in TIER.items()}
 
 BINARY_WARN_CREDIT = {1: 0.0, 2: 0.0, 3: 0.25, 4: 0.25, 5: 0.5, 6: 0.5}  # by tier on the ladder
 

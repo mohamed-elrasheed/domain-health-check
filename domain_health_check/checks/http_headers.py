@@ -44,14 +44,16 @@ def evaluate_hsts(value: str | None) -> CheckResult:
         return CheckResult(WEBSITE, "HSTS (always use HTTPS)", status, summary, HSTS_EXPLANATION, fix, list(details))
 
     fix = "Ask your web developer or host to switch on HSTS, so browsers always use the secure version of your site."
-    header = "Header to add: Strict-Transport-Security: max-age=31536000; includeSubDomains"
+    header = "Header to add: Strict-Transport-Security: max-age=31536000"
+    subdomains = "Add includeSubDomains only after every subdomain serves HTTPS."
     if value is None:
-        return result(Status.WARN, "The website does not tell browsers to always use HTTPS.", fix, [header])
+        return result(Status.WARN, "The website does not tell browsers to always use HTTPS.", fix, [header, subdomains])
 
     details = [f"Header value: {value}"]
     match = re.search(r"max-age\s*=\s*\"?(\d+)", value, re.IGNORECASE)
     if not match:
-        return result(Status.WARN, "HSTS is present but written incorrectly (no max-age).", fix, details + [header])
+        return result(Status.WARN, "HSTS is present but written incorrectly (no max-age).", fix,
+                      details + [header, subdomains])
     days = int(match.group(1)) // 86_400
     if int(match.group(1)) < HSTS_MIN_SECONDS:
         return result(

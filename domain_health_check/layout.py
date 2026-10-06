@@ -22,6 +22,11 @@ while the missing main heading and 31 undescribed images sat further down.
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+
+import yaml
+
 from . import __version__, pricelist
 from .checks import pagespeed, site
 from .checks.site import favicon
@@ -93,7 +98,8 @@ def costing_customers(report: DomainReport) -> list[CheckResult]:
     right is not worth leading with, however heavy it is. It still appears in Fix it yourself or Needs a
     developer. Do not drop the filter to make the two measures agree."""
     found = [r for r in confirmed(report) if tier(r) <= CUSTOMER_FACING and credit(r) < 0.5]
-    return sorted(found, key=lambda r: (-points_lost(r), _rank(r)))
+    # A tier 1 finding (customers cannot reach you) always leads, whatever its weight; then points lost.
+    return sorted(found, key=lambda r: (tier(r) != 1, -points_lost(r), _rank(r)))
 
 
 def worth_doing(report: DomainReport) -> list[CheckResult]:
@@ -122,6 +128,8 @@ def answer(found: pricelist.Rung, r: CheckResult) -> list[str]:
     """What the last page puts beside a finding: its own fix, the rung's price lines, or what we found."""
     if found.shows == "prices":
         return [str(line) for line in found.prices]
+    if found.shows == "name":
+        return []
     return [r.fix if found.shows == "fix" else r.summary]
 
 
@@ -240,12 +248,26 @@ def counts(report: DomainReport) -> str:
     return " · ".join(parts)
 
 
+CONTACT_PATH = Path(__file__).parent.parent / "config" / "contact.yaml"
+
+
+@lru_cache(maxsize=1)
+def contact() -> dict[str, str]:
+    """Our phone and email, from config/contact.yaml."""
+    return {k: str(v) for k, v in yaml.safe_load(CONTACT_PATH.read_text(encoding="utf-8")).items()}
+
+
+def contact_line() -> tuple[str, str]:
+    reach = contact()
+    return "Reach us:", f"{reach['phone']} or {reach['email']}"
+
+
 def next_steps(report: DomainReport) -> list[tuple[str, str]]:
     """(lead, rest) lines. What they can do with the report and how to reach us; nothing else.
     In particular no promise to run the checks again: re-checks belong to the paid care plan."""
     if not _actionable(report):
         return [("", "Nothing here needs fixing, so there is nothing you need to do with this report."),
-                ("Questions?", "Reply to the email this came with.")]
+                ("Questions?", "Reply to the email this came with."), contact_line()]
     if report.count(Status.FAIL):
         first = ("The items marked as needing action are broken today, so they are worth doing first. The rest are "
                  "worth passing to whoever looks after your website and email.")
@@ -257,7 +279,7 @@ def next_steps(report: DomainReport) -> list[tuple[str, str]]:
                  "email.")
     return [("", first),
             ("Want us to handle it?", "Reply to the email this came with and tell us which items you want done, and "
-                                      "we will quote a fixed price in writing before any work starts.")]
+                                      "we will quote a fixed price in writing before any work starts."), contact_line()]
 
 
 def about(report: DomainReport) -> str:

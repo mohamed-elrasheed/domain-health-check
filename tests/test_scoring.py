@@ -52,9 +52,11 @@ def test_dkim_weighs_the_same_as_spf_and_dmarc():
 
 
 def test_weights_follow_the_ladder():
-    from domain_health_check.ladder import LADDER, TIER_WEIGHT
+    from domain_health_check.ladder import LADDER, TIER_WEIGHT, WEIGHT_OVERRIDE
     for tier, names in enumerate(LADDER, start=1):
-        assert {scoring.WEIGHTS[n] for n in names} == {TIER_WEIGHT[tier]}
+        assert {scoring.WEIGHTS[n] for n in names if n not in WEIGHT_OVERRIDE} == {TIER_WEIGHT[tier]}
+    # Set apart on purpose: the phone number leads with tier 1 but keeps weight 2.
+    assert WEIGHT_OVERRIDE == {"Profile phone number": 2} and scoring.WEIGHTS["Profile phone number"] == 2
     assert [TIER_WEIGHT[t] for t in range(1, 7)] == sorted(TIER_WEIGHT.values(), reverse=True)  # never rises
 
 

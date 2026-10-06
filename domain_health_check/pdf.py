@@ -118,6 +118,11 @@ col.area { width: 23%; } col.check { width: 26%; } col.result { width: 17%; } co
 .prices p.intro { margin: 0 0 8pt; }
 .prices p.note { margin-top: 12pt; }
 .prices p.price { color: #1f4b47; font-weight: 700; margin: 0 0 4pt; }
+.prices ul.names { margin: 0 0 4pt; padding-left: 14pt; }
+.prices ul.names li { margin: 0 0 2pt; }
+ul.worth { margin: 0 0 8pt; padding-left: 14pt; }
+ul.worth li { margin: 0 0 6pt; }
+.prices + .about { margin-top: 18pt; }
 .prices td p { margin: 0 0 3pt; }
 col.finding { width: 34%; } col.answer { width: 66%; }
 """
@@ -143,10 +148,9 @@ def _finding(r: CheckResult) -> str:
 
 
 def _brief(r: CheckResult) -> str:
-    """The top of the report: two or three sentences and what to do, no technical detail."""
-    fix = f'<p class="label">What to do</p><p>{escape(r.fix)}</p>' if r.fix else ""
-    return (f'<div class="card finding brief"><div class="body"><h3>{_pill(r)}{escape(r.name)}</h3>'
-            f'<p class="summary">{escape(layout.brief(r))}</p>{fix}</div></div>')
+    """The top of the report: one line, the finding's name and its one-sentence statement. The full text is in its
+    own section below."""
+    return f'<li><strong>{escape(r.name)}:</strong> {escape(r.summary)}</li>'
 
 
 def _summary_card(r: CheckResult, kind: str) -> str:
@@ -163,6 +167,11 @@ def _prices(report: DomainReport) -> str:
         return f'<div class="prices"><h2>{escape(layout.PRICES_HEADING)}</h2><p>{escape(note)}</p></div>'
     body = [f'<p class="intro">{escape(layout.PRICES_INTRO)}</p>']
     for rung, results in groups:
+        if rung.shows == "name":  # their instructions are already printed in their own section
+            names = "".join(f"<li>{escape(r.name)}</li>" for r in results)
+            body.append(f'<h3>{escape(rung.label)}</h3><p class="intro">{escape(rung.intro)}</p>'
+                        f'<ul class="names">{names}</ul>')
+            continue
         rows = "".join(f'<tr><td class="name">{escape(r.name)}</td><td>'
                        + "".join(f"<p>{escape(line)}</p>" for line in layout.answer(rung, r)) + "</td></tr>"
                        for r in results)
@@ -193,7 +202,7 @@ def render_html(report: DomainReport) -> str:
                      f"<p>{escape(report.unreachable)}</p></div>")
     worth = layout.worth_doing(report)
     if worth:
-        parts.append("<h2>Worth doing</h2>" + "".join(_brief(r) for r in worth))
+        parts.append('<h2>Worth doing</h2><ul class="worth">' + "".join(_brief(r) for r in worth) + "</ul>")
     sections = [
         ("Fix it yourself", layout.SELF_INTRO, layout.fix_yourself(report), ""),
         ("Needs a developer", layout.DEVELOPER_INTRO, layout.needs_developer(report),
@@ -224,9 +233,9 @@ def render_html(report: DomainReport) -> str:
 
     steps = "".join(f"<p>{f'<strong>{escape(lead)}</strong> ' if lead else ''}{escape(rest)}</p>"
                     for lead, rest in layout.next_steps(report))
-    parts.append(f'<div class="next"><h2>What happens next</h2>{steps}</div>'
-                 f'<p class="about">{escape(layout.about(report))}</p>')
+    parts.append(f'<div class="next"><h2>What happens next</h2>{steps}</div>')
     parts.append(_prices(report))
+    parts.append(f'<p class="about">{escape(layout.about(report))}</p>')  # last, after the price page
 
     title = f"Website health report · {escape(report.domain)}"
     footer = f"Mizan Group LLC · mizangroupllc.com · {layout.stamp(report)}".replace('"', "")

@@ -1,0 +1,7 @@
+# How a report's reader reaches us: the last line of "What happens next". Both values are copied exactly from our
+# own home page, saved in tests/fixtures/mizangroupllc.com/home.html, where they appear as the link text of
+# <a href="tel:+15713548352">571.354.8352</a> and <a href="mailto:mo@mizangroupllc.com">mo@mizangroupllc.com</a>.
+# A test checks both against that page, so a change on the site shows up here.
+phone: "571.354.8352"
+phone_link: "tel:+15713548352"
+email: "mo@mizangroupllc.com"

@@ -46,7 +46,9 @@ preamble about who we are. That goes in the email, not the report.
 **The owner-cost ladder.** Rank findings by what the problem costs the business. Within a tier, confirmed
 before uncertain, then broken before risky.
 
-1. Customers cannot reach the site: unreachable, certificate warning, 5xx, search engines blocked.
+1. Customers cannot reach the site, or reach you: unreachable, certificate warning, 5xx, search engines blocked,
+   and a phone number on the website that differs from the one on the Google listing. A tier 1 finding always
+   leads the top section, whatever its weight.
 2. Google cannot understand the site: main heading, description, title, alt text, heading order, canonical,
    sitemap.
 3. Customers cannot find the business locally: Google Business Profile missing, not findable, not linked.
@@ -73,8 +75,8 @@ fewer than three things are
 wrong, show fewer. If nothing is wrong, this section says so plainly and the report is short — see
 "When nothing is wrong".
 
-Each one gets: what we found, why it matters, what to do. Two or three sentences. No technical detail
-here at all.
+Each one is a single line: the finding's name and its one-sentence statement. No "what to do" and no
+technical detail: a finding's full text is printed once, in its own section below.
 
 ### 3. What you can fix yourself
 
@@ -109,7 +111,8 @@ Technical specifics stay in `details`, visually subordinate.
 Three short lines:
 
 - What they can do with this report (fix it themselves, send it to their developer, or ask us).
-- How to reach us — reply to this email, or the quote form. **No "book a call" gate.** Techno Dream
+- How to reach us: reply to this email, or the quote form. The last line gives our phone and email, from
+  `config/contact.yaml`, copied from our own home page. **No "book a call" gate.** Techno Dream
   requires a consultation before you learn anything; not requiring one is the advantage, so do not
   rebuild their funnel.
 - **No free re-check.** The first report is the free thing. Do not promise to run these checks again at
@@ -126,7 +129,7 @@ The last page, on a page of its own. Every confirmed finding again, grouped by i
 
 | Rung | Means | The page shows |
 |---|---|---|
-| `self` | The owner can do it from their website builder, Google Business Profile or domain registrar. | The finding's own fix, one or two sentences. |
+| `self` | The owner, or whoever edits their site, can make the change in its editor, their Google Business Profile or their domain registrar. | The finding's name only: its fix is already printed in its own section. |
 | `tuneup` | Work on the site they have now: headers, redirects, speed, structured data. | "Tune-up of your current site, Starting at $250" once under the heading, then each finding's own fix. |
 | `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | "Email and domain settings, one domain, Starting at $150" once under the heading, then each finding's own fix. |
 | `rebuild` | The problem is the site itself, not a setting on it. | The three published build packages. |
@@ -169,7 +172,7 @@ order of the report rank problems the same way. The ladder lives in `ladder.py` 
 
 | Tier | Weight | What it costs the owner |
 |---|---|---|
-| 1 | 5 | Customers cannot reach the site |
+| 1 | 5 | Customers cannot reach the site, or reach you (the profile phone number keeps weight 2) |
 | 2 | 4 | Google cannot understand the site |
 | 3 | 3 | Customers cannot find the business locally |
 | 4 | 2 | The site is slow enough that people leave |

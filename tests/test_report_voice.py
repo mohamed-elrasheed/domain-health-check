@@ -53,3 +53,51 @@ def test_no_lazy_plurals(path):
     """"1 mail servers" once reached a report; "mail server(s)" is the same fault, half fixed."""
     problems = [f"line {line}: {text!r}" for line, text in literals(path) if re.search(r"\w\(s\)", text)]
     assert not problems, "\n".join(problems)
+
+
+
+# A present-tense fault about this site: "your page ... is not / has no / also loads", "this site ... lacks".
+FAULT = re.compile(r"(?i)\b(your|this|the) (page|site|home page|website|domain|listing|profile)\b[^.]*"
+                   r"\b(is not|isn't|does not|doesn't|has no|lacks|is missing|are missing|also loads|but it)\b")
+
+
+def explanation_constants():
+    """Every *EXPLANATION string in the checks. A check shows its explanation on a pass too."""
+    found = []
+    for path in sorted((PACKAGE / "checks").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and "EXPLANATION" in t.id
+                                                    for t in node.targets):
+                try:
+                    value = ast.literal_eval(node.value)
+                except ValueError:
+                    continue
+                if isinstance(value, str):
+                    found.append((f"{path.name}:{node.lineno}", value))
+    return found
+
+
+@pytest.mark.parametrize("where, text", explanation_constants(), ids=lambda v: v if ":" in str(v) else None)
+def test_no_explanation_describes_a_fault_with_this_site(where, text):
+    assert not FAULT.search(text), f"{where}: {text}"
+
+
+def test_the_fault_pattern_catches_the_old_mixed_content_text():
+    assert FAULT.search("Your page is served securely, but it also loads some files over an insecure connection.")
+
+
+def test_no_passing_result_in_a_full_run_describes_a_fault(fake_dns, monkeypatch, mizan_page):
+    from datetime import datetime, timezone
+
+    from domain_health_check import fetcher, runner
+    from domain_health_check.checks import rdap, tls
+    from domain_health_check.config import DomainConfig
+    from domain_health_check.models import Status
+    monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
+    monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: mizan_page)
+    report = runner.run_checks(DomainConfig("mizangroupllc.com"), datetime(2026, 10, 6, tzinfo=timezone.utc))
+    passing = [r for r in report.results if r.ran and r.status is Status.PASS]
+    assert len(passing) > 15
+    assert not [(r.name, r.explanation) for r in passing if FAULT.search(r.explanation)]

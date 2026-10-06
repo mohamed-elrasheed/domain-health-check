@@ -8,8 +8,9 @@ comes first and moves the number more.
 from __future__ import annotations
 
 LADDER = [
-    # 1. Customers cannot reach the site.
-    ["Search engine blocking", "SSL certificate", "Domain registration"],
+    # 1. Customers cannot reach the site, or reach you. A phone number that differs between the website and the
+    # Google listing sends some callers to a number nobody expects.
+    ["Search engine blocking", "SSL certificate", "Domain registration", "Profile phone number"],
     # 2. Google cannot understand the site.
     ["Main heading", "Meta description", "Page title", "Image alt text", "Heading order", "Canonical tag",
      "Sitemap and robots", "Structured data matches the page", "Social preview"],
@@ -17,7 +18,7 @@ LADDER = [
     ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews"],
     # 4. The site is slow enough that people leave.
     ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility",
-     "Broken links", "Mixed content", "Profile phone number"],
+     "Broken links", "Mixed content"],
     # 5. Email can be spoofed.
     ["DMARC (anti-spoofing policy)", "SPF (approved senders)", "DKIM (email signatures)", "Mail servers (MX)"],
     # 6. Hardening.
@@ -25,6 +26,9 @@ LADDER = [
      "Nameservers", "Best practices", "Links to other sites", "Favicon"],
 ]
 TIER_WEIGHT = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1, 6: 1}
+# A check whose place in the order and weight in the score were set separately. The phone number leads the report
+# with tier 1 but keeps the weight it was given (2): a mismatch can be deliberate, and both numbers can be real.
+WEIGHT_OVERRIDE = {"Profile phone number": 2}
 CUSTOMER_FACING = 4  # tiers 1 to 4 cost customers; 5 and 6 are behind the scenes
 
 TIER = {name: (tier, position) for tier, names in enumerate(LADDER, start=1) for position, name in enumerate(names)}

@@ -171,7 +171,9 @@ def test_the_markdown_lists_each_finding_with_its_rung_and_price_line():
     section = md[md.index("## " + layout.PRICES_HEADING):]
     assert (section.index("### Fix it yourself") < section.index("### Tune-up") < section.index("### Email and domain")
             < section.index("### New site"))
-    assert "| Meta description | Write a description. |" in section
+    # Self findings by name only: their instructions are printed once, in their own section.
+    assert "### Fix it yourself\n\nChanges you, or whoever edits your site, can make in its editor.\n\n- Meta description" in section
+    assert "Write a description." not in section
     assert "| Canonical tag | Do the thing. |" in section
     assert "**From our price list: Tune-up of your current site: Starting at $250**" in section
     assert "**From our price list: Email and domain settings, one domain: Starting at $150**" in section
@@ -232,7 +234,7 @@ def test_the_pdf_ends_on_the_price_page():
     last = " ".join(pages[-1].extract_text().split())
     assert last.startswith(layout.PRICES_HEADING)
     assert "From our price list: Tune-up of your current site: Starting at $250" in last
-    assert "Write a description." in last and "$85" not in last
+    assert "Meta description" in last and "Write a description." not in last and "$85" not in last
     assert layout.PRICES_HEADING not in " ".join(p.extract_text() for p in pages[:-1])
 
     clean = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report_of(result("Page title", Status.PASS))))).pages

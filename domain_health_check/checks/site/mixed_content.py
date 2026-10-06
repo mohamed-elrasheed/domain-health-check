@@ -22,8 +22,9 @@ KINDS = ("image", "script", "stylesheet", "font", "iframe")
 EXAMPLES = 5
 
 EXPLANATION = (
-    "Your page is served securely, but it also loads some files over an insecure connection. Browsers block some "
-    "of those files, which can break parts of the page, and can stop showing the page as fully secure."
+    "Mixed content is a secure page that loads some of its files, such as images, scripts or fonts, over an "
+    "insecure connection. Browsers block some of those files, which can break parts of the page, and can stop "
+    "showing the page as fully secure."
 )
 FIX = ("{where}, change each address listed in the technical details from http:// to https://, or replace the file "
        "with a copy uploaded to your site.")

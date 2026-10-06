@@ -17,7 +17,7 @@ import yaml
 
 PATH = Path(__file__).parent.parent / "config" / "pricelist.yaml"
 RUNGS = ("self", "tuneup", "email", "rebuild", "platform")  # the order the last page lists them in
-SHOWS = ("fix", "prices", "summary")
+SHOWS = ("fix", "prices", "summary", "name")
 
 
 @dataclass(frozen=True)

@@ -51,11 +51,9 @@ def _finding(r: CheckResult) -> list[str]:
 
 
 def _brief(r: CheckResult) -> list[str]:
-    """The top of the report: two or three sentences and what to do, no technical detail."""
-    lines = ["", f"### {_icon(r)} {r.name}", "", layout.brief(r)]
-    if r.fix:
-        lines += ["", f"**What to do:** {r.fix}"]
-    return lines
+    """The top of the report: one line, the finding's name and its one-sentence statement. The full text is in its
+    own section below."""
+    return [f"- **{r.name}:** {r.summary}"]
 
 
 def _summary_only(r: CheckResult) -> list[str]:
@@ -80,7 +78,7 @@ def render_markdown(report: DomainReport) -> str:
 
     worth = layout.worth_doing(report)
     if worth:
-        lines += ["", "## Worth doing"]
+        lines += ["", "## Worth doing", ""]
         for r in worth:
             lines += _brief(r)
     yourself = layout.fix_yourself(report)
@@ -134,6 +132,9 @@ def _prices(report: DomainReport) -> list[str]:
         return lines + [layout.prices_note(report)]
     lines.append(layout.PRICES_INTRO)
     for rung, results in groups:
+        if rung.shows == "name":  # their instructions are already printed in their own section
+            lines += ["", f"### {rung.label}", "", rung.intro, ""] + [f"- {r.name}" for r in results]
+            continue
         lines += ["", f"### {rung.label}", ""] + [f"**{line}**" for line in layout.group_prices(rung)]
         lines += (["", rung.intro] if layout.group_prices(rung) else [rung.intro])
         lines += ["", f"| Finding | {rung.column} |", "|---|---|"]

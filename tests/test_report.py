@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from domain_health_check import layout, scoring
-from domain_health_check.models import EMAIL, SITE, WEBSITE, CheckResult, DomainReport, Status
+from domain_health_check.models import EMAIL, LOCAL, SITE, WEBSITE, CheckResult, DomainReport, Status
 from domain_health_check.report import record, render_markdown, write_record, write_report
 
 NOW = datetime(2026, 3, 14, 9, 30, tzinfo=timezone.utc)
@@ -285,8 +285,11 @@ def test_every_confirmed_finding_is_in_exactly_one_fix_section():
 
 def test_top_three_are_brief_with_no_technical_detail():
     worth = section(render_markdown(flooring_like()), "Worth doing")
-    assert "Main heading finding. Why Main heading matters." in worth
-    assert "More detail" not in worth and "Technical details" not in worth and "**What to do:** Do the thing." in worth
+    # One line per finding: its name and its one-sentence statement. No "what to do": that is in its own section.
+    assert worth.strip().splitlines() == ["- **Main heading:** Main heading finding.",
+                                          "- **Meta description:** Meta description finding.",
+                                          "- **Image alt text:** Image alt text finding."]
+    assert "What to do" not in worth and "Technical details" not in worth
 
 
 @pytest.mark.parametrize("results, sentence", [
@@ -434,3 +437,56 @@ def test_a_partial_link_check_makes_the_run_incomplete_and_the_note_counts(fake_
                                                            "requested": report.links_requested}
     assert (f"one request to each link we checked on that page ({report.links_requested} of the "
             f"{report.links_found} links we found)") in layout.about(report)
+
+
+
+def test_a_finding_prints_in_full_once():
+    """The top section and the last page point back to the finding; only its own section prints its fix."""
+    from dataclasses import replace
+    base = flooring_like()
+    report = replace(base, results=[replace(r, fix=f"Fix only for {r.name}.") if r.fix else r for r in base.results])
+    md = render_markdown(report)
+    assert layout.fix_yourself(report) and layout.worth_doing(report)
+    for r in layout.fix_yourself(report):
+        assert md.count(r.fix) == 1, r.name
+
+
+def test_the_phone_mismatch_leads_the_top_section():
+    phone = finding(LOCAL, "Profile phone number")
+    report = DomainReport("example.com", NOW, [finding(SITE, "Main heading"), finding(SITE, "Image alt text"), phone])
+    assert [r.name for r in layout.worth_doing(report)][0] == "Profile phone number"
+
+
+def test_what_happens_next_ends_with_our_phone_and_email():
+    for report in (flooring_like(), DomainReport("example.com", NOW, [])):
+        assert layout.next_steps(report)[-1] == ("Reach us:", "571.354.8352 or mo@mizangroupllc.com")
+    assert "**Reach us:** 571.354.8352 or mo@mizangroupllc.com" in render_markdown(flooring_like())
+
+
+def test_the_contact_details_are_the_ones_on_our_own_page():
+    from pathlib import Path
+    home = (Path(__file__).parent / "fixtures" / "mizangroupllc.com" / "home.html").read_text(encoding="utf-8")
+    c = layout.contact()
+    assert f'href="{c["phone_link"]}">{c["phone"]}<' in home
+    assert f'href="mailto:{c["email"]}">{c["email"]}<' in home
+
+
+def test_the_provenance_paragraph_comes_last_and_is_never_alone_on_a_page():
+    import io
+
+    import pytest
+
+    from domain_health_check import pdf
+    try:
+        pdf._weasyprint()
+    except OSError as exc:
+        pytest.skip(f"WeasyPrint cannot load its native libraries: {exc}")
+    pypdf = pytest.importorskip("pypdf")
+    report = flooring_like()
+    md = render_markdown(report)
+    assert md.index("## " + layout.PRICES_HEADING) < md.index("These results come only")
+    pages = [" ".join(p.extract_text().split()) for p in pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report))).pages]
+    last = pages[-1]
+    assert "These results come only" in last and layout.PRICES_HEADING in last
+    assert last.index(layout.PRICES_HEADING) < last.index("These results come only")
+    assert not any(p.startswith("These results come only") for p in pages)
