@@ -113,6 +113,12 @@ def rung(r: CheckResult, report: DomainReport | None = None) -> pricelist.Rung:
     return found
 
 
+def group_prices(found: pricelist.Rung) -> list[str]:
+    """The price lines printed once under a group's heading: a starting price is for the whole job, not for each
+    finding in it. Empty for a rung that prints none, or prints them on each row."""
+    return [f"From our price list: {line}" for line in found.prices] if found.once else []
+
+
 def answer(found: pricelist.Rung, r: CheckResult) -> list[str]:
     """What the last page puts beside a finding: its own fix, the rung's price lines, or what we found."""
     if found.shows == "prices":

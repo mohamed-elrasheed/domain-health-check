@@ -134,7 +134,9 @@ def _prices(report: DomainReport) -> list[str]:
         return lines + [layout.prices_note(report)]
     lines.append(layout.PRICES_INTRO)
     for rung, results in groups:
-        lines += ["", f"### {rung.label}", "", rung.intro, "", f"| Finding | {rung.column} |", "|---|---|"]
+        lines += ["", f"### {rung.label}", ""] + [f"**{line}**" for line in layout.group_prices(rung)]
+        lines += (["", rung.intro] if layout.group_prices(rung) else [rung.intro])
+        lines += ["", f"| Finding | {rung.column} |", "|---|---|"]
         for r in results:
             lines.append(f"| {_cell(r.name)} | {_cell('; '.join(layout.answer(rung, r)))} |")
     note = layout.prices_note(report)

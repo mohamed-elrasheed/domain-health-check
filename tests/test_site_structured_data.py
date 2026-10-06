@@ -116,3 +116,22 @@ def test_only_a_rendered_page_is_called_visible(mizan_page):
     [rendered] = structured_data.check_structured_data(replace(mizan_page, rendered_html=mizan_page.html))
     assert rendered.summary.endswith("match the visible page.")
     assert "leaving out anything a visitor could not see" in rendered.details[0]
+
+
+def test_our_digital_page_structured_data_matches_the_page():
+    """Our own /digital page, saved 2026-10-06 with the tune-up and email lines: every price in its JSON-LD,
+    $250 and $150 included, is in the page text, and every URL is linked from the page."""
+    from pathlib import Path
+
+    from domain_health_check.fetcher import FetchedFile, PageContext
+    ours = Path(__file__).parent / "fixtures" / "mizangroupllc.com"
+    html = (ours / "digital.html").read_text(encoding="utf-8")
+    url = "https://www.mizangroupllc.com/digital"
+    page = PageContext(url, url, [], 200, {}, html, len(html.encode()), 100, 50, None,
+                       FetchedFile("https://www.mizangroupllc.com/sitemap.xml", 200,
+                                   (ours / "sitemap.xml").read_text(encoding="utf-8")))
+    [result] = structured_data.check_structured_data(page)
+    assert result.status is Status.PASS, result.details
+    assert result.summary == "The 12 prices and 5 links in your home page structured data match the page."
+    assert {"Price 250 at block 1: @graph[2].itemListElement[3].price: found (page text)",
+            "Price 150 at block 1: @graph[2].itemListElement[4].price: found (page text)"} <= set(result.details)

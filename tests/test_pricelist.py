@@ -61,16 +61,20 @@ def test_every_price_line_is_published_word_for_word():
             f"{key}: /{line.page} does not price {line.item!r} at {line.price!r}")
 
 
-def test_email_and_domain_settings_carry_no_price_until_digital_publishes_one():
-    """The email and domain line will be published on /digital (/tech-services/email-and-domains redirects
-    there). Until it is, that rung shows each finding's own fix and no price. When the line exists, it goes in
-    the config and this test changes with it."""
-    email = PRICES.rungs["email"]
-    assert email.label == "Email and domain settings" and email.prices == () and email.shows == "fix"
+def test_tuneup_and_email_point_at_their_published_starting_prices():
+    """Both lines are on /digital; each is printed once for its group, and each finding shows its own fix."""
+    tuneup, email = PRICES.rungs["tuneup"], PRICES.rungs["email"]
+    assert [str(p) for p in tuneup.prices] == ["Tune-up of your current site: Starting at $250"]
+    assert [str(p) for p in email.prices] == ["Email and domain settings, one domain: Starting at $150"]
+    assert tuneup.once and email.once and tuneup.shows == email.shows == "fix"
     assert sorted(n for n, r in PRICES.checks.items() if r == "email") == [
         "DKIM (email signatures)", "DMARC (anti-spoofing policy)", "DNSSEC", "Mail servers (MX)", "Nameservers",
         "SPF (approved senders)"]
-    assert not [line for line in PRICES.prices.values() if "email" in line.item.lower()]
+
+
+def test_the_hourly_rate_is_mirrored_but_no_rung_points_to_it():
+    assert str(PRICES.prices["hourly"]) == "Custom work outside a package: $85 per hour"
+    assert not [rung.key for rung in PRICES.rungs.values() if PRICES.prices["hourly"] in rung.prices]
 
 
 def test_every_published_price_is_in_the_config():
@@ -80,16 +84,18 @@ def test_every_published_price_is_in_the_config():
 
 
 def test_only_the_paid_rungs_carry_prices_and_self_carries_none():
-    assert PRICES.rungs["self"].prices == ()
-    assert [str(p) for p in PRICES.rungs["tuneup"].prices] == ["Custom work outside a package: $85 per hour"]
+    assert PRICES.rungs["self"].prices == () and PRICES.rungs["platform"].prices == ()
     assert [p.price for p in PRICES.rungs["rebuild"].prices] == [
         "Starting at $900", "Starting at $1,800", "Starting at $2,800"]
+    assert not PRICES.rungs["rebuild"].once  # one finding today; its packages stay on its row
 
 
 @pytest.mark.parametrize("change, problem", [
     (lambda d: d["rungs"].pop("rebuild"), "the rungs must be exactly"),
     (lambda d: d["rungs"]["tuneup"].update(prices=["discount"]), "not in the list: discount"),
     (lambda d: d["checks"].update({"Page title": "someday"}), "Page title: someday"),
+    (lambda d: d["rungs"]["tuneup"].pop("price_line"), "must say where its price lines go"),
+    (lambda d: d["rungs"]["tuneup"].update(shows="prices"), "exactly when its price_line is per finding"),
 ])
 def test_a_broken_config_is_refused(change, problem):
     data = yaml.safe_load(pricelist.PATH.read_text(encoding="utf-8"))
@@ -166,7 +172,9 @@ def test_the_markdown_lists_each_finding_with_its_rung_and_price_line():
     assert (section.index("### Fix it yourself") < section.index("### Tune-up") < section.index("### Email and domain")
             < section.index("### New site"))
     assert "| Meta description | Write a description. |" in section
-    assert "| Canonical tag | Custom work outside a package: $85 per hour |" in section
+    assert "| Canonical tag | Do the thing. |" in section
+    assert "**From our price list: Tune-up of your current site: Starting at $250**" in section
+    assert "**From our price list: Email and domain settings, one domain: Starting at $150**" in section
     assert "| Finding | What to ask for |\n|---|---|\n| DMARC (anti-spoofing policy) | Ask for a DMARC record. |" in section
     assert ("| Mobile viewport | Starter site, up to five pages: Starting at $900; Business site, up to ten pages, "
             "edit it yourself: Starting at $1,800; Online store with checkout and payments: Starting at $2,800 |"
@@ -223,7 +231,8 @@ def test_the_pdf_ends_on_the_price_page():
     pages = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report))).pages
     last = " ".join(pages[-1].extract_text().split())
     assert last.startswith(layout.PRICES_HEADING)
-    assert "Custom work outside a package: $85 per hour" in last and "Write a description." in last
+    assert "From our price list: Tune-up of your current site: Starting at $250" in last
+    assert "Write a description." in last and "$85" not in last
     assert layout.PRICES_HEADING not in " ".join(p.extract_text() for p in pages[:-1])
 
     clean = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report_of(result("Page title", Status.PASS))))).pages
@@ -234,3 +243,22 @@ def test_the_pdf_ends_on_the_price_page():
 def test_the_intro_says_a_price_line_applies_only_where_one_does():
     assert ("with the matching line from our published price list, where one applies: "
             "https://www.mizangroupllc.com/digital#pricing") in layout.PRICES_INTRO
+
+
+@pytest.mark.parametrize("rung, names", [
+    ("tuneup", ["Canonical tag", "Redirect chain", "Page weight", "Sitemap and robots"]),
+    ("email", ["DMARC (anti-spoofing policy)", "SPF (approved senders)", "DKIM (email signatures)"]),
+])
+def test_a_group_with_several_findings_prints_its_price_line_exactly_once(rung, names):
+    """A starting price is for the whole job: once under the heading, never on each finding's row."""
+    report = report_of(*[result(n, fix=f"Fix for {n}.") for n in names])
+    md = render_markdown(report)
+    section = md[md.index("## " + layout.PRICES_HEADING):md.index("\n---\n", md.index(layout.PRICES_HEADING))]
+    [line] = PRICES.rungs[rung].prices
+    assert section.count(line.price) == 1
+    heading = section.index(f"### {PRICES.rungs[rung].label}")
+    assert heading < section.index(line.price) < section.index("| Finding |", heading)
+    for n in names:
+        assert f"| {n} | Fix for {n}. |" in section
+    html = pdf.render_html(report)
+    assert html[html.index('<div class="prices">'):].count(line.price) == 1

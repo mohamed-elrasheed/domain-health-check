@@ -38,6 +38,7 @@ class Rung:
     shows: str  # what the last page puts beside each finding: its fix, the price lines, or its summary
     column: str
     prices: tuple[PriceLine, ...]
+    once: bool = False  # the price lines are printed once, under the group heading, rather than on each row
 
 
 @dataclass(frozen=True)
@@ -77,10 +78,14 @@ def parse(data: dict) -> PriceList:
             raise ValueError(f"rung {key} names price lines that are not in the list: {', '.join(unknown)}")
         if spec["shows"] not in SHOWS:
             raise ValueError(f"rung {key} shows {spec['shows']!r}; it must show one of {', '.join(SHOWS)}")
-        if (spec["shows"] == "prices") != bool(named):
-            raise ValueError(f"rung {key} must name price lines exactly when it shows prices")
+        placement = spec.get("price_line")
+        if bool(named) != (placement in ("once", "per finding")):
+            raise ValueError(f"rung {key} must say where its price lines go (price_line: once or per finding) exactly "
+                             "when it names any")
+        if (spec["shows"] == "prices") != (placement == "per finding"):
+            raise ValueError(f"rung {key} shows prices on each row exactly when its price_line is per finding")
         rungs[key] = Rung(key, spec["label"], spec["intro"], spec["shows"], spec["column"],
-                          tuple(prices[p] for p in named))
+                          tuple(prices[p] for p in named), placement == "once")
     checks = {str(name): str(rung) for name, rung in data["checks"].items()}
     wrong = sorted(f"{name}: {rung}" for name, rung in checks.items() if rung not in rungs or rung == "platform")
     if wrong:

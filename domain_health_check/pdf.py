@@ -117,6 +117,7 @@ col.area { width: 23%; } col.check { width: 26%; } col.result { width: 17%; } co
 .prices h3 { color: #1f4b47; font-size: 11pt; margin: 18pt 0 4pt; break-after: avoid; }
 .prices p.intro { margin: 0 0 8pt; }
 .prices p.note { margin-top: 12pt; }
+.prices p.price { color: #1f4b47; font-weight: 700; margin: 0 0 4pt; }
 .prices td p { margin: 0 0 3pt; }
 col.finding { width: 34%; } col.answer { width: 66%; }
 """
@@ -165,7 +166,9 @@ def _prices(report: DomainReport) -> str:
         rows = "".join(f'<tr><td class="name">{escape(r.name)}</td><td>'
                        + "".join(f"<p>{escape(line)}</p>" for line in layout.answer(rung, r)) + "</td></tr>"
                        for r in results)
-        body.append(f'<h3>{escape(rung.label)}</h3><p class="intro">{escape(rung.intro)}</p>'
+        body.append(f'<h3>{escape(rung.label)}</h3>'
+                    + "".join(f'<p class="price">{escape(line)}</p>' for line in layout.group_prices(rung))
+                    + f'<p class="intro">{escape(rung.intro)}</p>'
                     f'<table><colgroup><col class="finding"><col class="answer"></colgroup><thead><tr><th>Finding</th>'
                     f"<th>{escape(rung.column)}</th></tr></thead><tbody>{rows}</tbody></table>")
     if note:

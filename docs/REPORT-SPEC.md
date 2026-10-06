@@ -127,8 +127,8 @@ The last page, on a page of its own. Every confirmed finding again, grouped by i
 | Rung | Means | The page shows |
 |---|---|---|
 | `self` | The owner can do it from their website builder, Google Business Profile or domain registrar. | The finding's own fix, one or two sentences. |
-| `tuneup` | Work on the site they have now: headers, redirects, speed, structured data. | The published hourly rate on /digital. |
-| `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | The finding's own fix. The line will be published on /digital; until it is, there is no price. |
+| `tuneup` | Work on the site they have now: headers, redirects, speed, structured data. | "Tune-up of your current site, Starting at $250" once under the heading, then each finding's own fix. |
+| `email` | Email and domain settings (MX, SPF, DKIM, DMARC, nameservers, DNSSEC). Tech services, not website work. | "Email and domain settings, one domain, Starting at $150" once under the heading, then each finding's own fix. |
 | `rebuild` | The problem is the site itself, not a setting on it. | The three published build packages. |
 | `platform` | Set by a hosted website builder the report recognized: HSTS, Content Security Policy and nosniff only. | What we found, under "Set by your website platform", with the sentence "This is set by your website platform, not by you or a developer. We list it for completeness and do not charge for it." |
 
@@ -136,6 +136,10 @@ Rungs, rung labels and every price line come from one file, `config/pricelist.ya
 and /services pages word for word. A test compares each line with a saved copy of the page it names, so the file
 cannot drift from it unnoticed. Nothing in the report writes a price of its own. A check with no rung stops the
 report rather than guessing one.
+
+A starting price is for the whole job, not for each finding, so the tune-up and email groups print their price
+line once, directly under the group heading, and never on a finding's row. "Custom work outside a package, $85 per
+hour" is still mirrored in the config as a published line, but no rung points to it.
 
 `platform` is never assigned in that file. A finding reaches it only when `platform.py` recognizes a hosted
 builder from what the report already fetched: the response headers, the generator tag, attributes on the page, and

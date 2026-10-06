@@ -16,6 +16,9 @@ prices:
   starter: {page: digital, item: "Starter site, up to five pages", price: "Starting at $900"}
   business: {page: digital, item: "Business site, up to ten pages, edit it yourself", price: "Starting at $1,800"}
   store: {page: digital, item: "Online store with checkout and payments", price: "Starting at $2,800"}
+  tuneup: {page: digital, item: "Tune-up of your current site", price: "Starting at $250"}
+  email: {page: digital, item: "Email and domain settings, one domain", price: "Starting at $150"}
+  # Published, and mirrored here, but no rung points to it: findings now map to the tune-up and email lines.
   hourly: {page: digital, item: "Custom work outside a package", price: "$85 per hour"}
   # /digital, After it launches, Care plans
   essential: {page: digital, item: "Essential, two changes a month", price: "$35 per month"}
@@ -25,15 +28,13 @@ prices:
   seo: {page: digital, item: "Search engine optimization, ongoing", price: "From $450 per month"}
   ads: {page: digital, item: "Google Ads management", price: "From $400 per month"}
   social: {page: digital, item: "Social media, posting and replies", price: "From $350 per month"}
-  # The email and domain settings line will be published on /digital, not /services: on the live site
-  # /tech-services/email-and-domains redirects to /digital. Until that line exists, the email rung shows its
-  # findings with no price (Mo's decision, 2026-10-05). When it is published, copy it here word for word with
-  # page: digital and add it to the email rung's prices. Do not write one before then.
 
 # Who can fix a finding, and what the last page shows beside it:
 #   fix      the finding's own instruction, for the owner or for whoever they ask
-#   prices   the rung's lines from the price list
+#   prices   the rung's lines from the price list, on every finding's row
 #   summary  what we found, and nothing to buy
+# price_line: once prints the rung's price lines a single time, directly under the group heading, because a
+# starting price is for the whole job, not for each finding; the rows then show each finding's own fix.
 # Listed in the order the last page shows them.
 rungs:
   self:
@@ -45,21 +46,24 @@ rungs:
   tuneup:
     label: "Tune-up of your current site"
     intro: "Work on the site you have now, by us or by any developer you choose."
-    shows: prices
-    column: "From our price list"
-    prices: [hourly]
+    shows: fix
+    column: "What to ask for"
+    prices: [tuneup]
+    price_line: once
   email:
     label: "Email and domain settings"
     intro: "Settings on your domain and email rather than on your website. Whoever manages your domain or email can make these changes."
     shows: fix
     column: "What to ask for"
-    prices: []
+    prices: [email]
+    price_line: once
   rebuild:
     label: "New site"
     intro: "These point to a new site rather than changes to the current one."
     shows: prices
     column: "From our price list"
     prices: [starter, business, store]
+    price_line: per finding
   platform:
     label: "Set by your website platform"
     intro: "This is set by your website platform, not by you or a developer. We list it for completeness and do not charge for it."
