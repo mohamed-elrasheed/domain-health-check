@@ -313,3 +313,16 @@ def test_the_word_logo_alone_is_described_only_as_logo():
     assert content.alt_problem("logo", "https://cdn.test/brand.png") == "described only as 'logo'"
     assert content.alt_problem("Logo", "https://cdn.test/brand.png") == "described only as 'Logo'"
     assert content.alt_problem("Harbor Lane Bakery logo", "https://cdn.test/brand.png") is None
+
+
+def test_heading_order_pass_sentence_without_a_main_heading():
+    result = content.evaluate_heading_order([3, 3, 2, 2, 3, 2, 3])
+    assert result.status is Status.PASS
+    assert result.summary == ("Your headings are in order after the first one. The missing main heading is reported "
+                              "under Main heading.")
+
+
+def test_heading_order_pass_sentence_with_a_main_heading():
+    result = content.evaluate_heading_order([1, 2, 3, 2])
+    assert result.status is Status.PASS
+    assert result.summary == "Your 4 headings are in order, with no levels skipped."

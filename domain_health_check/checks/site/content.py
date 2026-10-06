@@ -251,6 +251,9 @@ def evaluate_heading_order(levels: list[int], editor: str = "") -> CheckResult:
             "under Heading 1, Heading 3 under Heading 2. The look can stay the same; only the heading level changes.",
             details + _more(skips), measure=(len(levels) - len(skips)) / len(levels),
         )
+    if 1 not in levels:  # the first heading was not judged, so "no levels skipped" would claim too much
+        return result(Status.PASS, "Your headings are in order after the first one. The missing main heading is "
+                                   "reported under Main heading.", details=details)
     return result(Status.PASS, f"Your {len(levels)} headings are in order, with no levels skipped.", details=details)
 
 
