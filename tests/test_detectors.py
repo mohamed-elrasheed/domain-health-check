@@ -45,7 +45,9 @@ def test_links_pass(make_page):
     same, other = links.check_links(fetcher_replace(page, results))
     assert (same.name, same.status, other.name, other.status) == (links.SAME_SITE, Status.PASS,
                                                                   links.OTHER_SITES, Status.PASS)
-    assert same.summary == "All 4 links on your home page to other pages on your site that we verified work."
+    assert same.summary == ("4 of 4 links on your home page to other pages on your site were verified, and none of "
+                            "them is broken.")
+    assert "all" not in same.summary.lower().split()
     # mailto, tel, fragments and the page itself are not links to verify; /order#today is /order.
     assert sorted(r.url for r in results if r.same_site) == [
         f"{URL}about/", f"{URL}contact", f"{URL}menu", f"{URL}order"]
@@ -67,12 +69,13 @@ def test_links_fail(make_page):
     results = linkcheck.verify(page, transport=transport)
     same, other = links.check_links(fetcher_replace(page, results))
     assert same.status is Status.WARN and same.fix == links.FIX
-    assert same.summary == "2 of the 5 links on your home page to other pages on your site do not work."
+    assert same.summary == ("5 of 5 links on your home page to other pages on your site were verified, and 2 of "
+                            "them do not work.")
     assert '"Specials" links to https://www.example.com/old-specials: status 404 (Not Found)' in same.details
     assert any(d.startswith('"Gift cards" links to https://www.example.com/loop: more than 3 redirects')
                for d in same.details)
     assert other.status is Status.WARN and other.summary == (
-        "1 of the 2 links on your home page to other websites does not work.")
+        "2 of 2 links on your home page to other websites were verified, and 1 of them does not work.")
     assert same.measure == pytest.approx(3 / 5)
     # A link whose only content is an image is named by its alt text.
     assert next(r for r in results if r.url.endswith("/catering")).text == "Catering trays"
@@ -113,7 +116,7 @@ def test_at_most_80_urls_60_on_the_site_and_20_elsewhere(make_page):
     assert len(seen) == 80 == linkcheck.MAX_URLS
     assert sum(1 for _, u in seen if u.startswith(URL)) == 60
     assert sum(r.outcome == "not requested" for r in results) == 60
-    assert all("past the cap" in r.detail for r in results if r.outcome == "not requested")
+    assert all("past our cap" in r.detail for r in results if r.outcome == "not requested")
 
 
 def test_redirects_stop_after_three_hops(make_page):
@@ -308,3 +311,121 @@ def test_every_icon_request_is_in_the_request_log(make_page):
     with requestlog.recording() as log:
         icons(site({}), fixture("favicon-pass.html"), make_page=make_page)
     assert [(e.source, e.target) for e in log] == [("favicon", f"{URL}icons/maple-row-32.png")]
+
+
+# ---------- the link checker, after the first real run
+
+def test_a_link_that_resolves_through_a_redirect_works(make_page):
+    """A path written without https:// resolves under the site; if the site redirects it to a working page, the
+    link works. The only thing we judge is where a visitor ends up."""
+    page = make_page(html='<a href="www.example.com/contact-us/">Contact</a>', final_url=URL)
+    transport = site({"/www.example.com/contact-us/": httpx.Response(301, headers={"location": "/contact-us/"}),
+                      "/contact-us/": httpx.Response(200)})
+    [result] = linkcheck.verify(page, transport=transport)
+    assert result.outcome == "ok" and result.final_url == f"{URL}contact-us/"
+
+
+def test_each_distinct_url_is_requested_once(make_page):
+    seen = []
+    html = ('<a href="/menu">Menu</a><a href="/menu#lunch">Lunch</a><a href="HTTPS://WWW.EXAMPLE.COM/menu">Menu</a>'
+            '<a href="https://Other.Example.org/x">X</a><a href="https://other.example.org/x">X</a>')
+    linkcheck.verify(make_page(html=html, final_url=URL), transport=site({}, seen))
+    assert sorted(u for _, u in seen) == ["https://other.example.org/x", f"{URL}menu"]
+
+
+def test_same_site_and_other_site_links_take_turns(make_page, monkeypatch):
+    order = []
+    monkeypatch.setattr(linkcheck, "WORKERS", 1)
+    html = "".join(f'<a href="/p{i}">P{i}</a>' for i in range(4)) + "".join(
+        f'<a href="https://o{i}.example.org/">O{i}</a>' for i in range(2))
+    linkcheck.verify(make_page(html=html, final_url=URL), transport=site({}, order))
+    hosts = ["here" if u.startswith(URL) else "there" for _, u in order]
+    assert hosts == ["here", "there", "here", "there", "here", "here"]
+
+
+def test_running_out_of_time_is_said_plainly_and_is_our_limit(make_page, monkeypatch):
+    from dataclasses import replace
+    monkeypatch.setattr(linkcheck, "DEADLINE_SECONDS", -1)  # the limit has already passed
+    page = make_page(html='<a href="/a">A</a><a href="/b">B</a>', final_url=URL)
+    results = linkcheck.verify(page, transport=site({}))
+    assert {r.outcome for r in results} == {"not requested"} and {r.detail for r in results} == {"we ran out of time"}
+    [result] = links.check_links(replace(page, links=results))
+    assert not result.ran
+    assert result.summary == ("0 of 2 links on your home page to other pages on your site were verified. We ran out "
+                              "of time before checking 2 links. That was our time limit, not a problem with your "
+                              "links.")
+
+
+def test_some_links_out_of_time_still_counts_what_was_checked(make_page):
+    from dataclasses import replace
+
+    from domain_health_check.linkcheck import LinkResult
+    found = [LinkResult(f"{URL}a", "A", True, "ok", 200), LinkResult(f"{URL}b", "B", True, "ok", 200),
+             LinkResult(f"{URL}c", "C", True, "not requested", detail="we ran out of time")]
+    [result] = links.check_links(replace(make_page(final_url=URL), links=found))
+    assert result.status is Status.PASS
+    assert result.summary.startswith("2 of 3 links on your home page to other pages on your site were verified, and "
+                                     "none of them is broken. We ran out of time before checking 1 link.")
+
+
+# ---------- the phone number on the page and on the listing
+
+from domain_health_check.checks import business_profile as bp  # noqa: E402
+from domain_health_check.external import ExternalContext  # noqa: E402
+
+
+def listing(phone="(555) 010-0100"):
+    return ExternalContext(place={"displayName": {"text": "Cedar Ridge Tile and Stone"}, "nationalPhoneNumber": phone},
+                           place_match="website")
+
+
+def test_phone_matches_the_listing(make_page):
+    [result] = bp.check_phone(listing(), make_page(html=fixture("phone-match.html"), final_url=URL))
+    assert result.status is Status.PASS
+    assert result.summary == ("The phone number on your Google Business Profile, (555) 010-0100, is also on your home "
+                              "page.")
+
+
+def test_phone_mismatch_names_both_numbers_and_never_fails(make_page):
+    [result] = bp.check_phone(listing(), make_page(html=fixture("phone-mismatch.html"), final_url=URL))
+    assert result.status is Status.WARN
+    assert result.summary == ("Your home page shows (555) 010-0199 and (555) 010-0177, but your Google Business "
+                              "Profile shows (555) 010-0100.")
+    assert result.fix.startswith("If both numbers are yours and that is on purpose, nothing needs to change.")
+
+
+def test_phone_is_not_checked_without_a_number_or_a_listing(make_page):
+    [no_number] = bp.check_phone(listing(), make_page(html=fixture("phone-none.html"), final_url=URL))
+    assert not no_number.ran
+    [no_listing] = bp.check_phone(ExternalContext(place_outcome="not_found", errors={"place": "x"}),
+                                  make_page(html=fixture("phone-match.html"), final_url=URL))
+    assert not no_listing.ran
+    assert bp.check_phone(ExternalContext(), make_page(html=fixture("phone-match.html"))) == []  # no lookup at all
+
+
+def test_phone_digits_ignore_punctuation_and_country_code():
+    assert bp.digits("+1 (555) 010-0100") == bp.digits("555.010.0100") == bp.digits("tel:5550100100"[4:]) == \
+        "5550100100"
+    assert bp.digits("20240117") == ""
+
+
+def test_the_profile_link_names_an_inner_page():
+    context = ExternalContext(place={"displayName": {"text": "X"}, "websiteUri": "https://example.com/contact-us/"},
+                              place_match="website")
+    assert bp.evaluate_website_link(context, "example.com").summary == (
+        "Your Google Business Profile links to your contact page.")
+    context.place["websiteUri"] = "https://example.com/"
+    assert bp.evaluate_website_link(context, "example.com").summary == (
+        "Your Google Business Profile links to your website.")
+
+
+# ---------- page weight: what the server sends, and only that
+
+def test_page_weight_scores_the_server_response_and_shows_the_rendered_size(make_page):
+    from domain_health_check.checks.site import delivery
+    page = make_page(html="<html>" + "x" * 1000 + "</html>", final_url=URL, byte_size=200_000,
+                     rendered_html="<html>" + "y" * 900_000 + "</html>")
+    [result] = delivery.check_page_weight(page)
+    assert result.summary.startswith("Your home page is 200 KB before images")
+    assert any(d.startswith("For comparison only, not scored: after a browser ran the page's scripts, the page was "
+                            "900,013 bytes.") for d in result.details)

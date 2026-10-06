@@ -176,6 +176,7 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 | **Profile completeness** | 3 | website, phone and opening hours all listed | any missing | |
 | **Profile website link** | 3 | links to the domain we checked | missing, or another site | |
 | **Reviews** | 3 | 5 or more | fewer | |
+| **Profile phone number** | 2 | the listing's number is on the home page | the home page shows other numbers only | |
 
 - **A wrong match is worse than none.** A listing is used only when its name closely matches and its
   website is on the submitted domain, or its phone is the submitted number. A search for one real

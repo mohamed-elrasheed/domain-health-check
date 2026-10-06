@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from . import __version__, pricelist
 from .checks import pagespeed, site
-from .checks.site import favicon, links
+from .checks.site import favicon
 from .ladder import CUSTOMER_FACING, LADDER, TIER
 from .models import LOCAL, SITE, CheckResult, DomainReport, Status
 from .scoring import WEIGHTS, credit, score
@@ -268,8 +268,9 @@ def about(report: DomainReport) -> str:
         sources = ("DNS records, the domain registry, an ordinary visit to the website's home page, along with the "
                    "robots.txt and sitemap files that search engines read, and one more visit to that page in a "
                    "standard web browser, to see it the way a visitor does")
-    if any(r.ran and r.name in (links.SAME_SITE, links.OTHER_SITES) for r in report.results):
-        sources += ", a single request to each link on that page to confirm it still leads somewhere"
+    if report.links_requested:
+        sources += (f", one request to each link we checked on that page ({report.links_requested} of the "
+                    f"{report.links_found} links we found) to confirm it still leads somewhere")
     if any(r.ran and r.name == favicon.NAME for r in report.results):
         sources += ", the site's browser tab icon"
     if any(r.ran and r.name in pagespeed.LAB for r in report.results):

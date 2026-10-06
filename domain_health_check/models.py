@@ -57,6 +57,12 @@ class DomainReport:
     # The hosted website builder serving the site, when one was recognized (platform.py), and what gave it away.
     platform: str = ""
     platform_evidence: str = ""
+    # Distinct links found on the home page, and how many of them got a request (linkcheck.py).
+    links_found: int = 0
+    links_requested: int = 0
+    # The content management system the site runs on (platform.detect_cms), and what gave it away.
+    cms: str = ""
+    cms_evidence: str = ""
 
     @property
     def complete(self) -> bool:

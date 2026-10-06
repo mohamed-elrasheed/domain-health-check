@@ -49,7 +49,7 @@ def _icons(name: str, entries: list | None) -> tuple[str, ...]:
     return tuple(fragments)
 
 
-SIGNALS = ("generator", "headers", "server", "attributes", "hosts")
+SIGNALS = ("generator", "headers", "server", "attributes", "hosts")  # for hosted builders; cms has its own
 
 
 def _signals(name: str, kind: str, entries: list | None) -> tuple[str, ...]:
@@ -139,3 +139,40 @@ def default_icon(*urls: str) -> str | None:
             if any(fragment in lowered for fragment in fragments):
                 return name
     return None
+
+
+# ---------- content management systems (not hosted builders)
+
+@lru_cache(maxsize=4)
+def load_cms(path: Path | None = None) -> dict[str, dict[str, tuple[str, ...]]]:
+    """{name: {"generator": ..., "paths": ..., "links": ...}} with only the sourced signals."""
+    data = yaml.safe_load((path or PATH).read_text(encoding="utf-8"))
+    return {name: {kind: _signals(name, kind, spec.get(kind)) for kind in ("generator", "paths", "links")}
+            for name, spec in (data.get("cms") or {}).items()}
+
+
+def evaluate_cms(html: str, assets: list[str]) -> Detected | None:
+    """The content management system a page runs on, from its generator tag, the paths of its own assets, or
+    its <link rel> values. Never makes a request."""
+    tree = HTMLParser(html)
+    generators = [(node.attributes.get("content") or "").lower() for node in tree.css("meta[name]")
+                  if (node.attributes.get("name") or "").lower() == "generator"]
+    rels = {(node.attributes.get("rel") or "").strip().lower() for node in tree.css("link[rel]")}
+    paths = [urlsplit(u).path.lower() for u in assets]
+    for name, signals in load_cms(PATH).items():
+        generator = next((g for g in generators if any(v in g for v in signals["generator"])), None)
+        if generator:
+            return Detected(name, f"generator tag: {generator}")
+        path = next((p for p in paths for v in signals["paths"] if v in p), None)
+        if path:
+            return Detected(name, f"assets load from {path}")
+        rel = next((r for r in rels if r in signals["links"]), None)
+        if rel:
+            return Detected(name, f"link rel: {rel}")
+    return None
+
+
+def detect_cms(page) -> Detected | None:
+    assets = asset_urls(page.html, page.final_url) + asset_urls(page.rendered_html, page.final_url)
+    assets += [url for url, kind in page.resources if kind != "iframe"]
+    return evaluate_cms(page.html, assets)

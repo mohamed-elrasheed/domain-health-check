@@ -115,3 +115,21 @@ platforms:
 # Platforms that are not hosted builders, listed only for a default icon (with a source, as above). A platform
 # here never makes a finding "set by the platform": its sites control their own headers.
 default_icons_only: {}
+
+# Content management systems that are not hosted builders. Their sites control their own headers, so a match
+# here never moves a finding to the platform rung. It only changes wording: on WordPress the meta description and
+# link preview fields come from an SEO plugin, and the self-fix text says so. Same rule as above: every signal
+# cites the platform's own documentation (checked 2026-10-06) or is disabled with the reason.
+cms:
+  WordPress:
+    generator:
+      - value: "wordpress"
+        source: "https://developer.wordpress.org/reference/functions/wp_generator/ : \"Displays the XHTML generator that is generated on the wp_head hook.\" Format, from get_the_generator(): <meta name=\"generator\" content=\"WordPress ...\" />"
+    paths:
+      - value: "/wp-content/"
+        source: "https://developer.wordpress.org/reference/functions/content_url/ : \"Output: http://www.example.com/wp-content (without a trailing /)\"; the directory \"holds your themes, plugins, and uploads\" (developer.wordpress.org/advanced-administration/wordpress/wp-config/)"
+      - value: "/wp-includes/"
+        source: "https://developer.wordpress.org/reference/functions/wp_default_scripts/ : core scripts are registered at \"/wp-includes/js/...\""
+    links:
+      - value: "https://api.w.org/"
+        source: "https://developer.wordpress.org/rest-api/using-the-rest-api/discovery/ : \"the equivalent of the Link header is included in the <head> of front-end pages through a <link> element\", rel='https://api.w.org/'"

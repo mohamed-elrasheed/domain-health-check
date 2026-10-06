@@ -68,6 +68,7 @@ def _checks_for(
         (LOCAL, "Profile completeness", lambda: business_profile.check_completeness(ext)),
         (LOCAL, "Profile website link", lambda: business_profile.check_website_link(ext, d)),
         (LOCAL, "Reviews", lambda: business_profile.check_reviews(ext)),
+        (LOCAL, "Profile phone number", lambda: business_profile.check_phone(ext, page)),
     ]
 
 
@@ -93,10 +94,19 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     page, link_failure = _verify_links(page)
     if link_failure:
         incomplete.append(f"The links on the home page could not be verified: {link_failure}")
+    found_links = page.links if isinstance(page, PageContext) and page.links is not None else []
+    skipped = linkcheck.unrequested(found_links)
+    if skipped:
+        why = sorted({r.detail for r in skipped})
+        incomplete.append(f"{len(skipped)} of the {len(found_links)} links found on the home page were not requested "
+                          f"({'; '.join(why)}), so the link checks are partial")
     page, icon_failure = _fetch_favicon(page)
     if icon_failure:
         incomplete.append(f"The site's icon could not be checked: {icon_failure}")
     detected = platform.detect(page) if isinstance(page, PageContext) else None
+    cms = platform.detect_cms(page) if isinstance(page, PageContext) else None
+    if cms:
+        page = replace(page, cms=cms.name)
     ext = _fetch_external(domain, page)
     if isinstance(page, PageContext) and not ext.psi_mobile:
         why = ext.errors.get("psi_mobile") or ("PAGESPEED_API_KEY is not set" if not ext.pagespeed_configured
@@ -120,6 +130,8 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     return DomainReport(domain.name, now, results, website_loaded=isinstance(page, PageContext),
                         unreachable=_unreachable(page), rendered=isinstance(page, PageContext) and page.rendered,
                         incomplete=incomplete, platform=detected.name if detected else "",
+                        links_found=len(found_links), links_requested=linkcheck.requested(found_links),
+                        cms=cms.name if cms else "", cms_evidence=cms.evidence if cms else "",
                         platform_evidence=detected.evidence if detected else "")
 
 

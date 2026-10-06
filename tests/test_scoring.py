@@ -109,7 +109,7 @@ def test_weights_cover_exactly_the_checks_that_exist():
     from domain_health_check.checks import pagespeed
     speed = {pagespeed.FIELD_SPEED, pagespeed.MOBILE_SPEED, pagespeed.ACCESSIBILITY, pagespeed.BEST_PRACTICES}
     from domain_health_check.checks import business_profile as bp
-    profile = {bp.PROFILE, bp.COMPLETENESS, bp.WEBSITE_LINK, bp.REVIEWS}
+    profile = {bp.PROFILE, bp.COMPLETENESS, bp.WEBSITE_LINK, bp.REVIEWS, bp.PHONE}
     assert set(scoring.WEIGHTS) == site | security | speed | profile
     assert "SEO" not in scoring.WEIGHTS  # Lighthouse's seo category would double-count the site checks
 

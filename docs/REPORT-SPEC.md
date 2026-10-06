@@ -158,6 +158,9 @@ any of it to whoever they like.
 One number, 0 to 100, from weights rather than a flat count, so a missing alt tag cannot drown an expired
 certificate.
 
+Scores from different tool versions are not comparable: checks are added, removed and reweighted between versions,
+so compare two reports finding by finding, never by their numbers.
+
 **Weights** live in a map keyed by check name, in `scoring.py` — not on `CheckResult`. Checks stay
 ignorant of scoring; a check should never know what it is worth.
 
@@ -210,6 +213,7 @@ measure of how much of the thing is right, a binary one does not.
 | Broken links | 4 | 2 | `self` | a link to another page on the site ends in an error status, a timeout, or more than 3 redirects |
 | Links to other sites | 6 | 1 | `self` | the same, for a link to someone else's site. Never FAIL: the owner does not control that site |
 | Mixed content | 4 | 2 | `self` | the secure page loads an image, script, stylesheet, font or framed page over plain http |
+| Profile phone number | 4 | 2 | `self` | the home page shows a phone number and none of them is the number on the Google listing (digits only). Not checked without a confirmed listing or a number on the page |
 | Favicon | 6 | 1 | `self` | no icon resolves to an image, or the icon is a website builder's standard one (only from entries in `config/platforms.yaml` that cite a source; none yet) |
 
 None of them can FAIL. Links are verified under the capped rule in CLAUDE.md (at most 80, HEAD then GET only when

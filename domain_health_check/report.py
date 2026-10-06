@@ -166,6 +166,8 @@ def record(report: DomainReport) -> dict:
         "tool": {"name": "domain-health-check", "version": __version__},
         "complete": report.complete,
         "incomplete": list(report.incomplete),
+        "links": {"found": report.links_found, "requested": report.links_requested},
+        "cms": {"name": report.cms, "evidence": report.cms_evidence} if report.cms else None,
         "score": score,
         "reading": band,
         "website_loaded": report.website_loaded,

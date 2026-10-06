@@ -22,6 +22,12 @@ ALT_TEXT = "Image alt text"
 TITLE_MIN, TITLE_MAX = 15, 60
 DESCRIPTION_MIN, DESCRIPTION_MAX = 70, 160
 ALT_TEXT_PASS_SHARE = 0.9
+# WordPress has no meta description field of its own: it comes from an SEO plugin, which the site may not have.
+WORDPRESS_DESCRIPTION_FIX = (
+    "On WordPress, the meta description comes from an SEO plugin, not from WordPress itself, so look for it in "
+    "that plugin's settings for your home page. If your site has no SEO plugin installed, this job belongs with a "
+    "tune-up."
+)
 LISTED = 10  # how many offending items the details list before summarizing the rest
 
 TITLE_EXPLANATION = (
@@ -142,7 +148,7 @@ def check_title(page: PageContext) -> list[CheckResult]:
 
 # ---------- Meta description
 
-def evaluate_description(descriptions: list[str], context: list[str] = ()) -> CheckResult:
+def evaluate_description(descriptions: list[str], context: list[str] = (), cms: str = "") -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details),
@@ -152,6 +158,8 @@ def evaluate_description(descriptions: list[str], context: list[str] = ()) -> Ch
         "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
         f"description\". Write {DESCRIPTION_MIN} to {DESCRIPTION_MAX} characters saying what you do and where."
     )
+    if cms == "WordPress":
+        fix = WORDPRESS_DESCRIPTION_FIX
     description = next((d for d in descriptions if d), "")
     if not description:
         return result(Status.WARN, "Your home page has no meta description, so Google picks its own text to show.",
@@ -180,7 +188,7 @@ def check_description(page: PageContext) -> list[CheckResult]:
     tree = parse(page.indexed_html)
     node = tree.css_first("head > title")
     context = ([collapse(node.text())] if node else []) + _headings_text(tree)
-    return [evaluate_description(meta(tree, "description"), context)]
+    return [evaluate_description(meta(tree, "description"), context, page.cms)]
 
 
 # ---------- Main heading
@@ -275,16 +283,38 @@ def useful_alt(alt: str | None, address: str) -> bool:
     return alt_problem(alt, address) is None
 
 
-def _of_images(n: int, total: int) -> str:
-    """"3 of the 5 images on your home page have", "1 of the 5 ... has", "The one image on your home page has"."""
-    if total == 1:
-        return "The one image on your home page has"
-    return f"{n} of the {total} images on your home page {'has' if n == 1 else 'have'}"
+def _image_role(node) -> str | None:
+    """"logo" or "link" for an image that must have a description, None for any other. A linked image is the
+    whole link for someone using a screen reader; the logo names the business."""
+    def names_logo(n) -> bool:
+        attrs = n.attributes
+        text = " ".join(attrs.get(k) or "" for k in ("class", "id"))
+        return "logo" in text.lower()
+    address = image_address(node.attributes)
+    if "logo" in urlsplit(address).path.rsplit("/", 1)[-1].lower() or names_logo(node):
+        return "logo"
+    parent = node.parent
+    while parent is not None:
+        if parent.tag == "a" and parent.attributes.get("href"):
+            return "logo" if names_logo(parent) else "link"
+        parent = parent.parent
+    return None
 
 
-def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = False) -> CheckResult:
-    """images is [(address, alt)] for every <img>, including lazy-loaded ones below the fold. rendered: the
-    images come from the page after a browser ran it, with any a visitor cannot see already left out."""
+def _decorative(alt: str | None) -> bool:
+    """Left blank on purpose: alt="" is how a page marks an image as decoration."""
+    return alt is not None and not collapse(alt)
+
+
+def evaluate_alt_text(images: list[tuple], rendered: bool = False) -> CheckResult:
+    """images is [(address, alt)] or [(address, alt, role)] for every <img>, including lazy-loaded ones below
+    the fold. role is "link" or "logo" for an image that must have a description. alt is None when the image has
+    no alt attribute at all, and "" when it is left blank on purpose. rendered: the images come from the page
+    after a browser ran it, with any a visitor cannot see already left out.
+
+    The count is stated as a fact. What is a problem: a linked image or the logo without a description, and an
+    image with no alt attribute or only its file name. An image left blank on purpose (alt="") is decoration, and
+    is never called a problem."""
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, ALT_TEXT, status, summary, ALT_TEXT_EXPLANATION, fix, list(details), ran,
@@ -292,30 +322,59 @@ def evaluate_alt_text(images: list[tuple[str, str | None]], rendered: bool = Fal
 
     if not images:
         return result(Status.PASS, "Your home page has no images, so there is no alt text to check.", ran=False)
-    problems = [(address, alt_problem(alt, address)) for address, alt in images]
-    lacking = [f"{address or '(no address)'}: {problem}" for address, problem in problems if problem]
-    described = len(images) - len(lacking)
+    rows = [(entry[0], entry[1], entry[2] if len(entry) > 2 else None) for entry in images]
+    lacking = [(address, alt, role, alt_problem(alt, address)) for address, alt, role in rows
+               if alt_problem(alt, address)]
+    must = [row for row in lacking if row[2]]
+    blank = [row for row in lacking if not row[2] and _decorative(row[1])]
+    unclear = [row for row in lacking if not row[2] and not _decorative(row[1])]
+    problems = len(must) + len(unclear)
+    total = len(rows)
     counted = ("We counted every image a visitor can see once the page has run its scripts, including ones that "
                "only load when a visitor scrolls down." if rendered else "We counted every image in the page as "
                "delivered, including ones that only load when a visitor scrolls down and any the page hides.")
-    details = [f"{described} of {len(images)} images have a real description. {counted}"]
-    if described / len(images) < ALT_TEXT_PASS_SHARE:
+    details = [f"{total - len(lacking)} of {total} images have a description. {counted}"]
+    details += _more([f"Needs one ({'your logo' if role == 'logo' else 'inside a link'}): {address or '(no address)'}: "
+                      f"{problem}" for address, _, role, problem in must])
+    details += _more([f"No description: {address or '(no address)'}: {problem}" for address, _, _, problem in unclear])
+    details += _more([f"Left blank on purpose, which is right for decoration: {address or '(no address)'}"
+                      for address, *_ in blank])
+
+    noun = "image" if total == 1 else "images"
+    fact = (f"{len(lacking)} of {total} {noun} on your home page {'has' if len(lacking) == 1 else 'have'} no "
+            "description.")
+    if must:
+        logo = any(row[2] == "logo" for row in must)
+        linked = sum(1 for row in must if row[2] == "link")
+        if logo and linked:
+            need = f"Your logo and {linked} image{'s' if linked != 1 else ''} inside a link need one."
+        elif logo:
+            need = "Your logo needs one."
+        else:
+            need = f"{linked} {'image inside a link needs' if linked == 1 else 'images inside a link need'} one."
+        fact += " " + need
+    elif len(lacking) == 1:
+        fact += " It is not inside a link and is not your logo."
+    elif lacking:
+        fact += " None of them is inside a link or is your logo."
+    measure = (total - problems) / total
+    if must or measure < ALT_TEXT_PASS_SHARE:
         return result(
-            Status.WARN, f"{_of_images(len(lacking), len(images))} no real description.",
-            "In your website builder, open each image listed under Fix it yourself and fill in its alt text "
-            "(sometimes called \"image description\") with a short phrase describing the picture the way you would "
-            "describe it to someone over the phone. Images that are purely decorative can stay blank.",
-            details + _more(lacking), measure=described / len(images),
-        )
-    return result(Status.PASS, f"{_of_images(described, len(images))} a description.",
-                  details=details + _more(lacking))
+            Status.WARN, fact,
+            "In your website builder, add a short description to each image the technical details list as "
+            "needing one or as having none, starting with your logo and any image inside a link. An image that is "
+            "only decoration can be left blank.",
+            details, measure=measure)
+    return result(Status.PASS, fact if lacking else f"{total} of {total} {noun} on your home page "
+                  f"{'has' if total == 1 else 'have'} a description.", details=details)
 
 
 def check_alt_text(page: PageContext) -> list[CheckResult]:
     images = [
-        (image_address(node.attributes), node.attributes.get("alt"))
+        (image_address(node.attributes), node.attributes.get("alt"), _image_role(node))
         for node in parse(page.visible_html).css("img")
         if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
     ]
     return [evaluate_alt_text(images, rendered=page.rendered)]
+
 

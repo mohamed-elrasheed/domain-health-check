@@ -342,7 +342,7 @@ def test_pricing_points_at_the_digital_division():
 def test_alt_text_fix_has_no_invented_example():
     from domain_health_check.checks.site import content
     result = content.evaluate_alt_text([("https://example.com/a.jpg", None)] * 3)
-    assert "such as" not in result.fix and "over the phone" in result.fix and "listed under Fix it yourself" in result.fix
+    assert "such as" not in result.fix and "logo" in result.fix and "technical details" in result.fix
 
 
 def test_costing_customers_only_counts_findings_that_are_materially_wrong():
@@ -414,3 +414,23 @@ def test_every_page_is_stamped_with_the_version_and_run_date():
     report = report_of(Status.PASS)
     assert layout.stamp(report) == f"domain-health-check {__version__} · run 14 March 2026"
     assert layout.stamp(report) in render_markdown(report)
+
+
+def test_a_partial_link_check_makes_the_run_incomplete_and_the_note_counts(fake_dns, monkeypatch, mizan_page):
+    """Any link found but not requested makes the report incomplete (the CLI exits 3), the reason goes into
+    report.json, and the note on where the results come from says how many links got a request."""
+    from domain_health_check import fetcher, linkcheck, runner
+    from domain_health_check.checks import rdap, tls
+    from domain_health_check.config import DomainConfig
+    monkeypatch.setattr(tls, "fetch_tls_info", lambda d: ({"notAfter": "Jan  1 00:00:00 2027 GMT"}, "TLSv1.3"))
+    monkeypatch.setattr(rdap, "fetch_rdap", lambda d: {"events": []})
+    monkeypatch.setattr(fetcher, "fetch_page", lambda d: mizan_page)
+    monkeypatch.setattr(linkcheck, "MAX_SAME_SITE", 3)
+    report = runner.run_checks(DomainConfig("mizangroupllc.com"), datetime(2026, 10, 6, tzinfo=timezone.utc))
+    assert report.links_found > report.links_requested > 0
+    assert any("were not requested (past our cap of 3 links)" in reason for reason in report.incomplete)
+    data = record(report)
+    assert data["complete"] is False and data["links"] == {"found": report.links_found,
+                                                           "requested": report.links_requested}
+    assert (f"one request to each link we checked on that page ({report.links_requested} of the "
+            f"{report.links_found} links we found)") in layout.about(report)

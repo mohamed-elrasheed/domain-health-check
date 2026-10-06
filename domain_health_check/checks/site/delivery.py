@@ -59,7 +59,10 @@ def check_viewport(page: PageContext) -> list[CheckResult]:
 
 # ---------- Page weight
 
-def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: int, truncated: bool) -> CheckResult:
+def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: int, truncated: bool,
+                         rendered_bytes: int | None = None) -> CheckResult:
+    """byte_size is the HTML the server sent, decompressed: the only number scored. rendered_bytes, the page after a
+    browser ran its scripts, is shown for comparison and never scored."""
     def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, PAGE_WEIGHT, status, summary, WEIGHT_EXPLANATION, fix, list(details), measure=measure)
 
@@ -70,6 +73,9 @@ def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: in
         f"Time to first byte: {ttfb_ms:,} ms, including {hops} redirect{'s' if hops != 1 else ''}",
         f"Time to last byte: {elapsed_ms:,} ms",
     ]
+    if rendered_bytes:
+        details.append(f"For comparison only, not scored: after a browser ran the page's scripts, the page was "
+                       f"{rendered_bytes:,} bytes. What we score is what the server sends.")
     problems = []
     if truncated or byte_size >= MAX_HTML_BYTES:
         problems.append(f"Your home page is {size_kb} before images, larger than the {MAX_HTML_BYTES // 1000} KB we "
@@ -88,7 +94,7 @@ def evaluate_page_weight(byte_size: int, ttfb_ms: int, elapsed_ms: int, hops: in
 
 def check_page_weight(page: PageContext) -> list[CheckResult]:
     return [evaluate_page_weight(page.byte_size, page.ttfb_ms, page.elapsed_ms, len(page.redirect_chain),
-                                 page.truncated)]
+                                 page.truncated, len(page.rendered_html.encode()) if page.rendered else None)]
 
 
 # ---------- Redirect chain

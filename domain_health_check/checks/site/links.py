@@ -9,7 +9,7 @@ and carries less weight.
 from __future__ import annotations
 
 from ...fetcher import PageContext
-from ...linkcheck import LinkResult
+from ...linkcheck import MAX_OTHER_SITES, MAX_SAME_SITE, TIME_RAN_OUT, LinkResult
 from ...models import SITE, CheckResult, Status
 
 SAME_SITE = "Broken links"
@@ -33,8 +33,33 @@ def _line(r: LinkResult) -> str:
     return f"\"{r.text}\" links to {r.url}{where}: {r.detail}"
 
 
+def gaps(mine: list[LinkResult]) -> list[str]:
+    """Why some links found were not verified, one plain sentence per reason. Each one is our limit or their
+    server's answer, never a finding about the link."""
+    def count(rs: list[LinkResult]) -> str:
+        return f"{len(rs)} link{'s' if len(rs) != 1 else ''}"
+    timed_out = [r for r in mine if r.outcome == "not requested" and r.detail == TIME_RAN_OUT]
+    capped = [r for r in mine if r.outcome == "not requested" and r.detail.startswith("past our cap")]
+    robots = [r for r in mine if r.outcome == "not requested" and r.detail.startswith("robots.txt")]
+    turned_away = [r for r in mine if r.outcome == "not verified"]
+    sentences = []
+    if timed_out:
+        sentences.append(f"We ran out of time before checking {count(timed_out)}. That was our time limit, not a "
+                         "problem with your links.")
+    if capped:
+        sentences.append(f"We check at most {MAX_SAME_SITE if mine[0].same_site else MAX_OTHER_SITES} links of this "
+                         f"kind, so {count(capped)} were not checked.")
+    if robots:
+        sentences.append(f"We did not check {count(robots)}, because your robots.txt file asks us not to.")
+    if turned_away:
+        sentences.append(f"{count(turned_away).capitalize()} turned our check away, which says nothing about whether "
+                         "visitors get through.")
+    return sentences
+
+
 def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool) -> CheckResult:
-    """The links of one kind (this site, or other sites). The caller passes only kinds the page has."""
+    """The links of one kind (this site, or other sites). The caller passes only kinds the page has. Never says
+    "all": it says how many of the links found were verified, and why any were not."""
     name = SAME_SITE if same_site else OTHER_SITES
     explanation = EXPLANATION if same_site else OTHER_EXPLANATION
     where = "to other pages on your site" if same_site else "to other websites"
@@ -44,30 +69,28 @@ def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool) -
     source = ("Links read from the page after a browser ran it, including menus that open on a tap." if rendered
               else "Links read from the page as delivered, before any scripts ran.")
     details = [source, f"Verified {len(checked)} of {len(mine)} links {where}, one request each (HEAD, or GET when "
-                       "HEAD is refused), following at most 3 redirects."]
+                       "HEAD is refused), following at most 3 redirects. A link that reaches a working page through "
+                       "a redirect works."]
     details += [_line(r) for r in broken[:SHOWN]]
     if len(broken) > SHOWN:
         details.append(f"And {len(broken) - SHOWN} more.")
-    unverified = [r for r in mine if r.outcome in ("not verified", "not requested")]
-    details += [f"Not verified: {r.url}: {r.detail}" for r in unverified]
+    details += [f"Not verified: {r.url}: {r.detail}" for r in mine if r.outcome in ("not verified", "not requested")]
+    noun, verb = ("link", "was") if len(mine) == 1 else ("links", "were")
+    counted = f"{len(checked)} of {len(mine)} {noun} on your home page {where} {verb} verified"
+    tail = " ".join(gaps(mine))
 
     def result(status: Status, summary: str, fix: str = "", ran: bool = True,
                measure: float | None = None) -> CheckResult:
-        return CheckResult(SITE, name, status, summary, explanation, fix, details, ran, measure=measure)
+        return CheckResult(SITE, name, status, f"{summary} {tail}".strip(), explanation, fix, details, ran,
+                           measure=measure)
 
     if not checked:
-        return result(Status.WARN, f"We could not verify the links on your home page {where} this time.",
-                      "Nothing to do based on this report.", ran=False)
+        return result(Status.WARN, f"{counted}.", "Nothing to do based on this report.", ran=False)
     if broken:
-        if len(checked) == 1:
-            count, verb = "The one link", "does"
-        else:
-            count, verb = f"{len(broken)} of the {len(checked)} links", "does" if len(broken) == 1 else "do"
-        return result(Status.WARN, f"{count} on your home page {where} {verb} not work.", FIX,
+        verb = "does" if len(broken) == 1 else "do"
+        return result(Status.WARN, f"{counted}, and {len(broken)} of them {verb} not work.", FIX,
                       measure=(len(checked) - len(broken)) / len(checked))
-    every = "The one link" if len(checked) == 1 else f"All {len(checked)} links"
-    verb = "works" if len(checked) == 1 else "work"
-    return result(Status.PASS, f"{every} on your home page {where} that we verified {verb}.")
+    return result(Status.PASS, f"{counted}, and none of them is broken.")
 
 
 def check_links(page: PageContext) -> list[CheckResult]:

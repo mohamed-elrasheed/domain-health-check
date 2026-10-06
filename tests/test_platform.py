@@ -140,3 +140,41 @@ def test_a_disabled_signal_is_not_used(make_page):
     page = make_page(html="<html><head></head></html>", final_url="https://www.example.com/",
                      headers={"x-wf-region": "us-east-1", "server": "Squarespace", "x-shopid": "1"})
     assert platform.detect(page) is None
+
+
+# ---------- WordPress: recognized for wording only, never as a hosted builder
+
+@pytest.mark.parametrize("html, evidence", [
+    ('<meta name="generator" content="WordPress 6.6">', "generator tag: wordpress 6.6"),
+    ('<link rel="stylesheet" href="/wp-content/themes/firm/style.css">', "assets load from /wp-content/themes/firm/style.css"),
+    ('<script src="/wp-includes/js/jquery/jquery.min.js"></script>', "assets load from /wp-includes/js/jquery/jquery.min.js"),
+    ("<link rel='https://api.w.org/' href='https://www.example.com/wp-json/'>", "link rel: https://api.w.org/"),
+])
+def test_wordpress_is_recognized_from_each_sourced_signal(html, evidence, make_page):
+    found = platform.detect_cms(make_page(html=f"<html><head>{html}</head></html>", final_url="https://www.example.com/"))
+    assert (found.name, found.evidence) == ("WordPress", evidence)
+
+
+def test_wordpress_is_not_a_hosted_builder(make_page):
+    page = make_page(html=(FIXTURES / "wordpress.html").read_text(encoding="utf-8"),
+                     final_url="https://www.example.com/")
+    assert platform.detect(page) is None and platform.detect_cms(page).name == "WordPress"
+    on_wordpress = DomainReport("example.com", NOW, [finding(n) for n in HEADERS], cms="WordPress")
+    assert {rung.key for rung, _ in layout.priced(on_wordpress)} == {"tuneup"}
+
+
+def test_the_golden_wordpress_page_is_recognized(make_page):
+    html = (GOLDEN / "wordpress-lazyload" / "page.html").read_text(encoding="utf-8")
+    assert platform.detect_cms(make_page(html=html, final_url="https://www.example.com/")).name == "WordPress"
+    for other in ("webflow", "wix", "squarespace", "js-spa"):
+        html = (GOLDEN / other / "page.html").read_text(encoding="utf-8")
+        assert platform.detect_cms(make_page(html=html, final_url="https://www.example.com/")) is None, other
+
+
+def test_every_cms_signal_cites_a_source():
+    import yaml
+    data = yaml.safe_load(platform.PATH.read_text(encoding="utf-8"))
+    for name, spec in data["cms"].items():
+        for kind in ("generator", "paths", "links"):
+            for entry in spec.get(kind) or []:
+                assert entry.get("source", "").startswith("https://developer.wordpress.org/"), (name, kind, entry)

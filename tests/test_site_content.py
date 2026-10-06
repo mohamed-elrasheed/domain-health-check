@@ -125,7 +125,7 @@ def test_no_headings_did_not_run():
 def test_mizan_images_pass_counting_lazy_ones(mizan_page):
     [result] = content.check_alt_text(mizan_page)
     assert result.status is Status.PASS
-    assert "2 of the 2" in result.summary
+    assert result.summary == "2 of 2 images on your home page have a description."
     assert any("only load when a visitor scrolls" in d for d in result.details)
 
 
@@ -145,18 +145,20 @@ def test_useful_alt(alt, useful):
 def test_images_without_alt_warn_and_are_listed(mizan_page):
     page = with_body(mizan_page, '<img src="https://cdn.test/team.jpg"><img src="https://cdn.test/van.jpg" alt="van.jpg">')
     [result] = content.check_alt_text(page)
-    assert result.status is Status.WARN and "2 of the 4" in result.summary
-    assert "https://cdn.test/team.jpg: no alt text" in result.details
-    assert 'https://cdn.test/van.jpg: alt text is only the file name ("van.jpg")' in result.details
+    assert result.status is Status.WARN and result.summary.startswith("2 of 4 images on your home page have no "
+                                                                      "description.")
+    assert "No description: https://cdn.test/team.jpg: no alt text" in result.details
+    assert 'No description: https://cdn.test/van.jpg: alt text is only the file name ("van.jpg")' in result.details
 
 
 def test_noscript_copies_are_not_counted(mizan_page):
     page = with_body(mizan_page, '<noscript><img src="https://cdn.test/a.jpg"></noscript>')
-    assert "2 of the 2" in content.check_alt_text(page)[0].summary
+    assert content.check_alt_text(page)[0].summary.startswith("2 of 2 images")
 
 
 def test_ninety_percent_passes():
-    images = [(f"https://cdn.test/{i}.jpg", "A photo") for i in range(9)] + [("https://cdn.test/x.jpg", "")]
+    # No alt attribute at all: not marked as decoration, so it counts against the share.
+    images = [(f"https://cdn.test/{i}.jpg", "A photo") for i in range(9)] + [("https://cdn.test/x.jpg", None)]
     assert content.evaluate_alt_text(images).status is Status.PASS
     assert content.evaluate_alt_text(images[1:]).status is Status.WARN  # 8 of 9
 
@@ -180,14 +182,14 @@ def test_file_name_alt_behind_a_lazy_placeholder_is_not_a_description(mizan_page
     # The real page had alt="icon1" on data-src=".../icon1.png" and we counted it as described.
     images = "".join(lazy_img(f"https://www.mizangroupllc.com/uploads/icon{i}.png", f"icon{i}") for i in range(1, 6))
     [result] = content.check_alt_text(with_body(mizan_page, images))
-    assert result.status is Status.WARN and "5 of the 7" in result.summary
-    assert 'https://www.mizangroupllc.com/uploads/icon1.png: alt text is only the file name ("icon1")' in result.details
+    assert result.status is Status.WARN and "5 of 7" in result.summary
+    assert 'No description: https://www.mizangroupllc.com/uploads/icon1.png: alt text is only the file name ("icon1")' in result.details
 
 
 def test_details_name_the_real_image_not_the_placeholder(mizan_page):
     [result] = content.check_alt_text(with_body(mizan_page, lazy_img("https://www.mizangroupllc.com/uploads/team.jpg", None) * 3))
     assert not any("data:image" in d for d in result.details)
-    assert "https://www.mizangroupllc.com/uploads/team.jpg: no alt text" in result.details
+    assert "No description: https://www.mizangroupllc.com/uploads/team.jpg: no alt text" in result.details
 
 
 def test_wordpress_size_suffix_still_counts_as_the_file_name():
@@ -246,10 +248,43 @@ def test_mizan_title_and_description_are_not_placeholder(mizan_page):
 
 
 @pytest.mark.parametrize("images, summary", [
-    ([("a.jpg", "A shop front")], "The one image on your home page has a description."),
-    ([("a.jpg", None)], "The one image on your home page has no real description."),
-    ([("a.jpg", None), ("b.jpg", None), ("c.jpg", "A van")], "2 of the 3 images on your home page have no real description."),
-    ([("a.jpg", None)] + [(f"{n}.jpg", "A van") for n in range(9)], "9 of the 10 images on your home page have a description."),
+    ([("a.jpg", "A shop front")], "1 of 1 image on your home page has a description."),
+    ([("a.jpg", None)], "1 of 1 image on your home page has no description. It is not inside a link and is not your logo."),
+    ([("a.jpg", None), ("b.jpg", None), ("c.jpg", "A van")],
+     "2 of 3 images on your home page have no description. None of them is inside a link or is your logo."),
+    ([("a.jpg", None)] + [(f"{n}.jpg", "A van") for n in range(9)],
+     "1 of 10 images on your home page has no description. It is not inside a link and is not your logo."),
+    ([("logo.png", None, "logo"), ("a.jpg", None, "link"), ("b.jpg", "A van")],
+     "2 of 3 images on your home page have no description. Your logo and 1 image inside a link need one."),
 ])
 def test_alt_text_counts_read_as_english(images, summary):
     assert content.evaluate_alt_text(images).summary == summary
+
+
+def test_the_logo_and_linked_images_must_have_a_description(mizan_page):
+    page = with_body(mizan_page, '<a href="/"><img class="custom-logo" src="https://cdn.test/brand.png"></a>'
+                                 '<a href="/menu"><img src="https://cdn.test/menu.jpg" alt=""></a>')
+    [result] = content.check_alt_text(page)
+    assert result.status is Status.WARN
+    assert result.summary.endswith("Your logo and 1 image inside a link need one.")
+    assert "Needs one (your logo): https://cdn.test/brand.png: no alt text" in result.details
+    assert "Needs one (inside a link): https://cdn.test/menu.jpg: no alt text" in result.details
+
+
+def test_a_blank_decorative_image_is_never_called_a_problem():
+    images = [("https://cdn.test/swirl.png", ""), ("https://cdn.test/team.jpg", "Our crew")]
+    result = content.evaluate_alt_text(images)
+    assert result.status is Status.PASS
+    assert result.summary == ("1 of 2 images on your home page has no description. It is not inside a link and is "
+                              "not your logo.")
+    assert "Left blank on purpose, which is right for decoration: https://cdn.test/swirl.png" in result.details
+    assert not any(d.startswith(("Needs one", "No description")) for d in result.details)
+
+
+def test_on_wordpress_the_seo_fields_point_to_a_plugin_and_name_none():
+    from domain_health_check.checks.site import sharing
+    for fix in (content.evaluate_description([], cms="WordPress").fix,
+                sharing.evaluate_social_preview({}, cms="WordPress").fix):
+        assert "SEO plugin" in fix and "tune-up" in fix
+        assert not any(name in fix for name in ("Yoast", "Rank Math", "All in One", "SEOPress"))
+    assert "SEO plugin" not in content.evaluate_description([]).fix

@@ -87,6 +87,7 @@ class PageContext:
     resources: list[tuple[str, str]] = field(default_factory=list)
     links: list | None = None  # linkcheck.LinkResult for each link verified; None when verification did not run
     favicon: list[FetchedIcon] | None = None  # each icon request, in order; None when we did not look
+    cms: str = ""  # the content management system the page runs on (platform.detect_cms), "" when not recognized
 
     @property
     def rendered(self) -> bool:

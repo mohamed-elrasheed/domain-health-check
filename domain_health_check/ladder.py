@@ -17,7 +17,7 @@ LADDER = [
     ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews"],
     # 4. The site is slow enough that people leave.
     ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility",
-     "Broken links", "Mixed content"],
+     "Broken links", "Mixed content", "Profile phone number"],
     # 5. Email can be spoofed.
     ["DMARC (anti-spoofing policy)", "SPF (approved senders)", "DKIM (email signatures)", "Mail servers (MX)"],
     # 6. Hardening.

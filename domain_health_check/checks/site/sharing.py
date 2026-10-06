@@ -21,7 +21,15 @@ EXPLANATION = (
 )
 
 
-def evaluate_social_preview(tags: dict[str, str]) -> CheckResult:
+# WordPress has no link preview fields of its own: they come from an SEO plugin, which the site may not have.
+WORDPRESS_FIX = (
+    "On WordPress, the link preview title, description and image come from an SEO plugin, not from WordPress "
+    "itself, so look for them in that plugin's settings for your home page. If your site has no SEO plugin "
+    "installed, this job belongs with a tune-up."
+)
+
+
+def evaluate_social_preview(tags: dict[str, str], cms: str = "") -> CheckResult:
     """tags is {og property: content} for whatever the page has."""
     missing = [plain for prop, plain in REQUIRED.items() if not tags.get(prop)]
     details = [f"{prop}: {tags[prop]}" for prop in REQUIRED if tags.get(prop)]
@@ -33,6 +41,8 @@ def evaluate_social_preview(tags: dict[str, str]) -> CheckResult:
         "In your website builder, open the home page settings and look for \"social sharing\" or \"Open Graph\", "
         "then fill in the title, description and image. A picture of 1200 by 630 pixels works well everywhere."
     )
+    if cms == "WordPress":
+        fix = WORDPRESS_FIX
     if len(missing) == len(REQUIRED):
         summary = "Your home page has no link preview settings, so shared links may show no picture or description."
     else:
@@ -51,4 +61,4 @@ def check_social_preview(page: PageContext) -> list[CheckResult]:
         # The standard is property="og:...", but name="og:..." is common and every major app reads it.
         found = meta(tree, prop, "property") + meta(tree, prop, "name")
         tags[prop] = next((value for value in found if value), "")
-    return [evaluate_social_preview(tags)]
+    return [evaluate_social_preview(tags, page.cms)]
