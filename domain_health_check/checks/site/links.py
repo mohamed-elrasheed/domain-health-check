@@ -11,6 +11,7 @@ from __future__ import annotations
 from ...fetcher import PageContext
 from ...linkcheck import MAX_OTHER_SITES, MAX_SAME_SITE, TIME_RAN_OUT, LinkResult
 from ...models import SITE, CheckResult, Status
+from ._editor import where
 
 SAME_SITE = "Broken links"
 OTHER_SITES = "Links to other sites"
@@ -24,8 +25,7 @@ OTHER_EXPLANATION = (
     "Links to other websites can stop working when those sites move or close a page. You cannot fix their site, "
     "but you can update or remove the link."
 )
-FIX = ("In your website builder, find each link listed in the technical details and point it at the right page, or "
-       "remove it.")
+FIX = "{where}, find each link listed in the technical details and point it at the right page, or remove it."
 
 
 def _line(r: LinkResult) -> str:
@@ -57,18 +57,18 @@ def gaps(mine: list[LinkResult]) -> list[str]:
     return sentences
 
 
-def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool) -> CheckResult:
+def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool, editor: str = "") -> CheckResult:
     """The links of one kind (this site, or other sites). The caller passes only kinds the page has. Never says
     "all": it says how many of the links found were verified, and why any were not."""
     name = SAME_SITE if same_site else OTHER_SITES
     explanation = EXPLANATION if same_site else OTHER_EXPLANATION
-    where = "to other pages on your site" if same_site else "to other websites"
+    place = "to other pages on your site" if same_site else "to other websites"
     mine = [r for r in results if r.same_site == same_site]
     checked = [r for r in mine if r.outcome in ("ok", "broken")]
     broken = [r for r in checked if r.broken]
     source = ("Links read from the page after a browser ran it, including menus that open on a tap." if rendered
               else "Links read from the page as delivered, before any scripts ran.")
-    details = [source, f"Verified {len(checked)} of {len(mine)} links {where}, one request each (HEAD, or GET when "
+    details = [source, f"Verified {len(checked)} of {len(mine)} links {place}, one request each (HEAD, or GET when "
                        "HEAD is refused), following at most 3 redirects. A link that reaches a working page through "
                        "a redirect works."]
     details += [_line(r) for r in broken[:SHOWN]]
@@ -76,7 +76,7 @@ def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool) -
         details.append(f"And {len(broken) - SHOWN} more.")
     details += [f"Not verified: {r.url}: {r.detail}" for r in mine if r.outcome in ("not verified", "not requested")]
     noun, verb = ("link", "was") if len(mine) == 1 else ("links", "were")
-    counted = f"{len(checked)} of {len(mine)} {noun} on your home page {where} {verb} verified"
+    counted = f"{len(checked)} of {len(mine)} {noun} on your home page {place} {verb} verified"
     tail = " ".join(gaps(mine))
 
     def result(status: Status, summary: str, fix: str = "", ran: bool = True,
@@ -88,7 +88,8 @@ def evaluate_links(results: list[LinkResult], same_site: bool, rendered: bool) -
         return result(Status.WARN, f"{counted}.", "Nothing to do based on this report.", ran=False)
     if broken:
         verb = "does" if len(broken) == 1 else "do"
-        return result(Status.WARN, f"{counted}, and {len(broken)} of them {verb} not work.", FIX,
+        return result(Status.WARN, f"{counted}, and {len(broken)} of them {verb} not work.",
+                      FIX.format(where=where(editor)),
                       measure=(len(checked) - len(broken)) / len(checked))
     return result(Status.PASS, f"{counted}, and none of them is broken.")
 
@@ -99,5 +100,5 @@ def check_links(page: PageContext) -> list[CheckResult]:
                             explanation, "Nothing to do based on this report.", [], ran=False)
                 for name, explanation in ((SAME_SITE, EXPLANATION), (OTHER_SITES, OTHER_EXPLANATION))]
     # A kind of link the page does not have gets no result: there was nothing to verify and nothing to fix.
-    return [evaluate_links(page.links, same, page.rendered) for same in (True, False)
+    return [evaluate_links(page.links, same, page.rendered, page.editor) for same in (True, False)
             if any(r.same_site == same for r in page.links)]

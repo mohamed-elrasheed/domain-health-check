@@ -1,7 +1,7 @@
 """What the page says about itself: title, description, headings and image descriptions.
 
-These are the findings an owner can usually fix from their website builder
-without a developer, so the fixes say where to look.
+These are the findings an owner, or whoever edits their site, can usually fix
+in the site's editor, so the fixes say where to look.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from ...fetcher import PageContext
 from ...models import SITE, CheckResult, Status
+from ._editor import where
 from ._html import collapse, headings, inside, meta, parse
 
 TITLE = "Page title"
@@ -24,7 +25,7 @@ DESCRIPTION_MIN, DESCRIPTION_MAX = 70, 160
 ALT_TEXT_PASS_SHARE = 0.9
 # WordPress has no meta description field of its own: it comes from an SEO plugin, which the site may not have.
 WORDPRESS_DESCRIPTION_FIX = (
-    "On WordPress, the meta description comes from an SEO plugin, not from WordPress itself, so look for it in "
+    "In WordPress, the meta description comes from an SEO plugin, not from WordPress itself, so look for it in "
     "that plugin's settings for your home page. If your site has no SEO plugin installed, this job belongs with a "
     "tune-up."
 )
@@ -103,14 +104,14 @@ PLACEHOLDER_SUMMARY = {
 
 # ---------- Page title
 
-def evaluate_title(title: str | None, final_url: str, context: list[str] = ()) -> CheckResult:
+def evaluate_title(title: str | None, final_url: str, context: list[str] = (), editor: str = "") -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, TITLE, status, summary, TITLE_EXPLANATION, fix, list(details), certain=certain,
                            measure=measure)
 
     fix = (
-        "In your website builder, open the home page settings and look for \"SEO title\" or \"page title\". "
+        f"{where(editor)}, open the home page settings and look for \"SEO title\" or \"page title\". "
         f"Aim for {TITLE_MIN} to {TITLE_MAX} characters naming your business and what you do, for example "
         "\"Smith Plumbing, 24-hour plumber in Austin\"."
     )
@@ -143,22 +144,22 @@ def check_title(page: PageContext) -> list[CheckResult]:
     tree = parse(page.indexed_html)
     node = tree.css_first("head > title")
     context = _headings_text(tree) + meta(tree, "description")
-    return [evaluate_title(collapse(node.text()) if node else None, page.final_url, context)]
+    return [evaluate_title(collapse(node.text()) if node else None, page.final_url, context, page.editor)]
 
 
 # ---------- Meta description
 
-def evaluate_description(descriptions: list[str], context: list[str] = (), cms: str = "") -> CheckResult:
+def evaluate_description(descriptions: list[str], context: list[str] = (), editor: str = "") -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=(), certain: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, DESCRIPTION, status, summary, DESCRIPTION_EXPLANATION, fix, list(details),
                            certain=certain, measure=measure)
 
     fix = (
-        "In your website builder, open the home page settings and look for \"SEO description\" or \"meta "
+        f"{where(editor)}, open the home page settings and look for \"SEO description\" or \"meta "
         f"description\". Write {DESCRIPTION_MIN} to {DESCRIPTION_MAX} characters saying what you do and where."
     )
-    if cms == "WordPress":
+    if editor == "WordPress":
         fix = WORDPRESS_DESCRIPTION_FIX
     description = next((d for d in descriptions if d), "")
     if not description:
@@ -188,18 +189,18 @@ def check_description(page: PageContext) -> list[CheckResult]:
     tree = parse(page.indexed_html)
     node = tree.css_first("head > title")
     context = ([collapse(node.text())] if node else []) + _headings_text(tree)
-    return [evaluate_description(meta(tree, "description"), context, page.cms)]
+    return [evaluate_description(meta(tree, "description"), context, page.editor)]
 
 
 # ---------- Main heading
 
-def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
+def evaluate_main_heading(h1_texts: list[str], editor: str = "") -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=(), measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, MAIN_HEADING, status, summary, MAIN_HEADING_EXPLANATION, fix, list(details),
                            measure=measure)
 
     fix = (
-        "In your website builder, make sure the page has exactly one headline set as \"Heading 1\" (H1) that "
+        f"{where(editor)}, make sure the page has exactly one headline set as \"Heading 1\" (H1) that "
         "says what your business does. Other headlines on the page should use Heading 2 or smaller."
     )
     details = [f"Heading 1: {text or '(empty)'}" for text in h1_texts]
@@ -214,12 +215,15 @@ def evaluate_main_heading(h1_texts: list[str]) -> CheckResult:
 
 
 def check_main_heading(page: PageContext) -> list[CheckResult]:
-    return [evaluate_main_heading([text for level, text in headings(parse(page.visible_html)) if level == 1])]
+    return [evaluate_main_heading([text for level, text in headings(parse(page.visible_html)) if level == 1],
+                                  page.editor)]
 
 
 # ---------- Heading order
 
-def evaluate_heading_order(levels: list[int]) -> CheckResult:
+def evaluate_heading_order(levels: list[int], editor: str = "") -> CheckResult:
+    """When the page has no main heading (no h1), its first heading is not judged against the missing one: that
+    gap is the main heading finding, and counting it here as well would report one cause twice."""
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True,
                measure: float | None = None) -> CheckResult:
         return CheckResult(SITE, HEADING_ORDER, status, summary, HEADING_ORDER_EXPLANATION, fix, list(details), ran,
@@ -229,18 +233,21 @@ def evaluate_heading_order(levels: list[int]) -> CheckResult:
         return result(Status.PASS, "Your home page has no headings, so there is no order to check.", ran=False)
     skips, previous = [], None
     for position, level in enumerate(levels, start=1):
-        if previous is None and level > 2:  # the first heading may be an h1 or an h2
+        if previous is None and level > 2 and 1 in levels:  # the first heading may be an h1 or an h2
             skips.append(f"Heading {position} of {len(levels)} is an h{level} at the start of the page, before any "
                          f"h{level - 1}")
         elif previous is not None and level > previous + 1:
             skips.append(f"Heading {position} of {len(levels)} is an h{level} directly after an h{previous}")
         previous = level
     details = [f"Order: {' '.join(f'h{level}' for level in levels)}"]
+    if 1 not in levels and levels[0] > 2:
+        details.append(f"The page has no main heading, so its first heading (an h{levels[0]}) is not judged against "
+                       "one. The main heading finding covers that.")
     if skips:
         noun = "place" if len(skips) == 1 else "places"
         return result(
             Status.WARN, f"Your home page skips a heading level in {len(skips)} {noun}.",
-            "In your website builder, change the skipped headings so each level follows the one above it: Heading 2 "
+            f"{where(editor)}, change the skipped headings so each level follows the one above it: Heading 2 "
             "under Heading 1, Heading 3 under Heading 2. The look can stay the same; only the heading level changes.",
             details + _more(skips), measure=(len(levels) - len(skips)) / len(levels),
         )
@@ -248,7 +255,7 @@ def evaluate_heading_order(levels: list[int]) -> CheckResult:
 
 
 def check_heading_order(page: PageContext) -> list[CheckResult]:
-    return [evaluate_heading_order([level for level, _ in headings(parse(page.visible_html))])]
+    return [evaluate_heading_order([level for level, _ in headings(parse(page.visible_html))], page.editor)]
 
 
 # ---------- Image alt text
@@ -268,14 +275,18 @@ def image_address(attributes: dict) -> str:
     return ""
 
 
+NO_DESCRIPTION = "no description"
+
+
 def alt_problem(alt: str | None, address: str) -> str | None:
-    """Why alt text is not a real description, or None when it is one."""
+    """Why alt text is not a real description, or None when it is one: "no description" when there is none, or
+    "described only as '...'" when it is only the file name or the word "logo"."""
     alt = collapse(alt)
     if not alt:
-        return "no alt text"
+        return NO_DESCRIPTION
     stem = SIZE_SUFFIX.sub("", urlsplit(address).path.rsplit("/", 1)[-1].rsplit(".", 1)[0])
-    if IMAGE_FILE.match(alt) or (stem and alt.lower() == stem.lower()):
-        return f"alt text is only the file name (\"{alt}\")"
+    if IMAGE_FILE.match(alt) or (stem and alt.lower() == stem.lower()) or alt.lower() == "logo":
+        return f"described only as '{alt}'"
     return None
 
 
@@ -306,7 +317,7 @@ def _decorative(alt: str | None) -> bool:
     return alt is not None and not collapse(alt)
 
 
-def evaluate_alt_text(images: list[tuple], rendered: bool = False) -> CheckResult:
+def evaluate_alt_text(images: list[tuple], rendered: bool = False, editor: str = "") -> CheckResult:
     """images is [(address, alt)] or [(address, alt, role)] for every <img>, including lazy-loaded ones below
     the fold. role is "link" or "logo" for an image that must have a description. alt is None when the image has
     no alt attribute at all, and "" when it is left blank on purpose. rendered: the images come from the page
@@ -334,36 +345,49 @@ def evaluate_alt_text(images: list[tuple], rendered: bool = False) -> CheckResul
                "only load when a visitor scrolls down." if rendered else "We counted every image in the page as "
                "delivered, including ones that only load when a visitor scrolls down and any the page hides.")
     details = [f"{total - len(lacking)} of {total} images have a description. {counted}"]
-    details += _more([f"Needs one ({'your logo' if role == 'logo' else 'inside a link'}): {address or '(no address)'}: "
+    def what(address: str, role: str | None) -> str:
+        # An image with no readable address is named by where it is, with no guess at what it shows.
+        if address:
+            return address
+        return "one linked image (no readable address)" if role == "link" else "one image (no readable address)"
+    details += _more([f"Needs one ({'logo image' if role == 'logo' else 'inside a link'}): {what(address, role)}: "
                       f"{problem}" for address, _, role, problem in must])
-    details += _more([f"No description: {address or '(no address)'}: {problem}" for address, _, _, problem in unclear])
-    details += _more([f"Left blank on purpose, which is right for decoration: {address or '(no address)'}"
+    details += _more([f"Not described: {what(address, None)}: {problem}" for address, _, _, problem in unclear])
+    details += _more([f"Left blank on purpose, which is right for decoration: {what(address, None)}"
                       for address, *_ in blank])
 
+    def counted_as(n: int, singular: str, plural: str) -> str:
+        return f"{n} {singular if n == 1 else plural}"
+
+    missing = [row for row in lacking if row[3] == NO_DESCRIPTION]
+    weak = [row for row in lacking if row[3] != NO_DESCRIPTION]
     noun = "image" if total == 1 else "images"
-    fact = (f"{len(lacking)} of {total} {noun} on your home page {'has' if len(lacking) == 1 else 'have'} no "
-            "description.")
+    weakly = "described only by a file name or the word 'logo'"
+    if missing:
+        fact = (f"{len(missing)} of {total} {noun} on your home page {'has' if len(missing) == 1 else 'have'} no "
+                "description")
+        if weak:
+            fact += f", and {len(weak)} {'is' if len(weak) == 1 else 'are'} {weakly}"
+    else:
+        fact = f"{len(weak)} of {total} {noun} on your home page {'is' if len(weak) == 1 else 'are'} {weakly}"
+    fact += "."
     if must:
-        logo = any(row[2] == "logo" for row in must)
+        logos = sum(1 for row in must if row[2] == "logo")
         linked = sum(1 for row in must if row[2] == "link")
-        if logo and linked:
-            need = f"Your logo and {linked} image{'s' if linked != 1 else ''} inside a link need one."
-        elif logo:
-            need = "Your logo needs one."
-        else:
-            need = f"{linked} {'image inside a link needs' if linked == 1 else 'images inside a link need'} one."
-        fact += " " + need
+        parts = ([counted_as(logos, "logo image", "logo images")] if logos else []) + (
+            [counted_as(linked, "linked image", "linked images")] if linked else [])
+        fact += f" {' and '.join(parts)} {'needs' if len(must) == 1 else 'need'} a real description."
     elif len(lacking) == 1:
-        fact += " It is not inside a link and is not your logo."
+        fact += " It is not inside a link and is not a logo."
     elif lacking:
-        fact += " None of them is inside a link or is your logo."
+        fact += " None of them is inside a link or is a logo."
     measure = (total - problems) / total
     if must or measure < ALT_TEXT_PASS_SHARE:
         return result(
             Status.WARN, fact,
-            "In your website builder, add a short description to each image the technical details list as "
-            "needing one or as having none, starting with your logo and any image inside a link. An image that is "
-            "only decoration can be left blank.",
+            f"{where(editor)}, add a short description to each image the technical details list as needing one "
+            "or as not described, starting with logo images and images inside a link. An image that is only "
+            "decoration can be left blank.",
             details, measure=measure)
     return result(Status.PASS, fact if lacking else f"{total} of {total} {noun} on your home page "
                   f"{'has' if total == 1 else 'have'} a description.", details=details)
@@ -375,6 +399,6 @@ def check_alt_text(page: PageContext) -> list[CheckResult]:
         for node in parse(page.visible_html).css("img")
         if not inside(node, "noscript")  # a copy for visitors without JavaScript, not a second image
     ]
-    return [evaluate_alt_text(images, rendered=page.rendered)]
+    return [evaluate_alt_text(images, rendered=page.rendered, editor=page.editor)]
 
 

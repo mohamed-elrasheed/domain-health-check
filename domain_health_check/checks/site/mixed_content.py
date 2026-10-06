@@ -15,6 +15,7 @@ from selectolax.parser import HTMLParser
 
 from ...fetcher import PageContext
 from ...models import SITE, CheckResult, Status
+from ._editor import where
 
 NAME = "Mixed content"
 KINDS = ("image", "script", "stylesheet", "font", "iframe")
@@ -24,8 +25,8 @@ EXPLANATION = (
     "Your page is served securely, but it also loads some files over an insecure connection. Browsers block some "
     "of those files, which can break parts of the page, and can stop showing the page as fully secure."
 )
-FIX = ("In your website builder, change each address listed in the technical details from http:// to https://, or "
-       "replace the file with a copy uploaded to your site.")
+FIX = ("{where}, change each address listed in the technical details from http:// to https://, or replace the file "
+       "with a copy uploaded to your site.")
 
 
 def delivered_resources(html: str, base: str) -> list[tuple[str, str]]:
@@ -46,7 +47,8 @@ def delivered_resources(html: str, base: str) -> list[tuple[str, str]]:
     return [(urljoin(base, u.strip()), kind) for u, kind in found if u and u.strip()]
 
 
-def evaluate_mixed_content(page_url: str, resources: list[tuple[str, str]], rendered: bool) -> CheckResult:
+def evaluate_mixed_content(page_url: str, resources: list[tuple[str, str]], rendered: bool,
+                           editor: str = "") -> CheckResult:
     def result(status: Status, summary: str, fix: str = "", details=(), ran: bool = True) -> CheckResult:
         return CheckResult(SITE, NAME, status, summary, EXPLANATION, fix, list(details), ran)
 
@@ -68,10 +70,11 @@ def evaluate_mixed_content(page_url: str, resources: list[tuple[str, str]], rend
         details.append(f"And {len(items) - EXAMPLES} more.")
     noun = "file" if len(items) == 1 else "files"
     verb = "loads" if len(items) == 1 else "load"
-    return result(Status.WARN, f"{len(items)} {noun} on your home page {verb} over an insecure connection.", FIX,
+    return result(Status.WARN, f"{len(items)} {noun} on your home page {verb} over an insecure connection.",
+                  FIX.format(where=where(editor)),
                   details)
 
 
 def check_mixed_content(page: PageContext) -> list[CheckResult]:
     resources = page.resources if page.rendered else delivered_resources(page.html, page.final_url)
-    return [evaluate_mixed_content(page.final_url, resources, page.rendered)]
+    return [evaluate_mixed_content(page.final_url, resources, page.rendered, page.editor)]

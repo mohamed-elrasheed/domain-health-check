@@ -68,7 +68,7 @@ def test_links_fail(make_page):
                       "https://news.example.org/gone-story": httpx.Response(410)})
     results = linkcheck.verify(page, transport=transport)
     same, other = links.check_links(fetcher_replace(page, results))
-    assert same.status is Status.WARN and same.fix == links.FIX
+    assert same.status is Status.WARN and same.fix == links.FIX.format(where="Wherever you edit your site")
     assert same.summary == ("5 of 5 links on your home page to other pages on your site were verified, and 2 of "
                             "them do not work.")
     assert '"Specials" links to https://www.example.com/old-specials: status 404 (Not Found)' in same.details
@@ -175,7 +175,7 @@ def test_mixed_content_pass(make_page):
 
 def test_mixed_content_fail_lists_five_and_counts_the_rest(make_page):
     [result] = mixed_content.check_mixed_content(make_page(html=fixture("mixed-fail.html"), final_url=URL))
-    assert result.status is Status.WARN and result.fix == mixed_content.FIX
+    assert result.status is Status.WARN and result.fix == mixed_content.FIX.format(where="Wherever you edit your site")
     assert result.summary == "7 files on your home page load over an insecure connection."
     listed = [d for d in result.details if ": http://" in d]
     assert len(listed) == 5 and result.details[-1] == "And 2 more."
@@ -252,7 +252,7 @@ def test_favicon_missing_tries_favicon_ico_and_stops(make_page):
     soft_404 = httpx.Response(200, headers={"content-type": "text/html"}, text="<html>Not found</html>")
     attempts = icons(site({"/favicon.ico": soft_404}, seen), fixture("favicon-fail.html"), make_page=make_page)
     [result] = favicon.check_favicon(fetcher_icon(make_page, attempts))
-    assert result.status is Status.WARN and result.fix == favicon.FIX
+    assert result.status is Status.WARN and result.fix == favicon.FIX.format(where="Wherever you edit your site")
     assert result.summary.startswith("Your site has no browser tab icon")
     assert seen == [("GET", f"{URL}favicon.ico")]
 

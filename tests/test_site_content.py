@@ -106,7 +106,8 @@ def test_every_skip_is_counted(mizan_page):
 @pytest.mark.parametrize("levels, skips", [
     ([1, 2, 3, 2, 3], 0),
     ([2, 3], 0),       # starting at h2 skips nothing; the missing h1 is the main heading check's finding
-    ([3, 2], 1),       # an h3 before any h2
+    ([3, 2], 0),       # no h1: the first heading is not judged against the missing one (the main heading finding)
+    ([1, 3, 2], 1),    # with an h1, an h3 straight after it skips the h2
     ([1, 3], 1),
     ([1, 2, 3, 4, 1, 2], 0),
 ])
@@ -145,10 +146,11 @@ def test_useful_alt(alt, useful):
 def test_images_without_alt_warn_and_are_listed(mizan_page):
     page = with_body(mizan_page, '<img src="https://cdn.test/team.jpg"><img src="https://cdn.test/van.jpg" alt="van.jpg">')
     [result] = content.check_alt_text(page)
-    assert result.status is Status.WARN and result.summary.startswith("2 of 4 images on your home page have no "
-                                                                      "description.")
-    assert "No description: https://cdn.test/team.jpg: no alt text" in result.details
-    assert 'No description: https://cdn.test/van.jpg: alt text is only the file name ("van.jpg")' in result.details
+    assert result.status is Status.WARN and result.summary.startswith(
+        "1 of 4 images on your home page has no description, and 1 is described only by a file name or the word "
+        "'logo'.")
+    assert "Not described: https://cdn.test/team.jpg: no description" in result.details
+    assert "Not described: https://cdn.test/van.jpg: described only as 'van.jpg'" in result.details
 
 
 def test_noscript_copies_are_not_counted(mizan_page):
@@ -182,14 +184,15 @@ def test_file_name_alt_behind_a_lazy_placeholder_is_not_a_description(mizan_page
     # The real page had alt="icon1" on data-src=".../icon1.png" and we counted it as described.
     images = "".join(lazy_img(f"https://www.mizangroupllc.com/uploads/icon{i}.png", f"icon{i}") for i in range(1, 6))
     [result] = content.check_alt_text(with_body(mizan_page, images))
-    assert result.status is Status.WARN and "5 of 7" in result.summary
-    assert 'No description: https://www.mizangroupllc.com/uploads/icon1.png: alt text is only the file name ("icon1")' in result.details
+    assert result.status is Status.WARN
+    assert result.summary.startswith("5 of 7 images on your home page are described only by a file name")
+    assert "Not described: https://www.mizangroupllc.com/uploads/icon1.png: described only as 'icon1'" in result.details
 
 
 def test_details_name_the_real_image_not_the_placeholder(mizan_page):
     [result] = content.check_alt_text(with_body(mizan_page, lazy_img("https://www.mizangroupllc.com/uploads/team.jpg", None) * 3))
     assert not any("data:image" in d for d in result.details)
-    assert "No description: https://www.mizangroupllc.com/uploads/team.jpg: no alt text" in result.details
+    assert "Not described: https://www.mizangroupllc.com/uploads/team.jpg: no description" in result.details
 
 
 def test_wordpress_size_suffix_still_counts_as_the_file_name():
@@ -197,11 +200,16 @@ def test_wordpress_size_suffix_still_counts_as_the_file_name():
     assert content.useful_alt("Hardwood floor in a living room", "https://example.com/uploads/r-img1-300x232.jpg")
 
 
-def test_first_heading_skip_does_not_invent_an_h1():
-    result = content.evaluate_heading_order([3, 3, 2, 2, 3, 2, 4])
-    assert result.status is Status.WARN and "2 places" in result.summary
-    assert "Heading 1 of 7 is an h3 at the start of the page, before any h2" in result.details
-    assert not any("after an h1" in d for d in result.details)
+def test_a_skip_that_exists_only_because_the_main_heading_is_missing_is_not_counted_again():
+    only_that = content.evaluate_heading_order([3, 3, 2, 2, 3, 2, 3])
+    assert only_that.status is Status.PASS
+    assert ("The page has no main heading, so its first heading (an h3) is not judged against one. The main heading "
+            "finding covers that.") in only_that.details
+    another = content.evaluate_heading_order([3, 3, 2, 2, 3, 2, 4])
+    assert another.status is Status.WARN and another.summary == "Your home page skips a heading level in 1 place."
+    assert not any("at the start of the page" in d for d in another.details)
+    with_h1 = content.evaluate_heading_order([3, 1, 2])
+    assert "Heading 1 of 3 is an h3 at the start of the page, before any h2" in with_h1.details
 
 
 # ---------- Placeholder text from a website template (synthetic reproductions)
@@ -249,13 +257,13 @@ def test_mizan_title_and_description_are_not_placeholder(mizan_page):
 
 @pytest.mark.parametrize("images, summary", [
     ([("a.jpg", "A shop front")], "1 of 1 image on your home page has a description."),
-    ([("a.jpg", None)], "1 of 1 image on your home page has no description. It is not inside a link and is not your logo."),
+    ([("a.jpg", None)], "1 of 1 image on your home page has no description. It is not inside a link and is not a logo."),
     ([("a.jpg", None), ("b.jpg", None), ("c.jpg", "A van")],
-     "2 of 3 images on your home page have no description. None of them is inside a link or is your logo."),
+     "2 of 3 images on your home page have no description. None of them is inside a link or is a logo."),
     ([("a.jpg", None)] + [(f"{n}.jpg", "A van") for n in range(9)],
-     "1 of 10 images on your home page has no description. It is not inside a link and is not your logo."),
+     "1 of 10 images on your home page has no description. It is not inside a link and is not a logo."),
     ([("logo.png", None, "logo"), ("a.jpg", None, "link"), ("b.jpg", "A van")],
-     "2 of 3 images on your home page have no description. Your logo and 1 image inside a link need one."),
+     "2 of 3 images on your home page have no description. 1 logo image and 1 linked image need a real description."),
 ])
 def test_alt_text_counts_read_as_english(images, summary):
     assert content.evaluate_alt_text(images).summary == summary
@@ -266,9 +274,9 @@ def test_the_logo_and_linked_images_must_have_a_description(mizan_page):
                                  '<a href="/menu"><img src="https://cdn.test/menu.jpg" alt=""></a>')
     [result] = content.check_alt_text(page)
     assert result.status is Status.WARN
-    assert result.summary.endswith("Your logo and 1 image inside a link need one.")
-    assert "Needs one (your logo): https://cdn.test/brand.png: no alt text" in result.details
-    assert "Needs one (inside a link): https://cdn.test/menu.jpg: no alt text" in result.details
+    assert result.summary.endswith("1 logo image and 1 linked image need a real description.")
+    assert "Needs one (logo image): https://cdn.test/brand.png: no description" in result.details
+    assert "Needs one (inside a link): https://cdn.test/menu.jpg: no description" in result.details
 
 
 def test_a_blank_decorative_image_is_never_called_a_problem():
@@ -276,15 +284,32 @@ def test_a_blank_decorative_image_is_never_called_a_problem():
     result = content.evaluate_alt_text(images)
     assert result.status is Status.PASS
     assert result.summary == ("1 of 2 images on your home page has no description. It is not inside a link and is "
-                              "not your logo.")
+                              "not a logo.")
     assert "Left blank on purpose, which is right for decoration: https://cdn.test/swirl.png" in result.details
-    assert not any(d.startswith(("Needs one", "No description")) for d in result.details)
+    assert not any(d.startswith(("Needs one", "Not described")) for d in result.details)
 
 
 def test_on_wordpress_the_seo_fields_point_to_a_plugin_and_name_none():
     from domain_health_check.checks.site import sharing
-    for fix in (content.evaluate_description([], cms="WordPress").fix,
-                sharing.evaluate_social_preview({}, cms="WordPress").fix):
+    for fix in (content.evaluate_description([], editor="WordPress").fix,
+                sharing.evaluate_social_preview({}, editor="WordPress").fix):
         assert "SEO plugin" in fix and "tune-up" in fix
         assert not any(name in fix for name in ("Yoast", "Rank Math", "All in One", "SEOPress"))
     assert "SEO plugin" not in content.evaluate_description([]).fix
+
+
+def test_logo_images_are_counted_and_an_unreadable_linked_image_is_not_guessed_at(mizan_page):
+    page = with_body(mizan_page, '<a href="/"><img class="custom-logo" src="https://cdn.test/logo.webp"></a>'
+                                 '<a href="/"><img class="custom-logo" src="https://cdn.test/logo.webp" alt="logo"></a>'
+                                 '<img src="https://cdn.test/footer-logo.webp">'
+                                 '<a href="/quote"><img data-src=""></a>')
+    [result] = content.check_alt_text(page)
+    assert result.summary.endswith("3 logo images and 1 linked image need a real description.")
+    assert "Needs one (logo image): https://cdn.test/logo.webp: described only as 'logo'" in result.details
+    assert "Needs one (inside a link): one linked image (no readable address): no description" in result.details
+
+
+def test_the_word_logo_alone_is_described_only_as_logo():
+    assert content.alt_problem("logo", "https://cdn.test/brand.png") == "described only as 'logo'"
+    assert content.alt_problem("Logo", "https://cdn.test/brand.png") == "described only as 'Logo'"
+    assert content.alt_problem("Harbor Lane Bakery logo", "https://cdn.test/brand.png") is None

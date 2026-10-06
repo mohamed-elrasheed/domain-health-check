@@ -87,7 +87,9 @@ class PageContext:
     resources: list[tuple[str, str]] = field(default_factory=list)
     links: list | None = None  # linkcheck.LinkResult for each link verified; None when verification did not run
     favicon: list[FetchedIcon] | None = None  # each icon request, in order; None when we did not look
-    cms: str = ""  # the content management system the page runs on (platform.detect_cms), "" when not recognized
+    # Where the owner edits the site, for the wording of every self fix: a recognized hosted builder's name, or
+    # "WordPress", or "" when neither was recognized (checks/site/_editor.py).
+    editor: str = ""
 
     @property
     def rendered(self) -> bool:

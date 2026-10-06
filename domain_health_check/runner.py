@@ -105,8 +105,8 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
         incomplete.append(f"The site's icon could not be checked: {icon_failure}")
     detected = platform.detect(page) if isinstance(page, PageContext) else None
     cms = platform.detect_cms(page) if isinstance(page, PageContext) else None
-    if cms:
-        page = replace(page, cms=cms.name)
+    if detected or cms:
+        page = replace(page, editor=detected.name if detected else cms.name)
     ext = _fetch_external(domain, page)
     if isinstance(page, PageContext) and not ext.psi_mobile:
         why = ext.errors.get("psi_mobile") or ("PAGESPEED_API_KEY is not set" if not ext.pagespeed_configured

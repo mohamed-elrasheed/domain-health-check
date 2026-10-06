@@ -39,7 +39,7 @@ prices:
 rungs:
   self:
     label: "Fix it yourself"
-    intro: "You can do these yourself, without a developer."
+    intro: "Changes you, or whoever edits your site, can make in its editor."
     shows: fix
     column: "What to do"
     prices: []

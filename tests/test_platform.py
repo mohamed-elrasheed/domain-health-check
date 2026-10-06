@@ -178,3 +178,65 @@ def test_every_cms_signal_cites_a_source():
         for kind in ("generator", "paths", "links"):
             for entry in spec.get(kind) or []:
                 assert entry.get("source", "").startswith("https://developer.wordpress.org/"), (name, kind, entry)
+
+
+
+# ---------- one opening phrase per platform for every self fix
+
+BROKEN_PAGE = ("<html><head><meta name='generator' content='WordPress 6.6'></head><body>"
+               "<h3>Start</h3><h2>A</h2><h4>B</h4>"
+               "<a href='/'><img class='custom-logo' src='/wp-content/uploads/logo.png'></a>"
+               "<img src='/wp-content/uploads/team.jpg'><img src='http://img.example.net/x.jpg' alt='A van'>"
+               "<a href='/gone'>Gone</a><a href='https://elsewhere.example.org/gone'>Gone too</a></body></html>")
+
+
+def run_on(monkeypatch, html: str):
+    import httpx
+
+    from domain_health_check import fetcher, linkcheck, runner
+    from domain_health_check.config import DomainConfig
+    from domain_health_check.external import ExternalContext
+    from domain_health_check.fetcher import FetchedFile, PageContext
+
+    def gone(request):
+        return httpx.Response(404 if "gone" in request.url.path else 200)
+    page = PageContext("https://www.example.com/", "https://www.example.com/", [], 200, {}, html, len(html), 100, 50,
+                       FetchedFile("https://www.example.com/robots.txt", 200, "User-agent: *\nAllow: /\n"), None)
+    monkeypatch.setattr(runner, "_domain_exists", lambda name: True)
+    monkeypatch.setattr(runner, "_fetch_page", lambda name: page)
+    monkeypatch.setattr(runner, "_fetch_external", lambda domain, page: ExternalContext())
+    monkeypatch.setattr(linkcheck, "TRANSPORT", httpx.MockTransport(gone))
+    monkeypatch.setattr(fetcher, "ICON_TRANSPORT", httpx.MockTransport(lambda r: httpx.Response(404)))
+    return runner.run_checks(DomainConfig("example.com"), NOW)
+
+
+def self_fixes(report: DomainReport) -> dict[str, str]:
+    return {r.name: r.fix for r in report.results if r.ran and r.status is Status.WARN
+            and layout.rung(r, report).key == "self" and r.category == SITE}
+
+
+def test_no_self_fix_says_website_builder_on_wordpress(monkeypatch):
+    report = run_on(monkeypatch, BROKEN_PAGE)
+    fixes = self_fixes(report)
+    assert report.cms == "WordPress"
+    assert {"Main heading", "Meta description", "Image alt text", "Heading order", "Social preview", "Broken links",
+            "Mixed content", "Favicon", "Links to other sites"} <= set(fixes)
+    assert not {name: fix for name, fix in fixes.items() if "website builder" in fix.lower()}
+    assert all(fix.startswith("In WordPress") for fix in fixes.values()), fixes
+
+
+@pytest.mark.parametrize("head, opening", [
+    ("<meta content='Webflow' name='generator'>", "In Webflow"),
+    ("", "Wherever you edit your site"),
+])
+def test_each_platform_gets_one_shared_opening(monkeypatch, head, opening):
+    report = run_on(monkeypatch, BROKEN_PAGE.replace("<meta name='generator' content='WordPress 6.6'>", head)
+                    .replace("/wp-content/uploads/", "/images/"))
+    fixes = self_fixes(report)
+    assert fixes and all(fix.startswith(opening) for fix in fixes.values()), fixes
+
+
+def test_the_fix_it_yourself_intro_is_the_same_on_every_platform():
+    assert layout.SELF_INTRO == "Changes you, or whoever edits your site, can make in its editor."
+    assert pricelist.load().rungs["self"].intro == layout.SELF_INTRO
+    assert "without a developer" not in render_markdown(report(""))

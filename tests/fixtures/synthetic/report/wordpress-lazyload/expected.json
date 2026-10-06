@@ -4,6 +4,6 @@
               "content-security-policy": "default-src 'self' https:", "x-content-type-options": "nosniff"},
   "findings": [
     {"check": "Heading order", "status": "WARN", "says": "skips a heading level in 1 place"},
-    {"check": "Image alt text", "status": "WARN", "says": "2 of 4 images on your home page have no description"}
+    {"check": "Image alt text", "status": "WARN", "says": "2 of 4 images on your home page are described only by a file name"}
   ]
 }

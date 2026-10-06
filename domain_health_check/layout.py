@@ -8,7 +8,7 @@ finding without any error.
 Sections, per docs/REPORT-SPEC.md:
   1. header: domain, date, score and a reading that says plainly whether anything is broken
   2. worth doing: the three confirmed findings that cost the owner most, in brief
-  3. fix it yourself: confirmed findings the owner can fix from their website builder or Google profile
+  3. fix it yourself: confirmed findings the owner, or whoever edits the site, can fix in its editor
   4. needs a developer: every other confirmed finding
   5. worth checking: findings we could not confirm, near the end, in honest wording
   6. everything we checked, what is already working, what we could not check
@@ -36,8 +36,7 @@ TOP = 3
 NO_SCORE = "Score: not available - we could not load your website."
 
 
-SELF_INTRO = ("You can do these yourself, from your website builder, your Google Business Profile or your domain "
-              "registrar, without a developer.")
+SELF_INTRO = "Changes you, or whoever edits your site, can make in its editor."
 DEVELOPER_INTRO = ("These involve your domain settings, your server or your site's code. Pass them to whoever looks "
                    "after your website and email.")
 PRICES_HEADING = "Findings and our published prices"
@@ -251,8 +250,8 @@ def next_steps(report: DomainReport) -> list[tuple[str, str]]:
         first = ("The items marked as needing action are broken today, so they are worth doing first. The rest are "
                  "worth passing to whoever looks after your website and email.")
     elif fix_yourself(report):
-        first = ("Nothing here is urgent. You can do the items under \"Fix it yourself\" without a developer; the "
-                 "rest are worth passing to whoever looks after your website and email.")
+        first = ("Nothing here is urgent. You, or whoever edits your site, can make the changes under \"Fix it "
+                 "yourself\" in its editor; the rest are worth passing to whoever looks after your website and email.")
     else:
         first = ("Nothing here is urgent. The items above are worth passing to whoever looks after your website and "
                  "email.")

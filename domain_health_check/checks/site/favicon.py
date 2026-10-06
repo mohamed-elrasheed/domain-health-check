@@ -11,6 +11,7 @@ from __future__ import annotations
 from ...fetcher import FetchedIcon, PageContext
 from ...models import SITE, CheckResult, Status
 from ...platform import default_icon
+from ._editor import where
 
 NAME = "Favicon"
 
@@ -18,8 +19,8 @@ EXPLANATION = (
     "The favicon is the small picture in a browser tab, a bookmark, and sometimes next to your site in search "
     "results. Your own icon helps people spot your site among their open tabs and recognize it as yours."
 )
-FIX = ("In your website builder, open the site settings and upload a square version of your logo as the favicon, "
-       "sometimes called the site icon.")
+FIX = ("{where}, open the site settings and upload a square version of your logo as the favicon, sometimes called "
+       "the site icon.")
 
 
 def _line(icon: FetchedIcon) -> str:
@@ -31,7 +32,7 @@ def _line(icon: FetchedIcon) -> str:
     return f"{icon.url} ({named}{where}): status {icon.status}, {kind}{'' if icon.image else ', not an image'}"
 
 
-def evaluate_favicon(attempts: list[FetchedIcon]) -> CheckResult:
+def evaluate_favicon(attempts: list[FetchedIcon], editor: str = "") -> CheckResult:
     details = [_line(a) for a in attempts]
 
     def result(status: Status, summary: str, fix: str = "", ran: bool = True) -> CheckResult:
@@ -45,11 +46,11 @@ def evaluate_favicon(attempts: list[FetchedIcon]) -> CheckResult:
             return result(Status.WARN, f"We could not check your site's icon, because {why}.",
                           "Nothing to do based on this report.", ran=False)
         return result(Status.WARN, "Your site has no browser tab icon, so tabs and bookmarks show a blank page "
-                                   "symbol instead.", FIX)
+                                   "symbol instead.", FIX.format(where=where(editor)))
     builder = default_icon(found.url, found.final_url)
     if builder:
         return result(Status.WARN, f"Your site shows the standard {builder} icon in browser tabs rather than your "
-                                   "own.", FIX)
+                                   "own.", FIX.format(where=where(editor)))
     return result(Status.PASS, "Your site has its own browser tab icon.")
 
 
@@ -57,4 +58,4 @@ def check_favicon(page: PageContext) -> list[CheckResult]:
     if page.favicon is None:
         return [CheckResult(SITE, NAME, Status.WARN, "We did not check your site's icon this time.", EXPLANATION,
                             "Nothing to do based on this report.", [], ran=False)]
-    return [evaluate_favicon(page.favicon)]
+    return [evaluate_favicon(page.favicon, page.editor)]
