@@ -1,0 +1,21 @@
+# Where report requests come from: the form on /digital, read through the Webflow API.
+#
+# Every value below is read from our own /digital page, saved in tests/fixtures/mizangroupllc.com/digital.html,
+# and a test checks each one against that page:
+#   site_id   <html data-wf-site="...">
+#   page_id   <form data-wf-page-id="...">: the /digital form, not the similar "Email Form" on the home page
+#   fields    each input's data-name, which is how Webflow labels the field
+#
+# The token is WEBFLOW_API_TOKEN in .env, a Webflow API token with read access to forms only. It is never
+# printed, logged or written anywhere else.
+
+api: https://api.webflow.com/v2
+site_id: "6a8c851def85a59914b1c2e5"
+page_id: "6abe839f740937c87b7319c3"
+fields:
+  name: "Name"
+  email: "Email"
+  phone: "Field"
+  business_name: "Business name"
+  city: "City or ZIP"
+  website: "Field 2"

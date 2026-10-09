@@ -26,6 +26,11 @@ from .models import DomainReport, Status
 
 DEFAULT_HOST = "smtp.gmail.com"
 DEFAULT_PORT = 587
+# The only address this tool ever sends to. Hard-coded, not configurable: no setting, argument or submission can
+# make it send anywhere else, and send() refuses any message addressed to anyone else.
+REVIEWER = "mo@mizangroupllc.com"
+REVIEW_SUBJECT = "REVIEW BEFORE SENDING"
+FAILED_SUBJECT = "REPORT RUN FAILED"
 
 
 class MailerNotConfigured(RuntimeError):
@@ -38,7 +43,10 @@ class MailerConfig:
     port: int
     username: str
     password: str = field(repr=False)  # never in a repr, so never in a traceback or a log line
-    recipient: str = ""
+
+    @property
+    def recipient(self) -> str:
+        return REVIEWER
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "MailerConfig":
@@ -56,7 +64,6 @@ class MailerConfig:
             port=int(env.get("SMTP_PORT", DEFAULT_PORT)),
             username=username,
             password=password,
-            recipient=env.get("REPORT_RECIPIENT", username).strip(),
         )
 
 
@@ -84,7 +91,7 @@ def build_message(cfg: MailerConfig, domain: str, pdf: Path, *, score: int | Non
                   band: str, counts: dict[str, int], headlines: list[str], unreachable: str = "") -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = cfg.username
-    msg["To"] = cfg.recipient
+    msg["To"] = REVIEWER
     # The fixed phrase is what a mail filter matches on. Do not reword it.
     msg["Subject"] = f"Website health report · {domain}" + (f" · {score} out of 100" if score is not None else "")
     # Every report is report.pdf on disk; the attachment is named for the domain and the run day.
@@ -97,7 +104,8 @@ def build_message(cfg: MailerConfig, domain: str, pdf: Path, *, score: int | Non
 def message_for(cfg: MailerConfig, report: DomainReport, pdf: Path) -> EmailMessage:
     """The email for one report, from the same layout the documents use."""
     score, band = layout.headline(report)
-    counts = {"checks passed": report.count(Status.PASS), "could be improved": report.count(Status.WARN),
+    counts = {"checks passed" if report.count(Status.PASS) != 1 else "check passed": report.count(Status.PASS),
+              "could be improved": report.count(Status.WARN),
               "need action": report.count(Status.FAIL), "for information": report.count(Status.INFO),
               "not checked": len(report.not_checked)}
     # The same list as the report's top section and its one-line reading: one list, three surfaces. If the
@@ -111,16 +119,94 @@ class SendFailed(RuntimeError):
     """Sending failed. The message never contains the password."""
 
 
+class WrongRecipient(RuntimeError):
+    """A message addressed to anyone but the reviewer. Never sent."""
+
+
+def recipients(msg: EmailMessage) -> set[str]:
+    from email.utils import getaddresses
+    return {address.lower() for _, address in getaddresses(msg.get_all("To", []) + msg.get_all("Cc", [])
+                                                           + msg.get_all("Bcc", []))}
+
+
 def send(msg: EmailMessage, cfg: MailerConfig, *, smtp_factory=smtplib.SMTP) -> None:
-    """Send one message. smtp_factory is injectable so tests never open a socket.
+    """Send one message, to the reviewer and nobody else. smtp_factory is injectable so tests never open a socket.
 
     starttls gets a verifying context: smtplib's default does not check the server's certificate, so
     anything in between could pose as smtp.gmail.com and collect the app password."""
+    if recipients(msg) != {REVIEWER}:
+        raise WrongRecipient(f"Refused to send: this tool only ever emails {REVIEWER}, and this message was "
+                             f"addressed to {', '.join(sorted(recipients(msg))) or 'nobody'}.")
     try:
         with smtp_factory(cfg.host, cfg.port, timeout=30) as server:
             server.starttls(context=ssl.create_default_context())
             server.login(cfg.username, cfg.password)
-            server.send_message(msg)
+            server.send_message(msg, to_addrs=[REVIEWER])
     except (smtplib.SMTPException, OSError) as exc:
         reason = f"{type(exc).__name__}: {exc}".replace(cfg.password, "<password>")
         raise SendFailed(f"Could not send the report to {cfg.recipient}. {reason}") from None
+
+
+# ---------- the automated pipeline: every message to the reviewer, none to the business
+
+EXIT_MEANING = {0: "complete", 2: "the run could not do what was asked", 3: "written, but incomplete"}
+
+
+def draft_to_business(report: DomainReport) -> str:
+    """A draft for the reviewer to edit and send, if they choose. It names the top three findings and asks nothing
+    of the business: no call, no reply, no offer. Team voice, plain English."""
+    lines = ["Hello,", "", f"Thank you for asking us to look at {report.domain}. Your report is attached.", ""]
+    worth = layout.worth_doing(report)
+    if worth:
+        lines += ["These are the findings we would look at first:", ""]
+        lines += [f"- {r.name}: {r.summary}" for r in worth]
+    else:
+        lines += [layout.NOTHING_FIRST]
+    lines += ["", "Each finding in the report says what we found, why it matters and what to do about it.", "",
+              "Mizan Digital Services", f"{layout.contact()['phone']} · {layout.contact()['email']}"]
+    return "\n".join(lines)
+
+
+def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, exit_code: int,
+                   submitted: str) -> EmailMessage:
+    """The reviewer's copy of one automated run: the PDF, the exit code, anything incomplete, and a draft to the
+    business that is never sent by this tool."""
+    score, band = layout.headline(report)
+    msg = EmailMessage()
+    msg["From"] = cfg.username
+    msg["To"] = REVIEWER
+    msg["Subject"] = (f"{REVIEW_SUBJECT} · {report.domain}" + (f" · {score} out of 100" if score is not None else ""))
+    incomplete = [f"- {reason}" for reason in report.incomplete] or ["- none"]
+    lines = [f"Report for {report.domain}, run {report.checked_at:%d %B %Y at %H:%M} UTC.", "",
+             f"Exit code: {exit_code} ({EXIT_MEANING.get(exit_code, 'unexpected')}).", "",
+             "Incomplete:", *incomplete, "",
+             f"Score: {score} out of 100. {band}" if score is not None else band, "",
+             f"Requested: {submitted}", "",
+             "The PDF is attached." if pdf else "No PDF could be written; the Markdown report is on disk.",
+             "Nothing has been sent to the business. Read the report before anything goes to them.", "",
+             "Draft message to the business (not sent):", "-" * 40, draft_to_business(report), "-" * 40]
+    msg.set_content("\n".join(lines))
+    if pdf:
+        msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf",
+                           filename=f"{report.domain}-{pdf.parent.name}.pdf")
+    return msg
+
+
+def failure_message(cfg: MailerConfig, what: str, error: str) -> EmailMessage:
+    """A failed run never goes silent: the reviewer gets the error."""
+    msg = EmailMessage()
+    msg["From"] = cfg.username
+    msg["To"] = REVIEWER
+    msg["Subject"] = f"{FAILED_SUBJECT} · {what}"
+    msg.set_content(f"{what} failed.\n\n{error}\n\nNothing was sent to anyone else.")
+    return msg
+
+
+def notice_message(cfg: MailerConfig, subject: str, body: str) -> EmailMessage:
+    """Something the reviewer should know about a submission that produced no report."""
+    msg = EmailMessage()
+    msg["From"] = cfg.username
+    msg["To"] = REVIEWER
+    msg["Subject"] = subject
+    msg.set_content(body)
+    return msg

@@ -72,7 +72,9 @@ domain_health_check/
 ├── layout.py       # what each report section says, shared by both formats
 ├── report.py       # DomainReport -> markdown
 ├── pdf.py          # DomainReport -> PDF (WeasyPrint)
-├── mailer.py       # sends a finished report to Mo, never to the site owner
+├── mailer.py       # sends a finished report to Mo, never to the site owner (REVIEWER is hard-coded)
+├── intake.py       # reads new /digital form submissions through the Webflow API
+├── pipeline.py     # intake -> consent -> report -> email Mo the review; never the business
 ├── terminal.py     # DomainReport -> console
 ├── dns_utils.py
 └── checks/         # each public check_* returns list[CheckResult]

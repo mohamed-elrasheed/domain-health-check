@@ -198,3 +198,11 @@ def fake_dns(monkeypatch):
     # records[(name, "NXDOMAIN")] = True makes the domain not exist at all.
     monkeypatch.setattr(dns_utils, "domain_exists", lambda name: not records.get((name.lower(), "NXDOMAIN")))
     return records
+
+
+@pytest.fixture(autouse=True)
+def pipeline_state_stays_in_tmp(tmp_path, monkeypatch):
+    """No test may write the real intake log or the record of submissions already seen."""
+    from domain_health_check import intake, pipeline
+    monkeypatch.setattr(pipeline, "LOG", tmp_path / "pipeline-logs" / "intake.log")
+    monkeypatch.setattr(intake, "SEEN", tmp_path / "pipeline-logs" / "intake-seen.json")

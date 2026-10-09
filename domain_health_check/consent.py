@@ -83,13 +83,23 @@ class Submission:
     email: str
     received: date
     source: str
+    # From the /digital form, exactly as submitted, for the Google Business Profile lookup. Empty when not given.
+    business_name: str = ""
+    city: str = ""
+    phone: str = ""
+    submission_id: str = ""  # Webflow's id for the form submission, so it is never processed twice
 
     def as_yaml(self) -> dict:
-        return {"domain": self.domain, "email": self.email, "received": self.received.isoformat(),
-                "source": self.source}
+        record = {"domain": self.domain, "email": self.email, "received": self.received.isoformat(),
+                  "source": self.source}
+        for key in ("business_name", "city", "phone", "submission_id"):
+            if getattr(self, key):
+                record[key] = getattr(self, key)
+        return record
 
 
-def validate(domain: str, email: str, received: date | str, source: str) -> Submission:
+def validate(domain: str, email: str, received: date | str, source: str, business_name: str = "", city: str = "",
+             phone: str = "", submission_id: str = "") -> Submission:
     if source not in SOURCES:
         raise SubmissionError(f"source must be one of {', '.join(SOURCES)}, not {source!r}")
     email = (email or "").strip()
@@ -102,7 +112,8 @@ def validate(domain: str, email: str, received: date | str, source: str) -> Subm
             received = date.fromisoformat(received)
         except ValueError:
             raise SubmissionError(f"received must be a date like 2026-10-05, not {received!r}") from None
-    return Submission(_bare(domain), email, received, source)
+    return Submission(_bare(domain), email, received, source, (business_name or "").strip(), (city or "").strip(),
+                      (phone or "").strip(), (submission_id or "").strip())
 
 
 def load_submissions(path: Path) -> dict[str, Submission]:
@@ -117,7 +128,8 @@ def load_submissions(path: Path) -> dict[str, Submission]:
     for record in records:
         try:
             submission = validate(str(record["domain"]), record.get("email", ""), str(record["received"]),
-                                  record["source"])
+                                  record["source"], str(record.get("business_name", "")), str(record.get("city", "")),
+                                  str(record.get("phone", "")), str(record.get("submission_id", "")))
         except (KeyError, TypeError) as exc:
             raise SubmissionError(f"{path}: a record is missing {exc}") from None
         found[submission.domain] = submission

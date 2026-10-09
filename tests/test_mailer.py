@@ -36,8 +36,9 @@ class FakeSMTP:
         if self.fail_with:
             raise self.fail_with
 
-    def send_message(self, msg):
+    def send_message(self, msg, to_addrs=None):
         self.sent.append(msg)
+        self.to_addrs = to_addrs
 
 
 @pytest.fixture(autouse=True)
@@ -66,8 +67,9 @@ def config() -> mailer.MailerConfig:
 def test_config_defaults_and_recipient():
     cfg = config()
     assert (cfg.host, cfg.port, cfg.recipient) == ("smtp.gmail.com", 587, "mo@mizangroupllc.com")
-    assert mailer.MailerConfig.from_env({**ENV, "REPORT_RECIPIENT": "review@mizangroupllc.com"}).recipient == \
-        "review@mizangroupllc.com"
+    # The recipient is hard-coded: no setting can point it anywhere else.
+    assert mailer.MailerConfig.from_env({**ENV, "REPORT_RECIPIENT": "someone@example.com"}).recipient == \
+        "mo@mizangroupllc.com"
 
 
 def test_missing_settings_name_what_is_missing_but_never_the_password():
@@ -86,7 +88,7 @@ def test_message_format(pdf_file):
     assert msg["From"] == msg["To"] == "mo@mizangroupllc.com"
     body = msg.get_body(("plain",)).get_content()
     assert "Score " in body and "out of 100." in body
-    assert "1 checks passed, 1 could be improved." in body
+    assert "1 check passed, 1 could be improved." in body
     assert "DMARC" not in body  # email security never leads; the email lists the report's top section only
     assert f"The full report is attached as {pdf_file.name}." in body
     [attachment] = list(msg.iter_attachments())

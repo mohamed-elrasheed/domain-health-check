@@ -337,6 +337,28 @@ so their pages show the town rather than a street address that may be someone's 
 `"visits": "storefront"` (a dry cleaner) shows its address and directions instead. The name on the pages is the
 one the business uses on its own site, or our lead name exactly as recorded, never one made by trimming ours.
 
+### The automated pipeline
+
+`domain-health-check intake` reads new submissions to the form on /digital through the Webflow API, records each
+as consent (`source: form`, with the email, business name, city and phone exactly as submitted), runs the report
+with those details, and emails **mo@mizangroupllc.com only** the PDF, the exit code, anything incomplete and a
+draft message to the business. The subject starts with `REVIEW BEFORE SENDING`. The draft is never sent by the
+tool: nothing here can email anyone but that one address, which is hard-coded, and `mailer.send` refuses any
+message addressed to anyone else.
+
+- A domain on the lead list is skipped and logged, never run.
+- Each submission is processed once (`logs/intake-seen.json`, marked before the run starts).
+- A request with no website emails Mo a notice; any failure, in reading the form or in a run, emails Mo the error.
+- `WEBFLOW_API_TOKEN` in `.env` is a Webflow token with read access to forms only. It is never printed or logged.
+- `--submissions-file PATH` reads a saved API response instead of Webflow, for testing.
+
+Scheduled with Windows Task Scheduler (run from Command Prompt; the tasks run while you are logged in):
+
+```
+schtasks /Create /TN "Mizan\domain-health-check intake" /SC HOURLY /MO 1 /TR "cmd /c cd /d C:\Users\melra\projects\domain-health-check && .venv\Scripts\domain-health-check.exe intake >> logs\intake-task.log 2>&1" /F
+schtasks /Create /TN "Mizan\domain-health-check sweep" /SC WEEKLY /D MON /ST 08:00 /TR "cmd /c cd /d C:\Users\melra\projects\domain-health-check && .venv\Scripts\domain-health-check-sweep.exe >> logs\sweep-task.log 2>&1" /F
+```
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report

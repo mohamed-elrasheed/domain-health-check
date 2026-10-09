@@ -14,7 +14,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import __version__, consent, external, mailer
+from . import __version__, consent, external, intake, mailer, pipeline
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .pdf import write_pdf
 from .report import write_record, write_report
@@ -64,6 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--email", default="", help="the address it came from (required for form and email)")
     record.add_argument("--received", default=date.today().isoformat(),
                         help="the date it reached us, YYYY-MM-DD (default: today)")
+    pull = commands.add_parser("intake", help="read new /digital form submissions, run each report, and email the "
+                                              "reviewer; never the business")
+    pull.add_argument("--submissions-file", type=Path,
+                      help="a saved Webflow API response to read instead of Webflow, for testing")
+    pull.add_argument("-o", "--output", type=Path, default=Path("reports"), help="folder for the reports")
     return parser
 
 
@@ -74,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
         return record(args)
     if args.command == "report":
         return report(args)
+    if args.command == "intake":
+        return run_intake(args)
     parser.print_help(sys.stderr)
     return 2
 
@@ -198,3 +205,38 @@ def _email(report, pdf_path: Path, mail: mailer.MailerConfig) -> bool:
         return False
     print(f"  Emailed to {mail.recipient}")
     return True
+
+
+def run_intake(args) -> int:
+    """The scheduled hourly run. Exit 0 when every new submission was reported on and its review sent, 3 when a
+    report was incomplete, 2 when anything failed (the reviewer was emailed the error)."""
+    load_env(ENV_FILE)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    try:
+        mail = mailer.MailerConfig.from_env()
+    except (mailer.MailerNotConfigured, ValueError) as exc:  # nobody can be told, so say it here and stop
+        print(f"Error: {exc} Intake needs it to send the reviewer each report.", file=sys.stderr)
+        pipeline.log(f"FAILED: email is not configured, so intake did not run: {exc}")
+        return 2
+    for path in external.prune_cache():
+        print(f"Deleted a cached PageSpeed response older than 24 hours: {path.name}")
+    try:
+        found = intake.from_file(args.submissions_file) if args.submissions_file else intake.fetch()
+    except (intake.IntakeError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        pipeline.intake_failed(mail, str(exc), smtp_factory=SMTP_FACTORY)
+        return 2
+    outcome = pipeline.process(found, mail, output=args.output, submissions_path=SUBMISSIONS, leads_path=LEADS_FILE,
+                               run_log=RUN_LOG, smtp_factory=SMTP_FACTORY)
+    for domain in outcome.processed:
+        print(f"Reported on {domain} (exit code {outcome.exit_codes[domain]}); the review went to {mailer.REVIEWER}.")
+    for line in outcome.skipped:
+        print(f"Skipped {line}.")
+    for line in outcome.failed:
+        print(f"Failed: {line}", file=sys.stderr)
+    if not (outcome.processed or outcome.skipped or outcome.failed):
+        print("No new submissions.")
+    if outcome.failed:
+        return 2
+    return 3 if any(code == 3 for code in outcome.exit_codes.values()) else 0
