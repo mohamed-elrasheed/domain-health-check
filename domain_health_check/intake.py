@@ -60,16 +60,27 @@ def config(path: Path = PATH) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def parse(item: dict, fields: dict[str, str]) -> FormSubmission:
+def names(fields: dict) -> dict[str, list[str]]:
+    """Each field's accepted names, preferred first. A config value may be one name or a list of them."""
+    return {key: [value] if isinstance(value, str) else list(value) for key, value in fields.items()}
+
+
+def _first(response: dict[str, str], accepted: list[str]) -> str:
+    """The value under the first accepted name the submission has; "" when it has none of them."""
+    return next((response[name] for name in accepted if name in response), "")
+
+
+def parse(item: dict, fields: dict) -> FormSubmission:
     """One submission from the API's formSubmissions list, every value exactly as submitted."""
+    fields = names(fields)
     response = {str(k): "" if v is None else str(v) for k, v in (item.get("formResponse") or {}).items()}
     when = str(item.get("dateSubmitted") or "")[:10]
     try:
         submitted = date.fromisoformat(when)
     except ValueError:
         submitted = datetime.now().date()
-    known = set(fields.values())
-    return FormSubmission(str(item.get("id", "")), submitted, *(response.get(fields[k], "") for k in (
+    known = {name for accepted in fields.values() for name in accepted}
+    return FormSubmission(str(item.get("id", "")), submitted, *(_first(response, fields[k]) for k in (
         "name", "email", "phone", "business_name", "city", "website")),
         tuple(sorted(k for k in response if k not in known)))
 
@@ -123,18 +134,23 @@ def fetch_items(token: str | None = None, *, transport: httpx.BaseTransport | No
 class FieldCheck:
     submissions: int
     seen: dict[str, int]  # field name -> how many submissions carry it
-    expected: dict[str, str]  # our name -> Webflow's field name, from config/intake.yaml
+    expected: dict[str, list[str]]  # our name -> Webflow's accepted names, preferred first (config/intake.yaml)
     already_processed: int
+
+    def found_as(self, ours: str) -> str | None:
+        """The accepted name a submission carried for this field, preferred first, or None."""
+        return next((name for name in self.expected[ours] if name in self.seen), None)
 
     @property
     def missing(self) -> list[str]:
-        """Expected field names no submission carried."""
-        return sorted(name for name in self.expected.values() if name not in self.seen)
+        """Our fields for which no submission carried any accepted name."""
+        return sorted(ours for ours in self.expected if self.found_as(ours) is None)
 
     @property
     def unmapped(self) -> list[str]:
         """Field names that came back but intake does not read."""
-        return sorted(name for name in self.seen if name not in self.expected.values())
+        accepted = {name for names_ in self.expected.values() for name in names_}
+        return sorted(name for name in self.seen if name not in accepted)
 
 
 def check_fields(items: list[dict], seen_ids: set[str] | None = None) -> FieldCheck:
@@ -144,7 +160,7 @@ def check_fields(items: list[dict], seen_ids: set[str] | None = None) -> FieldCh
         for name in (item.get("formResponse") or {}):
             counts[str(name)] = counts.get(str(name), 0) + 1
     done = seen_ids if seen_ids is not None else seen()
-    return FieldCheck(len(items), counts, dict(config()["fields"]),
+    return FieldCheck(len(items), counts, names(config()["fields"]),
                       sum(1 for item in items if str(item.get("id", "")) in done))
 
 

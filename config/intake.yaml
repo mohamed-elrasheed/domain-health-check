@@ -1,12 +1,15 @@
 # Where report requests come from: the form on /digital, read through the Webflow API.
 #
-# Every value below is read from our own /digital page, saved in tests/fixtures/mizangroupllc.com/digital.html,
-# and a test checks each one against that page:
+# The ids below are read from our own /digital page, saved in tests/fixtures/mizangroupllc.com/digital.html, and a
+# test checks each one against that page:
 #   site_id   <html data-wf-site="...">
 #   page_id   <form data-wf-page-id="...">: the /digital form, not the similar "Email Form" on the home page
 #   form_element_id  <form data-wf-element-id="...">. Webflow keeps more than one form record for this one form
 #             (three on 2026-10-09), so intake reads every record with this page and element and merges them
-#   fields    each input's data-name, which is how Webflow labels the field
+#   fields    the names the Webflow API returns for each field, in order of preference. The first name of each
+#             is what a real submission returned on 2026-10-09 (Name, Email, Phone, Business name, City or ZIP,
+#             Website, Service, About); that is the authority, not the page. A later name is a fallback: the
+#             page's data-name ("Field", "Field 2"), which older submissions used.
 #
 # The token is WEBFLOW_API_TOKEN in .env, a Webflow API token with read access to forms only. It is never
 # printed, logged or written anywhere else.
@@ -16,9 +19,9 @@ site_id: "6a8c851def85a59914b1c2e5"
 page_id: "6abe839f740937c87b7319c3"
 form_element_id: "d125de94-1ce1-2a90-3671-3c4d83cb2bb0"
 fields:
-  name: "Name"
-  email: "Email"
-  phone: "Field"
-  business_name: "Business name"
-  city: "City or ZIP"
-  website: "Field 2"
+  name: ["Name"]
+  email: ["Email"]
+  phone: ["Phone", "Field"]
+  business_name: ["Business name"]
+  city: ["City or ZIP"]
+  website: ["Website", "Field 2"]

@@ -264,8 +264,9 @@ def _check_intake(args) -> int:
     for name in sorted(check.seen):
         print(f"  {name}: {check.seen[name]}")
     print("What intake reads:")
-    for ours, theirs in check.expected.items():
-        print(f"  {ours} <- {theirs}: {'present' if theirs in check.seen else 'NOT in any submission'}")
+    for ours, accepted in check.expected.items():
+        found = check.found_as(ours)
+        print(f"  {ours} <- {' or '.join(accepted)}: " + (f"present, as {found}" if found else "NOT in any submission"))
     if check.unmapped:
         print(f"Came back but not read by intake: {', '.join(check.unmapped)}")
     if not check.submissions:

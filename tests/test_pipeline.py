@@ -145,16 +145,22 @@ def test_the_intake_config_matches_our_own_digital_page():
     form = tree.css_first("form")
     assert form.attributes.get("data-wf-page-id") == cfg["page_id"]
     assert form.attributes.get("data-wf-element-id") == cfg["form_element_id"]
-    names = {n.attributes.get("data-name") for n in form.css("input, textarea, select")}
-    assert set(cfg["fields"].values()) <= names
+    # The page's data-names are the fallbacks; the API's names (first in each list) came from a real submission.
     by_id = {n.attributes.get("id"): n.attributes.get("data-name") for n in form.css("input")}
-    assert (by_id["phone"], by_id["website"], by_id["business-name"]) == (
-        cfg["fields"]["phone"], cfg["fields"]["website"], cfg["fields"]["business_name"])
+    assert by_id["phone"] in cfg["fields"]["phone"] and by_id["website"] in cfg["fields"]["website"]
+    assert by_id["business-name"] in cfg["fields"]["business_name"] and by_id["city"] in cfg["fields"]["city"]
+    assert [names[0] for names in cfg["fields"].values()] == ["Name", "Email", "Phone", "Business name",
+                                                              "City or ZIP", "Website"]
 
 
+# Field names as the API returned them for a real submission on 2026-10-09.
 SUBMISSION = {"id": "sub-1", "dateSubmitted": "2026-10-09T13:00:00.000Z", "formResponse": {
+    "Name": "Test Person", "Email": "mo@mizangroupllc.com", "Phone": "571.354.8352", "Business name": "Mizan Group LLC",
+    "City or ZIP": "Centreville, VA", "Website": "https://www.mizangroupllc.com/", "Service": "Website", "About": "x"}}
+# An older submission, under the page's data-names.
+OLD_SUBMISSION = {"id": "sub-0", "dateSubmitted": "2026-10-02T13:00:00.000Z", "formResponse": {
     "Name": "Test Person", "Email": "mo@mizangroupllc.com", "Field": "571.354.8352", "Business name": "Mizan Group LLC",
-    "City or ZIP": "Centreville, VA", "Field 2": "https://www.mizangroupllc.com/", "Field 3": "Website", "Field 4": "x"}}
+    "City or ZIP": "Centreville, VA", "Field 2": "mizangroupllc.com", "Field 3": "Website", "Field 4": "x"}}
 
 
 def webflow(seen: list, pages: list[list[dict]], token="secret-token-123"):
@@ -187,7 +193,7 @@ def test_fetch_finds_the_digital_form_and_reads_every_page(monkeypatch):
     first = next(s for s in found if s.id == "sub-1")
     assert (first.domain, first.business_name, first.city, first.phone) == (
         "mizangroupllc.com", "Mizan Group LLC", "Centreville, VA", "571.354.8352")
-    assert first.unknown_fields == ("Field 3", "Field 4")
+    assert first.unknown_fields == ("About", "Service")
 
 
 def test_the_token_never_appears_in_an_error():
@@ -316,8 +322,9 @@ def test_check_only_lists_counts_and_field_names_and_does_nothing_else(places, m
     assert cli.main(["intake", "--check", "--submissions-file", str(saved)]) == 0
     out = capsys.readouterr().out
     assert "Submissions to the /digital form: 2 (0 already processed, 2 new)" in out
-    assert "  Email: 2" in out and "  Field 2: 1" in out and "  website <- Field 2: present" in out
-    assert "Came back but not read by intake: Field 3, Field 4" in out
+    assert "  Email: 2" in out and "  Website: 1" in out
+    assert "  website <- Website or Field 2: present, as Website" in out
+    assert "Came back but not read by intake: About, Service" in out
     # Nothing recorded, nothing marked seen, nothing run, nothing sent, no submitted value printed.
     assert not places["kwargs"]["submissions_path"].exists() or "mizangroupllc" not in \
         places["kwargs"]["submissions_path"].read_text(encoding="utf-8")
@@ -330,4 +337,17 @@ def test_check_only_says_when_an_expected_field_never_came_back(tmp_path, capsys
     saved = tmp_path / "submissions.json"
     saved.write_text(json.dumps({"formSubmissions": [{"id": "a", "formResponse": {"Name": "X"}}]}), encoding="utf-8")
     assert cli.main(["intake", "--check", "--submissions-file", str(saved)]) == 3
-    assert "Expected but never seen: Business name, City or ZIP, Email, Field, Field 2" in capsys.readouterr().out
+    assert "Expected but never seen: business_name, city, email, phone, website" in capsys.readouterr().out
+
+
+
+@pytest.mark.parametrize("item", [SUBMISSION, OLD_SUBMISSION], ids=["api-names", "older-data-names"])
+def test_both_the_api_names_and_the_older_names_are_read(item):
+    found = intake.parse(item, intake.config()["fields"])
+    assert (found.phone, found.domain, found.business_name, found.city) == (
+        "571.354.8352", "mizangroupllc.com", "Mizan Group LLC", "Centreville, VA")
+
+
+def test_the_api_name_wins_when_both_are_present():
+    both = {"id": "x", "formResponse": {"Phone": "555-010-0100", "Field": "555-010-0199"}}
+    assert intake.parse(both, intake.config()["fields"]).phone == "555-010-0100"
