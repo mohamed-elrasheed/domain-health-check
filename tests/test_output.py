@@ -77,14 +77,17 @@ def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, mizan_pag
     monkeypatch.setattr(fetcher, "fetch_page", lambda d: fetched.append(d) or mizan_page)
     report = runner.run_checks(DomainConfig("mizangroupllc.com", ["google"]), NOW)
     names = [r.name for r in report.results]
-    assert names[0] == "SSL certificate" and names[-1] == "Favicon"
-    # TLS gives 2 results, headers 3, the link check 2 (this site, other sites) and the 15 other site checks 1 each
-    assert len(names) == 29
+    assert names[0] == "SSL certificate" and names[-1] == "Contact form"
+    # TLS gives 2 results, headers 3, the link check 2 (this site, other sites) and the 17 other site checks 1 each
+    assert len(names) == 31
     assert fetched == ["mizangroupllc.com"]  # one page fetch per report
     # No check should have crashed into the runner's "couldn't be completed" fallback.
     assert not any("could not be completed" in r.summary for r in report.results)
     site = [(r.name, r.status) for r in report.results if r.category == SITE]
-    assert [name for name, status in site if status is not Status.PASS] == ["Meta description"]
+    assert [name for name, status in site if status is not Status.PASS] == ["Meta description", "Contact form"]
+    # Our own Webflow form has no action: Webflow's script sends it, so it is not checked rather than warned about.
+    form = next(r for r in report.results if r.name == "Contact form")
+    assert not form.ran and "sent by your Webflow site's own script" in form.summary
     # The two header WARNs the live report shows: response.json has no CSP and no X-Content-Type-Options.
     headers = {r.name: r.status for r in report.results if r.name in ("Content Security Policy", "X-Content-Type-Options")}
     assert headers == {"Content Security Policy": Status.WARN, "X-Content-Type-Options": Status.WARN}

@@ -1,9 +1,14 @@
 {
   "about": "A clean Webflow-style page with its link preview image missing, served without a Content Security Policy or nosniff.",
-  "headers": {"content-type": "text/html; charset=utf-8", "strict-transport-security": "max-age=31536000"},
+  "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "strict-transport-security": "max-age=31536000"
+  },
   "findings": [
     {"check": "Social preview", "status": "WARN", "says": "missing its image"},
     {"check": "Content Security Policy", "status": "WARN", "says": "No Content Security Policy"},
-    {"check": "X-Content-Type-Options", "status": "WARN", "says": "nosniff protection is not switched on"}
+    {"check": "X-Content-Type-Options", "status": "WARN", "says": "nosniff protection is not switched on"},
+    {"check": "Tap to call", "status": "NOT_CHECKED", "says": "shows no phone number"},
+    {"check": "Contact form", "status": "NOT_CHECKED", "says": "did not find a contact form"}
   ]
 }

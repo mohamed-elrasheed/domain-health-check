@@ -100,7 +100,8 @@ def test_lookalike_is_skipped_and_the_confirmed_listing_is_used(with_places_key)
     search_call, *detail_calls = seen
     assert search_call.method == "POST" and search_call.headers["X-Goog-Api-Key"] == KEY
     assert search_call.headers["X-Goog-FieldMask"] == "places.id,places.displayName"
-    assert "rating" not in detail_calls[0].headers["X-Goog-FieldMask"].replace("userRatingCount", "")
+    # The rating is requested for one line on page 1 only (layout.nearby_line); it is never scored or a finding.
+    assert "rating" in detail_calls[0].headers["X-Goog-FieldMask"].split(",")
     assert json.loads(search_call.content) == {"textQuery": "Example Plumbing Springfield", "pageSize": 5}
 
 

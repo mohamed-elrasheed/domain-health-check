@@ -63,24 +63,23 @@ def _summary_only(r: CheckResult) -> list[str]:
 
 def render_markdown(report: DomainReport) -> str:
     value, sentence = layout.headline(report)
-    lines = [
-        f"# Website health report: {report.domain}",
-        "",
-        f"*Checked on {report.checked_at:%d %B %Y at %H:%M} UTC*",
-        "",
-        (f"**{value} out of 100.** {sentence}" if value is not None
-         else f"**{sentence}** {layout.coverage(report)}".rstrip()),
-        "",
-        layout.counts(report),
-    ]
+    lines = [f"# Website health report: {report.domain}", "", f"*Checked on {report.checked_at:%d %B %Y at %H:%M} UTC*"]
+    if report.screenshot:
+        lines += ["", f"![{layout.SCREENSHOT_CAPTION}]({layout.SCREENSHOT_NAME})"]
+    lines += ["", (f"Score: {value} out of 100. {sentence}" if value is not None
+                   else f"{sentence} {layout.coverage(report)}".rstrip()), "", layout.counts(report)]
     if report.unreachable:  # nothing else in the report matters as much, so it comes first
         lines += ["", "## Your website could not be reached", "", report.unreachable]
-
     worth = layout.worth_doing(report)
-    if worth:
-        lines += ["", "## Worth doing", ""]
-        for r in worth:
-            lines += _brief(r)
+    lines += ["", "## Worth doing first", ""]
+    for r in worth:
+        lines += _brief(r)
+    if not worth:
+        lines.append(layout.NOTHING_FIRST)
+    if layout.nearby_line(report):
+        lines += ["", layout.nearby_line(report)]
+    lead, rest = layout.contact_line()
+    lines += ["", f"**{lead}** {rest}", "", f"# {layout.FOR_THE_DEVELOPER}"]
     yourself = layout.fix_yourself(report)
     if yourself:
         lines += ["", "## Fix it yourself", "", layout.SELF_INTRO]
@@ -133,8 +132,8 @@ def _prices(report: DomainReport) -> list[str]:
         lines += ["", f"### {rung.label}", ""] + [f"**{line}**" for line in layout.group_prices(rung)]
         lines += (["", rung.intro] if layout.group_prices(rung) else [rung.intro])
         lines += ["", f"| Finding | {rung.column} |", "|---|---|"]
-        for r in results:
-            lines.append(f"| {_cell(r.name)} | {_cell('; '.join(layout.answer(rung, r)))} |")
+        for name, answer in layout.price_rows(rung, results):
+            lines.append(f"| {_cell(name)} | {_cell('; '.join(answer))} |")
     note = layout.prices_note(report)
     return lines + (["", note] if note else [])
 
@@ -149,6 +148,8 @@ def write_report(report: DomainReport, output_dir: Path) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "report.md"
     path.write_text(render_markdown(report), encoding="utf-8")
+    if report.screenshot:  # under reports/, which is never committed
+        (folder / layout.SCREENSHOT_NAME).write_bytes(report.screenshot)
     return path
 
 
@@ -164,6 +165,8 @@ def record(report: DomainReport) -> dict:
         "incomplete": list(report.incomplete),
         "links": {"found": report.links_found, "requested": report.links_requested},
         "cms": {"name": report.cms, "evidence": report.cms_evidence} if report.cms else None,
+        "nearby": report.nearby,  # averages only; no other business is named
+        "screenshot": layout.SCREENSHOT_NAME if report.screenshot else None,
         "score": score,
         "reading": band,
         "website_loaded": report.website_loaded,

@@ -106,5 +106,5 @@ def test_real_pdf_contains_every_finding():
 def test_pdf_has_the_same_sections_as_the_markdown():
     report = full_report()
     html, md = pdf.render_html(report), render_markdown(report)
-    for heading in ("Worth doing", "Fix it yourself", "Needs a developer"):
+    for heading in ("Worth doing first", "Fix it yourself", "Needs a developer"):
         assert (f"<h2>{heading}</h2>" in html) == (f"## {heading}" in md)

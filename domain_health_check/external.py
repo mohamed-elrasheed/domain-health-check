@@ -49,7 +49,15 @@ CACHE_SECONDS = 24 * 60 * 60
 PLACES_SEARCH = "https://places.googleapis.com/v1/places:searchText"
 PLACES_DETAILS = "https://places.googleapis.com/v1/places/{}"
 SEARCH_MASK = "places.id,places.displayName"  # Pro tier
-DETAILS_MASK = "id,displayName,businessStatus,websiteUri,nationalPhoneNumber,regularOpeningHours,userRatingCount"
+DETAILS_MASK = ("id,displayName,businessStatus,websiteUri,nationalPhoneNumber,regularOpeningHours,userRatingCount,"
+                "rating,location,primaryType,primaryTypeDisplayName")
+# The anonymous comparison on page 1: the top-ranked listings of the same primary type within 10 miles. Only their
+# review counts and ratings are requested, never a name, and only averages are kept.
+PLACES_NEARBY = "https://places.googleapis.com/v1/places:searchNearby"
+NEARBY_MASK = "places.id,places.rating,places.userRatingCount"
+NEARBY_METERS = 16_093  # 10 miles
+NEARBY_RESULTS = 4  # three others, plus room for the business's own listing
+NEARBY_COUNT = 3
 PLACES_RESULTS = 5
 MAX_DETAILS = 3  # details calls are billed at the Enterprise tier: never more than this per report
 PLACES_TIMEOUT_SECONDS = 20
@@ -73,6 +81,9 @@ class ExternalContext:
     # name that does not link back to the domain or phone), or "" when it did not run (no key, no name, an error).
     place_outcome: str = ""
     phone_compared: bool = False  # whether we had a phone number to compare listings against
+    # The top-ranked nearby listings of the same type, as averages only: {"category", "count", "reviews", "rating"}.
+    # None when it did not run or found fewer than three.
+    nearby: dict | None = None
     errors: dict[str, str] = field(default_factory=dict)  # source -> why it is missing
 
     @property
@@ -216,6 +227,45 @@ def _places_get(client: httpx.Client, method: str, url: str, key: str, mask: str
     return data
 
 
+def nearby_averages(listings: list[dict], own_id: str) -> dict | None:
+    """Averages over the first three listings that are not the business's own, in Google's ranking order, or None
+    when there are fewer than three. Only counts and ratings: no other business is identified."""
+    others = [p for p in listings if p.get("id") != own_id][:NEARBY_COUNT]
+    if len(others) < NEARBY_COUNT:
+        return None
+    rated = [p["rating"] for p in others if isinstance(p.get("rating"), (int, float))]
+    if not rated:
+        return None
+    return {"count": NEARBY_COUNT, "reviews": sum(p.get("userRatingCount") or 0 for p in others) / NEARBY_COUNT,
+            "rating": sum(rated) / len(rated)}
+
+
+def _find_nearby(client: httpx.Client, context: ExternalContext, key: str) -> None:
+    """One Nearby Search for the business's own primary type around its own listing. Logged like every Places call
+    (requestlog source "places"); a failure leaves the comparison out rather than sinking the report."""
+    place = context.place or {}
+    kind = place.get("primaryType")
+    where = place.get("location") or {}
+    if not kind or "latitude" not in where or "longitude" not in where:
+        context.errors["nearby"] = "the listing has no primary category or location, so we did not compare"
+        return
+    body = {"includedPrimaryTypes": [kind], "maxResultCount": NEARBY_RESULTS, "rankPreference": "POPULARITY",
+            "locationRestriction": {"circle": {"center": {"latitude": where["latitude"],
+                                                          "longitude": where["longitude"]},
+                                               "radius": NEARBY_METERS}}}
+    try:
+        found = _places_get(client, "POST", PLACES_NEARBY, key, NEARBY_MASK, body).get("places", [])
+    except SourceError as exc:
+        context.errors["nearby"] = f"Places nearby: {exc}".replace(key, "<key>")
+        return
+    averages = nearby_averages(found, place.get("id", ""))
+    if averages is None:
+        context.errors["nearby"] = f"fewer than {NEARBY_COUNT} other listings of this type within 10 miles"
+        return
+    category = (place.get("primaryTypeDisplayName") or {}).get("text") or ""
+    context.nearby = {"category": category, **averages}
+
+
 def _find_place(client: httpx.Client, context: ExternalContext, domain: str, business: Business | None,
                 key: str) -> None:
     """Search, then fetch details for name matches until one is corroborated. Records only counts about
@@ -233,6 +283,7 @@ def _find_place(client: httpx.Client, context: ExternalContext, domain: str, bus
             how = matching.corroboration(details, domain, business.phone)
             if how:
                 context.place, context.place_match, context.place_outcome = details, how, "found"
+                _find_nearby(client, context, key)
                 return
     except SourceError as exc:
         context.errors["place"] = f"Places: {exc}".replace(key, "<key>")

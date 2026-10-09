@@ -177,6 +177,8 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 | **Profile website link** | 3 | links to the domain we checked | missing, or another site | |
 | **Reviews** | 3 | 5 or more | fewer | |
 | **Profile phone number** | 2 | the listing's number is on the home page | the home page shows other numbers only | |
+| **Tap to call** | 2 | every phone number on the home page is a tap-to-call link | a number is plain text | |
+| **Contact form** | 2 | the contact form says where it sends | its action is empty, "#" or a script address | |
 
 - **A wrong match is worse than none.** A listing is used only when its name closely matches and its
   website is on the submitted domain, or its phone is the submitted number. A search for one real

@@ -58,6 +58,7 @@ def links_and_icon_answer_offline(monkeypatch):
     from domain_health_check import fetcher, linkcheck
     monkeypatch.setattr(linkcheck, "TRANSPORT", httpx.MockTransport(healthy_site))
     monkeypatch.setattr(fetcher, "ICON_TRANSPORT", httpx.MockTransport(healthy_site))
+    monkeypatch.setattr(fetcher, "CONTACT_TRANSPORT", httpx.MockTransport(healthy_site))
 
 
 @pytest.fixture(autouse=True)

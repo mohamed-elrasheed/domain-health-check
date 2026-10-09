@@ -1,8 +1,14 @@
 {
   "about": "A Squarespace-style page with no meta description set; images load through data-src and data-image.",
-  "headers": {"content-type": "text/html;charset=utf-8", "strict-transport-security": "max-age=15552000",
-              "content-security-policy": "upgrade-insecure-requests", "x-content-type-options": "nosniff"},
+  "headers": {
+    "content-type": "text/html;charset=utf-8",
+    "strict-transport-security": "max-age=15552000",
+    "content-security-policy": "upgrade-insecure-requests",
+    "x-content-type-options": "nosniff"
+  },
   "findings": [
-    {"check": "Meta description", "status": "WARN", "says": "has no meta description"}
+    {"check": "Meta description", "status": "WARN", "says": "has no meta description"},
+    {"check": "Tap to call", "status": "NOT_CHECKED", "says": "shows no phone number"},
+    {"check": "Contact form", "status": "NOT_CHECKED", "says": "did not find a contact form"}
   ]
 }

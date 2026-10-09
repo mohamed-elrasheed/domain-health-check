@@ -90,6 +90,10 @@ class PageContext:
     # Where the owner edits the site, for the wording of every self fix: a recognized hosted builder's name, or
     # "WordPress", or "" when neither was recognized (checks/site/_editor.py).
     editor: str = ""
+    screenshot: bytes = field(default=b"", repr=False)  # the first screen at phone width (390 x 844), from the render
+    # The one page the site's own "contact" link points to, loaded only when the home page has no contact form
+    # (CLAUDE.md, report mode). None when it was not needed or could not be loaded.
+    contact_page: FetchedFile | None = None
 
     @property
     def rendered(self) -> bool:
@@ -279,6 +283,7 @@ class Rendered:
     html: str  # the DOM after scripts ran, with elements a visitor cannot see marked data-dhc-hidden
     final_url: str
     resources: list[tuple[str, str]] = field(default_factory=list)  # (url, kind), see PageContext.resources
+    screenshot: bytes = field(default=b"", repr=False)  # PNG of the first screen at phone width, before any scroll
 
 
 MIXED_CONTENT_KINDS = {"image": "image", "element": "image", "script": "script", "stylesheet": "stylesheet",
@@ -342,9 +347,12 @@ def browser_render(url: str, offline: bool = False, routes: Callable | None = No
                             on_console=console, routes=routes) as (tab, response):
             if response.status and response.status >= 400:
                 raise RenderFailed(f"the browser got status {response.status} ({status_phrase(response.status)})")
+            # The owner's page 1 shows their home page as a visitor's phone first shows it: taken before marking
+            # hidden elements, which scrolls the whole page to make lazy content load.
+            shot = tab.screenshot(type="png")
             mark_hidden(tab)
             resources += [(u, k) for u, k in tab.evaluate(DOM_RESOURCES)]
-            return Rendered(tab.content(), response.url, resources)
+            return Rendered(tab.content(), response.url, resources, shot)
     except (BrowserUnavailable, NavigationFailed) as exc:
         raise RenderFailed(str(exc)) from exc
 
@@ -355,7 +363,8 @@ RENDERER: Callable[[str], Rendered] = browser_render  # tests put a renderer of 
 def render(page: PageContext, renderer: Callable[[str], Rendered] | None = None) -> PageContext:
     """The page as a browser shows it. Raises RenderFailed; the caller keeps the delivered page."""
     rendered = (renderer or RENDERER)(page.final_url)
-    return replace(page, rendered_html=rendered.html, resources=list(rendered.resources))
+    return replace(page, rendered_html=rendered.html, resources=list(rendered.resources),
+                   screenshot=rendered.screenshot)
 
 
 # ---------- the site's icon
@@ -416,3 +425,28 @@ def _get_icon(client: httpx.Client, url: str, declared: bool) -> FetchedIcon:
         return FetchedIcon(url, url, None, "", False, declared, "redirected more than 3 times")
     except (httpx.HTTPError, httpx.InvalidURL) as exc:
         return FetchedIcon(url, url, None, "", False, declared, f"{type(exc).__name__}: {exc}")
+
+
+# ---------- the contact page
+
+CONTACT_MAX_BYTES = 2_000_000
+CONTACT_TRANSPORT: httpx.BaseTransport | None = None  # tests put a transport of their own here
+
+
+def fetch_contact_page(page: PageContext, url: str, *, transport: httpx.BaseTransport | None = None
+                       ) -> FetchedFile | None:
+    """Load the one page the site's own contact link points to, to find its contact form. Report mode only, one
+    request (redirects capped like the home page), robots.txt honored, the form never submitted. None when robots.txt
+    disallows it or it cannot be loaded."""
+    if not same_site(url, page.final_url):
+        return None
+    if page.robots and not robots_allows(page.robots.status, page.robots.text, url):
+        return None
+    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS, follow_redirects=True,
+                      max_redirects=MAX_REDIRECTS, transport=transport or CONTACT_TRANSPORT,
+                      event_hooks=requestlog.httpx_hooks("contact")) as client:
+        try:
+            found = _get_file(client, url, CONTACT_MAX_BYTES)
+        except FetchError:
+            return None
+    return found if found.status == 200 else None

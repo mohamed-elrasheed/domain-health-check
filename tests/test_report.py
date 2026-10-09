@@ -26,7 +26,9 @@ def report_of(*statuses: Status) -> DomainReport:
 
 
 def section(md: str, heading: str) -> str:
-    return md.split(f"## {heading}")[1].split("\n## ")[0]
+    """The text under a "## " heading, up to the next "## " or "# " heading."""
+    import re
+    return re.split(r"\n#{1,2} ", md.split(f"## {heading}")[1])[0]
 
 
 def test_cells_and_details_are_escaped_and_details_are_visible():
@@ -77,8 +79,8 @@ def test_not_run_never_reads_as_verified():
     for name in ("Real-world loading speed", "Site health checks", "Google speed test"):
         assert f"| {name} | ➖ Not checked |" in table
         assert f"### ➖ {name}" in section(md, "What we could not check")
-    assert "1 checks passed · 0 could be improved · 0 need action · 3 not checked" in md
-    assert "## Worth doing" not in md
+    assert "1 check passed · 0 could be improved · 0 need action · 3 not checked" in md
+    assert layout.NOTHING_FIRST in section(md, "Worth doing first") and "- **" not in section(md, "Worth doing first")
     assert "Error: ConnectError" in section(md, "What we could not check")
     assert report.overall is Status.PASS
     assert "out of 100" not in md  # the website was not loaded, so there is no score at all
@@ -163,7 +165,7 @@ def test_no_score_when_the_website_was_not_loaded():
     assert layout.coverage(report) == "This report covers your domain and email only."
     md = render_markdown(report)
     assert "out of 100" not in md
-    assert "**Score: not available - we could not load your website.** This report covers your domain and email " \
+    assert "Score: not available - we could not load your website. This report covers your domain and email " \
            "only." in md
 
 
@@ -219,7 +221,7 @@ def test_information_is_its_own_state():
     md = render_markdown(report)
     assert "| Mail servers (MX) | ℹ️ For information |" in md and "Not checked" not in md
     assert md.count("This domain is not set up for email") == 1  # its table row only
-    assert "1 checks passed · 0 could be improved · 0 need action · 1 for information" in md
+    assert "1 check passed · 0 could be improved · 0 need action · 1 for information" in md
     from domain_health_check import pdf
     assert '<span class="pill info">For information</span>' in pdf.render_html(report)
 
@@ -290,9 +292,9 @@ def test_every_confirmed_finding_is_in_exactly_one_fix_section():
 
 
 def test_top_three_are_brief_with_no_technical_detail():
-    worth = section(render_markdown(flooring_like()), "Worth doing")
+    worth = section(render_markdown(flooring_like()), "Worth doing first")
     # One line per finding: its name and its one-sentence statement. No "what to do": that is in its own section.
-    assert worth.strip().splitlines() == ["- **Main heading:** Main heading finding.",
+    assert [line for line in worth.splitlines() if line.startswith("- ")] == ["- **Main heading:** Main heading finding.",
                                           "- **Meta description:** Meta description finding.",
                                           "- **Image alt text:** Image alt text finding."]
     assert "What to do" not in worth and "Technical details" not in worth
@@ -316,7 +318,7 @@ def test_reading_says_plainly_when_something_is_broken():
     report = DomainReport("example.com", NOW, [result(0, Status.FAIL), finding(SITE, "Main heading")])
     value, sentence = layout.headline(report)
     assert value is not None and sentence == "One thing on your site is broken today."
-    assert f"**{value} out of 100.** {sentence}" in render_markdown(report)
+    assert f"Score: {value} out of 100. {sentence}" in render_markdown(report)
 
 
 def test_hedged_findings_do_not_count_as_costing_customers():
@@ -340,7 +342,7 @@ def test_top_section_is_never_padded():
     behind_the_scenes = DomainReport("example.com", NOW, [finding(EMAIL, "DMARC (anti-spoofing policy)"),
                                                           finding(WEBSITE, "Content Security Policy")])
     assert layout.worth_doing(behind_the_scenes) == []
-    assert "## Worth doing" not in render_markdown(behind_the_scenes)
+    assert "- **" not in section(render_markdown(behind_the_scenes), "Worth doing first")
     assert "### ⚠️ DMARC (anti-spoofing policy)" in section(render_markdown(behind_the_scenes), "Needs a developer")
 
 
@@ -545,7 +547,8 @@ def test_a_page_with_no_findings_still_renders_a_sensible_report():
     assert "## Everything we checked" in md and "## What happens next" in md
     assert "Nothing here needs fixing, so there is nothing you need to do with this report." in md
     assert layout.NOTHING_TO_PRICE in md
-    for gone in ("## Worth doing", "## Fix it yourself", "## Needs a developer", "## What is already working",
+    assert layout.NOTHING_FIRST in section(md, "Worth doing first")
+    for gone in ("## Fix it yourself", "## Needs a developer", "## What is already working",
                  "## What we could not check"):
         assert gone not in md
     try:

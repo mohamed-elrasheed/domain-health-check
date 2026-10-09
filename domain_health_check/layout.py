@@ -235,7 +235,8 @@ def not_checked(report: DomainReport) -> list[CheckResult]:
 
 
 def counts(report: DomainReport) -> str:
-    parts = [f"{report.count(Status.PASS)} checks passed", f"{report.count(Status.WARN)} could be improved",
+    passed = report.count(Status.PASS)
+    parts = [f"{passed} check{'s' if passed != 1 else ''} passed", f"{report.count(Status.WARN)} could be improved",
              f"{report.count(Status.FAIL)} need action"]
     if report.count(Status.INFO):
         parts.append(f"{report.count(Status.INFO)} for information")
@@ -302,3 +303,62 @@ def about(report: DomainReport) -> str:
 def stamp(report: DomainReport) -> str:
     """Which build of the tool wrote this report, and when it ran, for the footer of every page."""
     return f"domain-health-check {__version__} · run {report.checked_at.day} {report.checked_at:%B %Y}"
+
+
+# ---------- page 1, for the owner
+
+FOR_THE_DEVELOPER = "For whoever works on your site"
+SCREENSHOT_NAME = "home-phone.png"  # written beside the report, under reports/, never committed
+SCREENSHOT_CAPTION = "Your home page on a phone, as we loaded it"
+NOTHING_FIRST = "We found nothing that needs doing first."
+
+
+def _plural(category: str) -> str:
+    """"flooring store" -> "flooring stores", "pharmacy" -> "pharmacies", "glass business" -> "glass businesses"."""
+    if category.endswith("y") and category[-2:-1] not in "aeiou":
+        return category[:-1] + "ies"
+    if category.endswith(("s", "sh", "ch", "x", "z")):
+        return category + "es"
+    return category + "s"
+
+
+def nearby_line(report: DomainReport) -> str:
+    """The anonymous comparison with the top-ranked listings of the same type within 10 miles: averages only, no
+    other business named. "" when there were fewer than three, or no category to name them by."""
+    near = report.nearby or {}
+    category = (near.get("category") or "").strip().lower()
+    if not category or near.get("count", 0) < 3:
+        return ""
+    own_rating = near.get("own_rating")
+    you = (f"You have {near.get('own_reviews', 0):,} at {own_rating:.1f}." if isinstance(own_rating, (int, float))
+           else f"You have {near.get('own_reviews', 0):,} reviews.")
+    return (f"The three top-ranked {_plural(category)} near you average {round(near['reviews']):,} reviews at "
+            f"{near['rating']:.1f} stars. {you}")
+
+
+SECURITY_SETTINGS = {  # check name -> how the owner's pages name it
+    "HSTS (always use HTTPS)": "HSTS",
+    "Content Security Policy": "a Content Security Policy",
+    "X-Content-Type-Options": "the nosniff protection",
+}
+
+
+def price_rows(found: pricelist.Rung, results: list[CheckResult]) -> list[tuple[str, list[str]]]:
+    """(finding, what goes beside it) for one group on the last page, an owner's page. On the tune-up group the
+    security headers collapse into one row; they stay separate in "Needs a developer" and in report.json, and the
+    score counts them as before."""
+    security = [r for r in results if r.name in SECURITY_SETTINGS]
+    if found.key != "tuneup" or len(security) < 2:
+        return [(r.name, answer(found, r)) for r in results]
+    count = {2: "Two", 3: "Three"}[len(security)]
+    named = [SECURITY_SETTINGS[r.name] for r in security]
+    listed = named[0] if len(named) == 1 else ", ".join(named[:-1]) + " and " + named[-1]
+    rows, done = [], False
+    for r in results:
+        if r.name not in SECURITY_SETTINGS:
+            rows.append((r.name, answer(found, r)))
+        elif not done:
+            rows.append((f"{count} security settings your developer can switch on",
+                         [f"Ask your web developer or host to switch on {listed}."]))
+            done = True
+    return rows

@@ -17,6 +17,7 @@ point WeasyPrint at it.
 
 from __future__ import annotations
 
+import base64
 import os
 from html import escape
 from pathlib import Path
@@ -47,7 +48,7 @@ body { font-family: "PJS", sans-serif; font-weight: 500; color: #20302e; font-si
 strong, b, h1, h2, h3, .name { font-weight: 700; }
 
 .masthead { background: #1f4b46; margin: 0 -16mm; padding: 16mm 16mm 13mm; }
-.masthead img { width: 63pt; display: block; margin-bottom: 22pt; }
+.masthead img { width: 63pt; display: block; margin-bottom: 14pt; }
 .eyebrow { color: #c6a761; font-size: 8pt; letter-spacing: 1.5pt; text-transform: uppercase; margin: 0 0 8pt; }
 .masthead h1 { color: #f7f5f0; font-size: 22pt; line-height: 1.2; margin: 0 0 10pt; }
 .domain { color: #c6a761; font-size: 13pt; margin: 0 0 2pt; }
@@ -123,6 +124,20 @@ col.area { width: 23%; } col.check { width: 26%; } col.result { width: 17%; } co
 ul.worth { margin: 0 0 8pt; padding-left: 14pt; }
 ul.worth li { margin: 0 0 6pt; }
 .prices + .about { margin-top: 18pt; }
+
+table.page-one { margin-top: 16pt; border-collapse: collapse; }
+table.page-one td { border: 0; padding: 0; vertical-align: top; }
+table.page-one td.left { width: 60mm; padding-right: 10mm; }
+table.page-one img.shot { width: 58mm; display: block; border: 1px solid #d8ddd8; }
+table.page-one p.caption { color: #8a9793; font-size: 7.5pt; margin: 4pt 0 10pt; }
+table.page-one p.small-score { color: #1f4b47; font-size: 18pt; font-weight: 700; margin: 0 0 2pt; }
+table.page-one p.small-score small { color: #8a9793; font-size: 9pt; font-weight: 500; }
+table.page-one p.reading { color: #1f4b47; font-size: 9pt; font-weight: 700; margin: 0 0 3pt; }
+table.page-one p.counts, table.page-one p.coverage { color: #5d6b67; font-size: 7.5pt; margin: 0 0 2pt; }
+table.page-one h2 { margin-top: 0; }
+table.page-one p.nearby { margin: 14pt 0 0; }
+table.page-one p.reach { margin: 14pt 0 0; }
+h1.for-developer { break-before: page; color: #1f4b47; font-size: 18pt; margin: 0 0 6pt; }
 .prices td p { margin: 0 0 3pt; }
 col.finding { width: 34%; } col.answer { width: 66%; }
 """
@@ -172,9 +187,9 @@ def _prices(report: DomainReport) -> str:
             body.append(f'<h3>{escape(rung.label)}</h3><p class="intro">{escape(rung.intro)}</p>'
                         f'<ul class="names">{names}</ul>')
             continue
-        rows = "".join(f'<tr><td class="name">{escape(r.name)}</td><td>'
-                       + "".join(f"<p>{escape(line)}</p>" for line in layout.answer(rung, r)) + "</td></tr>"
-                       for r in results)
+        rows = "".join(f'<tr><td class="name">{escape(name)}</td><td>'
+                       + "".join(f"<p>{escape(line)}</p>" for line in lines) + "</td></tr>"
+                       for name, lines in layout.price_rows(rung, results))
         body.append(f'<h3>{escape(rung.label)}</h3>'
                     + "".join(f'<p class="price">{escape(line)}</p>' for line in layout.group_prices(rung))
                     + f'<p class="intro">{escape(rung.intro)}</p>'
@@ -185,24 +200,44 @@ def _prices(report: DomainReport) -> str:
     return f'<div class="prices"><h2>{escape(layout.PRICES_HEADING)}</h2>{"".join(body)}</div>'
 
 
-def render_html(report: DomainReport) -> str:
+def _page_one(report: DomainReport) -> str:
+    """The owner's one-page summary: their home page at phone width with the score under it, and beside it the
+    top three findings, the nearby comparison and how to reach us."""
     value, sentence = layout.headline(report)
-    number = f'<div class="number">{value}<small>/100</small></div>' if value is not None else ""
+    shot = ""
+    if report.screenshot:
+        data = base64.b64encode(report.screenshot).decode("ascii")
+        shot = (f'<img class="shot" src="data:image/png;base64,{data}" alt="{escape(layout.SCREENSHOT_CAPTION)}">'
+                f'<p class="caption">{escape(layout.SCREENSHOT_CAPTION)}</p>')
+    number = f'<p class="small-score">{value}<small>/100</small></p>' if value is not None else ""
+    coverage = f'<p class="coverage">{escape(layout.coverage(report))}</p>' if layout.coverage(report) else ""
+    left = (f'{shot}{number}<p class="reading">{escape(sentence)}</p>{coverage}'
+            f'<p class="counts">{escape(layout.counts(report))}</p>')
+    right = []
+    if report.unreachable:  # nothing else in the report matters as much, so it comes first
+        right.append(f'<div class="unreachable"><h2>Your website could not be reached</h2>'
+                     f"<p>{escape(report.unreachable)}</p></div>")
+    worth = layout.worth_doing(report)
+    right.append("<h2>Worth doing first</h2>" + (
+        '<ul class="worth">' + "".join(_brief(r) for r in worth) + "</ul>" if worth
+        else f"<p>{escape(layout.NOTHING_FIRST)}</p>"))
+    if layout.nearby_line(report):
+        right.append(f'<p class="nearby">{escape(layout.nearby_line(report))}</p>')
+    lead, rest = layout.contact_line()
+    right.append(f'<p class="reach"><strong>{escape(lead)}</strong> {escape(rest)}</p>')
+    return (f'<table class="page-one"><tr><td class="left">{left}</td><td class="right">{"".join(right)}</td></tr>'
+            "</table>")
+
+
+def render_html(report: DomainReport) -> str:
     parts = [
         f'<div class="masthead"><img src="mizan-mark.png" alt="Mizan Group">'
         f'<p class="eyebrow">Website health report</p><h1>What we found on your site</h1>'
         f'<p class="domain">{escape(report.domain)}</p>'
         f'<p class="checked">Checked {report.checked_at.day} {report.checked_at:%B %Y at %H:%M} UTC</p></div>',
-        f'<div class="score">{number}<div><p class="reading">{escape(sentence)}</p>'
-        + (f'<p class="coverage">{escape(layout.coverage(report))}</p>' if layout.coverage(report) else "")
-        + f'<p class="counts">{escape(layout.counts(report))}</p></div></div>',
+        _page_one(report),
+        f'<h1 class="for-developer">{escape(layout.FOR_THE_DEVELOPER)}</h1>',
     ]
-    if report.unreachable:  # nothing else in the report matters as much, so it comes first
-        parts.append(f'<div class="unreachable"><h2>Your website could not be reached</h2>'
-                     f"<p>{escape(report.unreachable)}</p></div>")
-    worth = layout.worth_doing(report)
-    if worth:
-        parts.append('<h2>Worth doing</h2><ul class="worth">' + "".join(_brief(r) for r in worth) + "</ul>")
     sections = [
         ("Fix it yourself", layout.SELF_INTRO, layout.fix_yourself(report), ""),
         ("Needs a developer", layout.DEVELOPER_INTRO, layout.needs_developer(report),

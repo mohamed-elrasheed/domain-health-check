@@ -111,6 +111,8 @@ checks:
   Links to other sites: self
   Mixed content: self
   Favicon: self
+  Tap to call: self
+  Contact form: self
   # Speed, from Google PageSpeed Insights
   Real-world loading speed: tuneup
   Mobile speed: tuneup

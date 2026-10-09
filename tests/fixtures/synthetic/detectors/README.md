@@ -16,6 +16,10 @@ ever requested from the internet.
 | `phone-match.html` | Shows the listing's number, in a tel: link and in the text. |
 | `phone-mismatch.html` | Shows two other numbers and no match, plus digits that are not a phone number. |
 | `phone-none.html` | Shows no phone number at all. |
+| `contact-home-form.html` | A quote form on the home page that sends to a real address, and a search box that is not a contact form; the phone number is a tap-to-call link. |
+| `contact-empty.html` | A contact form whose action is "#", and a phone number that is plain text. |
+| `contact-link.html` | No contact form on the home page (a newsletter sign-up is not one), and a "Contact us" link. |
+| `contact-page.html` | The page that link points to, with a contact form that sends to a real address. |
 | `favicon-pass.html` | Names its own icon. |
 | `favicon-fail.html` | Names no icon, and the site has no /favicon.ico. |
 | `favicon-default.html` | Names the standard icon of an invented builder, listed only in the test config `../platforms/default-icons.yaml`. |

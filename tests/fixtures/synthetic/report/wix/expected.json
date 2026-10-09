@@ -1,10 +1,15 @@
 {
   "about": "A Wix-style page: no h1 (the business name is an h2), no structured data, and template-like strings only inside script payloads, which must not count. No Content Security Policy.",
-  "headers": {"content-type": "text/html;charset=utf-8", "strict-transport-security": "max-age=31536000",
-              "x-content-type-options": "nosniff"},
+  "headers": {
+    "content-type": "text/html;charset=utf-8",
+    "strict-transport-security": "max-age=31536000",
+    "x-content-type-options": "nosniff"
+  },
   "findings": [
     {"check": "Main heading", "status": "WARN", "says": "has no main heading"},
     {"check": "Structured data matches the page", "status": "NOT_CHECKED", "says": "no structured data"},
-    {"check": "Content Security Policy", "status": "WARN", "says": "No Content Security Policy"}
+    {"check": "Content Security Policy", "status": "WARN", "says": "No Content Security Policy"},
+    {"check": "Tap to call", "status": "NOT_CHECKED", "says": "shows no phone number"},
+    {"check": "Contact form", "status": "NOT_CHECKED", "says": "did not find a contact form"}
   ]
 }

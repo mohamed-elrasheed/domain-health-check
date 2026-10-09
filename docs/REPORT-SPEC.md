@@ -23,8 +23,12 @@ closing section.
 ## Structure
 
 ```
-1. Header            domain, date, score
-2. The top three     the three findings most worth acting on
+Page 1, for the owner, one page:
+1. Header            domain, date
+2. Their home page at phone width (390 x 844), from the report's own browser load, with the score small under it
+   Beside it: the top three findings, one line each; the nearby comparison; how to reach us
+
+"For whoever works on your site", from page 2:
 3. What you can fix yourself
 4. What needs a developer
 5. Worth checking    findings we could not confirm, in honest wording
@@ -35,6 +39,19 @@ closing section.
 
 Sections 3 and 4 are a re-cut of the same findings, not new content. A finding appears in exactly one of
 them, and may also appear in the top three.
+
+**The screenshot** is taken during the browser load every report already makes, before the page is scrolled, and
+written beside the report as `home-phone.png` under `reports/`, which is never committed.
+
+**The nearby comparison** is one line: "The three top-ranked <category> near you average N reviews at R stars. You
+have N at R." One Places Nearby Search for the business's own primary type within 10 miles of its listing, ranked
+by Google's popularity, the business's own listing excluded. Only review counts and ratings are requested, and only
+averages are kept or printed: another business is never named. Fewer than three listings, and the line is left
+out. The star rating appears here and nowhere else; it is never scored and never a finding.
+
+**On the owner's pages** (page 1 and the price page), HSTS, Content Security Policy and nosniff collapse into one
+row, "Three security settings your developer can switch on". They stay separate in "Needs a developer" and in
+`report.json`, and the score counts them as before.
 
 ### 1. Header
 
@@ -217,7 +234,9 @@ measure of how much of the thing is right, a binary one does not.
 | Broken links | 4 | 2 | `self` | a link to another page on the site ends in an error status, a timeout, or more than 3 redirects |
 | Links to other sites | 6 | 1 | `self` | the same, for a link to someone else's site. Never FAIL: the owner does not control that site |
 | Mixed content | 4 | 2 | `self` | the secure page loads an image, script, stylesheet, font or framed page over plain http |
-| Profile phone number | 4 | 2 | `self` | the home page shows a phone number and none of them is the number on the Google listing (digits only). Not checked without a confirmed listing or a number on the page |
+| Tap to call | 1 | 2 | `self` | the home page shows a phone number that is not a tap-to-call (tel:) link. Not checked when the page shows no number |
+| Contact form | 1 | 2 | `self` | the contact form on the home page, or on the one page the site's own contact link points to, has an empty action, "#", or a script address. Never submitted. When the report recognized the platform (a hosted builder or WordPress), whose own script usually sends the form, an empty action is not checked rather than warned about |
+| Profile phone number | 1 | 2 | `self` | the home page shows a phone number and none of them is the number on the Google listing (digits only). Not checked without a confirmed listing or a number on the page |
 | Favicon | 6 | 1 | `self` | no icon resolves to an image, or the icon is a website builder's standard one (only from entries in `config/platforms.yaml` that cite a source; none yet) |
 
 None of them can FAIL. Links are verified under the capped rule in CLAUDE.md (at most 80, HEAD then GET only when

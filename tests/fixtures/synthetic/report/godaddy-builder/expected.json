@@ -1,10 +1,14 @@
 {
   "about": "A GoDaddy Website Builder-style page with no canonical tag, served with none of the three security headers.",
-  "headers": {"content-type": "text/html;charset=utf-8"},
+  "headers": {
+    "content-type": "text/html;charset=utf-8"
+  },
   "findings": [
     {"check": "Canonical tag", "status": "WARN", "says": "does not tell search engines which address is its main one"},
     {"check": "HSTS (always use HTTPS)", "status": "WARN", "says": "does not tell browsers to always use HTTPS"},
     {"check": "Content Security Policy", "status": "WARN", "says": "No Content Security Policy"},
-    {"check": "X-Content-Type-Options", "status": "WARN", "says": "nosniff protection is not switched on"}
+    {"check": "X-Content-Type-Options", "status": "WARN", "says": "nosniff protection is not switched on"},
+    {"check": "Tap to call", "status": "NOT_CHECKED", "says": "shows no phone number"},
+    {"check": "Contact form", "status": "NOT_CHECKED", "says": "did not find a contact form"}
   ]
 }

@@ -21,7 +21,10 @@ request each, no more than 3 redirect hops, no response bodies stored,
 same-origin and external alike. This is verification of the submitted page,
 not discovery. Sweep mode never does this. The one-fetch rule stays
 unchanged for sweep. Every link verification request is written to
-requests.log like any other request.
+requests.log like any other request. When the home page has no contact form,
+report mode may also load the one page the site's own contact link points
+to, once, to read where its contact form sends. The form is never submitted,
+and that request is logged too. Sweep never does this.
 
 **`sweep` — our own prospecting.** Loads the publicly visible home page of a local business and classifies it
 (no site / weak site / could not open / fine) for our own lead list. Same footprint as one visitor. Its output
@@ -49,8 +52,8 @@ domain-health-check/<version> (+https://www.mizangroupllc.com/digital)
 
 Other operating rules, enforced in the fetch layer rather than in individual checks: honor `robots.txt`,
 one page fetch per report and per sweep visit (absolute for sweep; in report mode the exceptions are the
-second view of the same page in a browser, which every report makes, and the capped link verification described
-under `report` above), rate-limit per domain, dedupe repeat submissions. A human reviews every report
+second view of the same page in a browser, which every report makes, the capped link verification, and the one
+contact page, all described under `report` above), rate-limit per domain, dedupe repeat submissions. A human reviews every report
 before it is sent — an automated FAIL that turns out to be wrong costs more than the lead was worth.
 
 ## Existing architecture — follow it, do not redesign it

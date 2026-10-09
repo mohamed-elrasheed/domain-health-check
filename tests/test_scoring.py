@@ -56,7 +56,8 @@ def test_weights_follow_the_ladder():
     for tier, names in enumerate(LADDER, start=1):
         assert {scoring.WEIGHTS[n] for n in names if n not in WEIGHT_OVERRIDE} == {TIER_WEIGHT[tier]}
     # Set apart on purpose: the phone number leads with tier 1 but keeps weight 2.
-    assert WEIGHT_OVERRIDE == {"Profile phone number": 2} and scoring.WEIGHTS["Profile phone number"] == 2
+    assert WEIGHT_OVERRIDE == {"Profile phone number": 2, "Tap to call": 2, "Contact form": 2}
+    assert {scoring.WEIGHTS[n] for n in WEIGHT_OVERRIDE} == {2}
     assert [TIER_WEIGHT[t] for t in range(1, 7)] == sorted(TIER_WEIGHT.values(), reverse=True)  # never rises
 
 
@@ -97,14 +98,16 @@ def test_weights_cover_exactly_the_checks_that_exist():
         indexing,
         links,
         mixed_content,
+        reach,
         sharing,
         structured_data,
     )
     site = {content.TITLE, content.DESCRIPTION, content.MAIN_HEADING, content.HEADING_ORDER, content.ALT_TEXT,
             delivery.VIEWPORT, delivery.PAGE_WEIGHT, delivery.REDIRECTS, indexing.SEARCH_BLOCKING,
             indexing.CANONICAL, indexing.SITEMAP, sharing.SOCIAL_PREVIEW, structured_data.NAME,
-            links.SAME_SITE, links.OTHER_SITES, mixed_content.NAME, favicon.NAME}
-    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 17
+            links.SAME_SITE, links.OTHER_SITES, mixed_content.NAME, favicon.NAME, reach.TAP_TO_CALL,
+            reach.CONTACT_FORM}
+    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 19
     security = {"SSL certificate", "TLS version", "HSTS (always use HTTPS)", "Content Security Policy",
                 "X-Content-Type-Options", rdap.NAME, "Nameservers", "DNSSEC", "Mail servers (MX)",
                 "SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)"}

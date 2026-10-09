@@ -8,7 +8,17 @@ from typing import Callable
 
 from . import dns_utils, external, fetcher, linkcheck, platform, requestlog
 from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
-from .checks.site import content, delivery, favicon, indexing, links, mixed_content, sharing, structured_data
+from .checks.site import (
+    content,
+    delivery,
+    favicon,
+    indexing,
+    links,
+    mixed_content,
+    reach,
+    sharing,
+    structured_data,
+)
 from .config import DomainConfig
 from .external import Business, ExternalContext
 from .fetcher import FetchError, PageContext, PageStatusError, RobotsDisallowed, status_phrase
@@ -59,6 +69,8 @@ def _checks_for(
         (SITE, "Broken links", on_page(links.check_links)),
         (SITE, "Mixed content", on_page(mixed_content.check_mixed_content)),
         (SITE, "Favicon", on_page(favicon.check_favicon)),
+        (SITE, "Tap to call", on_page(reach.check_tap_to_call)),
+        (SITE, "Contact form", on_page(reach.check_contact_form)),
         (SITE, "Google speed test", lambda: pagespeed.check_speed_test_ran(ext)),
         (SITE, "Real-world loading speed", lambda: pagespeed.check_field_speed(ext)),
         (SITE, "Mobile speed", lambda: pagespeed.check_mobile_speed(ext)),
@@ -107,6 +119,7 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     cms = platform.detect_cms(page) if isinstance(page, PageContext) else None
     if detected or cms:
         page = replace(page, editor=detected.name if detected else cms.name)
+    page = _load_contact_page(page)
     ext = _fetch_external(domain, page)
     if isinstance(page, PageContext) and not ext.psi_mobile:
         why = ext.errors.get("psi_mobile") or ("PAGESPEED_API_KEY is not set" if not ext.pagespeed_configured
@@ -132,6 +145,8 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
                         incomplete=incomplete, platform=detected.name if detected else "",
                         links_found=len(found_links), links_requested=linkcheck.requested(found_links),
                         cms=cms.name if cms else "", cms_evidence=cms.evidence if cms else "",
+                        screenshot=page.screenshot if isinstance(page, PageContext) else b"",
+                        nearby=_nearby(ext),
                         platform_evidence=detected.evidence if detected else "")
 
 
@@ -179,6 +194,27 @@ def _fetch_favicon(page: PageContext | FetchError) -> tuple[PageContext | FetchE
         return replace(page, favicon=fetcher.fetch_favicon(page)), ""
     except Exception as exc:
         return page, f"{type(exc).__name__}: {exc}"
+
+
+def _load_contact_page(page: PageContext | FetchError) -> PageContext | FetchError:
+    """When the home page has no contact form, the one page the site's own contact link points to (CLAUDE.md,
+    report mode). Never more than that page, never submitted, and nothing at all when the home page has a form."""
+    if not isinstance(page, PageContext) or reach.contact_forms(page.visible_html):
+        return page
+    link = reach.contact_link(page.visible_html, page.final_url)
+    if not link:
+        return page
+    try:
+        return replace(page, contact_page=fetcher.fetch_contact_page(page, link))
+    except Exception:  # the check then says it found no form, and the request is still in requests.log
+        return page
+
+
+def _nearby(ext: ExternalContext) -> dict | None:
+    """The anonymous comparison for page 1, with the business's own figures beside it."""
+    if not ext.nearby or not ext.place:
+        return None
+    return {**ext.nearby, "own_reviews": ext.place.get("userRatingCount") or 0, "own_rating": ext.place.get("rating")}
 
 
 def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) -> ExternalContext:

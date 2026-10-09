@@ -6,8 +6,9 @@ when matching.py has confirmed it is this business, by its website or its phone 
 can be confirmed, that is one not-checked row: we cannot tell "no profile" from "a profile we could not
 match", and reporting another business's details would be worse than reporting none.
 
-The star rating is never requested, scored or shown. A 3.8 average is not a defect anyone can fix, and
-telling an owner their reviews are bad is not a finding.
+The star rating is never scored and never a finding: a 3.8 average is not a defect anyone can fix, and telling
+an owner their reviews are bad is not a finding. Since 2026-10-09 it is requested for one line on page 1 only,
+beside the same averages for the top-ranked nearby listings of the same type (layout.nearby_line).
 """
 
 from __future__ import annotations
