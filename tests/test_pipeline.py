@@ -144,6 +144,7 @@ def test_the_intake_config_matches_our_own_digital_page():
     assert tree.css_first("html").attributes.get("data-wf-site") == cfg["site_id"]
     form = tree.css_first("form")
     assert form.attributes.get("data-wf-page-id") == cfg["page_id"]
+    assert form.attributes.get("data-wf-element-id") == cfg["form_element_id"]
     names = {n.attributes.get("data-name") for n in form.css("input, textarea, select")}
     assert set(cfg["fields"].values()) <= names
     by_id = {n.attributes.get("id"): n.attributes.get("data-name") for n in form.css("input")}
@@ -161,8 +162,13 @@ def webflow(seen: list, pages: list[list[dict]], token="secret-token-123"):
         seen.append(request)
         assert request.headers["Authorization"] == f"Bearer {token}" and token not in str(request.url)
         if request.url.path.endswith("/forms"):
-            return httpx.Response(200, json={"forms": [{"id": "home-form", "pageId": "home"},
-                                                       {"id": "digital-form", "pageId": intake.config()["page_id"]}]})
+            page, element = intake.config()["page_id"], intake.config()["form_element_id"]
+            return httpx.Response(200, json={"forms": [
+                {"id": "home-form", "pageId": "home", "formElementId": "other"},
+                {"id": "digital-form", "pageId": page, "formElementId": element},
+                {"id": "digital-form-copy", "pageId": page, "formElementId": element}]})
+        if "digital-form-copy" in str(request.url):  # the same submissions under a second record
+            return httpx.Response(200, json={"formSubmissions": [SUBMISSION], "pagination": {"total": 1}})
         offset = int(request.url.params.get("offset", 0))
         batch = pages[offset // intake.PAGE_SIZE] if offset // intake.PAGE_SIZE < len(pages) else []
         return httpx.Response(200, json={"formSubmissions": batch,
@@ -176,7 +182,8 @@ def test_fetch_finds_the_digital_form_and_reads_every_page(monkeypatch):
     second = {**SUBMISSION, "id": "sub-2", "dateSubmitted": "2026-10-08T09:00:00Z"}
     found = intake.fetch("secret-token-123", transport=webflow(seen, [[SUBMISSION], [second]]))
     assert [s.id for s in found] == ["sub-2", "sub-1"]  # oldest first
-    assert all("/forms/digital-form/submissions" in str(r.url) for r in seen[1:])
+    paths = {r.url.path for r in seen[1:]}
+    assert paths == {"/v2/forms/digital-form/submissions", "/v2/forms/digital-form-copy/submissions"}
     first = next(s for s in found if s.id == "sub-1")
     assert (first.domain, first.business_name, first.city, first.phone) == (
         "mizangroupllc.com", "Mizan Group LLC", "Centreville, VA", "571.354.8352")
@@ -294,3 +301,33 @@ def test_the_cli_runs_intake_from_a_saved_response(places, monkeypatch, tmp_path
     assert "Reported on mizangroupllc.com (exit code 0); the review went to mo@mizangroupllc.com." in out
     [msg] = FakeSMTP.sent
     assert msg["To"] == "mo@mizangroupllc.com"
+
+
+
+def test_check_only_lists_counts_and_field_names_and_does_nothing_else(places, monkeypatch, tmp_path, capsys):
+    from domain_health_check import cli
+    other = {"id": "sub-2", "dateSubmitted": "2026-10-09", "formResponse": {"Name": "X", "Email": "x@example.com",
+                                                                            "Business name": "Y"}}
+    saved = tmp_path / "submissions.json"
+    saved.write_text(json.dumps({"formSubmissions": [SUBMISSION, other]}), encoding="utf-8")
+    monkeypatch.setattr(cli, "SMTP_FACTORY", FakeSMTP)
+    monkeypatch.setattr(cli, "SUBMISSIONS", places["kwargs"]["submissions_path"])
+    monkeypatch.setattr(intake, "SEEN", places["kwargs"]["seen_path"])
+    assert cli.main(["intake", "--check", "--submissions-file", str(saved)]) == 0
+    out = capsys.readouterr().out
+    assert "Submissions to the /digital form: 2 (0 already processed, 2 new)" in out
+    assert "  Email: 2" in out and "  Field 2: 1" in out and "  website <- Field 2: present" in out
+    assert "Came back but not read by intake: Field 3, Field 4" in out
+    # Nothing recorded, nothing marked seen, nothing run, nothing sent, no submitted value printed.
+    assert not places["kwargs"]["submissions_path"].exists() or "mizangroupllc" not in \
+        places["kwargs"]["submissions_path"].read_text(encoding="utf-8")
+    assert not places["kwargs"]["seen_path"].exists() and places["ran"] == [] and FakeSMTP.sent == []
+    assert "x@example.com" not in out and "Test Person" not in out and "571.354.8352" not in out
+
+
+def test_check_only_says_when_an_expected_field_never_came_back(tmp_path, capsys):
+    from domain_health_check import cli
+    saved = tmp_path / "submissions.json"
+    saved.write_text(json.dumps({"formSubmissions": [{"id": "a", "formResponse": {"Name": "X"}}]}), encoding="utf-8")
+    assert cli.main(["intake", "--check", "--submissions-file", str(saved)]) == 3
+    assert "Expected but never seen: Business name, City or ZIP, Email, Field, Field 2" in capsys.readouterr().out

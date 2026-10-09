@@ -80,6 +80,13 @@ def _mask(text: str, token: str) -> str:
 
 def fetch(token: str | None = None, *, transport: httpx.BaseTransport | None = None) -> list[FormSubmission]:
     """Every submission to the /digital form, oldest first. Raises IntakeError, token masked."""
+    cfg = config()
+    found = [parse(item, cfg["fields"]) for item in fetch_items(token, transport=transport)]
+    return sorted(found, key=lambda s: (s.submitted, s.id))
+
+
+def fetch_items(token: str | None = None, *, transport: httpx.BaseTransport | None = None) -> list[dict]:
+    """The raw formSubmissions items, as Webflow returns them. Raises IntakeError, token masked."""
     token = token if token is not None else os.environ.get(TOKEN_ENV, "").strip()
     if not token:
         raise IntakeError(f"{TOKEN_ENV} is not set in .env, so no form submissions could be read")
@@ -88,34 +95,70 @@ def fetch(token: str | None = None, *, transport: httpx.BaseTransport | None = N
     try:
         with httpx.Client(base_url=cfg["api"], headers=headers, timeout=TIMEOUT_SECONDS,
                           transport=transport or TRANSPORT) as client:
-            form_id = _form_id(client, cfg)
-            items, offset = [], 0
-            while True:
-                response = client.get(f"/forms/{form_id}/submissions", params={"limit": PAGE_SIZE, "offset": offset})
-                _raise_for(response, "reading the form submissions")
-                data = response.json()
-                batch = data.get("formSubmissions") or []
-                items += batch
-                total = (data.get("pagination") or {}).get("total", len(items))
-                offset += len(batch)
-                if not batch or offset >= total:
-                    break
+            items, ids = [], set()
+            for form_id in _form_ids(client, cfg):
+                offset = 0
+                while True:
+                    response = client.get(f"/forms/{form_id}/submissions",
+                                          params={"limit": PAGE_SIZE, "offset": offset})
+                    _raise_for(response, "reading the form submissions")
+                    data = response.json()
+                    batch = data.get("formSubmissions") or []
+                    for item in batch:  # one submission can appear under more than one record
+                        if str(item.get("id", "")) not in ids:
+                            ids.add(str(item.get("id", "")))
+                            items.append(item)
+                    total = (data.get("pagination") or {}).get("total", offset + len(batch))
+                    offset += len(batch)
+                    if not batch or offset >= total:
+                        break
     except httpx.HTTPError as exc:
         raise IntakeError(_mask(f"Webflow could not be reached: {type(exc).__name__}: {exc}", token)) from None
     except IntakeError as exc:
         raise IntakeError(_mask(str(exc), token)) from None
-    found = [parse(item, cfg["fields"]) for item in items]
-    return sorted(found, key=lambda s: (s.submitted, s.id))
+    return items
 
 
-def _form_id(client: httpx.Client, cfg: dict) -> str:
+@dataclass(frozen=True)
+class FieldCheck:
+    submissions: int
+    seen: dict[str, int]  # field name -> how many submissions carry it
+    expected: dict[str, str]  # our name -> Webflow's field name, from config/intake.yaml
+    already_processed: int
+
+    @property
+    def missing(self) -> list[str]:
+        """Expected field names no submission carried."""
+        return sorted(name for name in self.expected.values() if name not in self.seen)
+
+    @property
+    def unmapped(self) -> list[str]:
+        """Field names that came back but intake does not read."""
+        return sorted(name for name in self.seen if name not in self.expected.values())
+
+
+def check_fields(items: list[dict], seen_ids: set[str] | None = None) -> FieldCheck:
+    """What a check-only run reports: counts and field names, never a submitted value."""
+    counts: dict[str, int] = {}
+    for item in items:
+        for name in (item.get("formResponse") or {}):
+            counts[str(name)] = counts.get(str(name), 0) + 1
+    done = seen_ids if seen_ids is not None else seen()
+    return FieldCheck(len(items), counts, dict(config()["fields"]),
+                      sum(1 for item in items if str(item.get("id", "")) in done))
+
+
+def _form_ids(client: httpx.Client, cfg: dict) -> list[str]:
+    """Every form record for the /digital form: same page, same form element. Webflow keeps several for one form."""
     response = client.get(f"/sites/{cfg['site_id']}/forms", params={"limit": PAGE_SIZE})
     _raise_for(response, "listing the site's forms")
     forms = response.json().get("forms") or []
-    match = [f for f in forms if f.get("pageId") == cfg["page_id"]]
-    if len(match) != 1:
-        raise IntakeError(f"expected one form on the /digital page (page id {cfg['page_id']}), found {len(match)}")
-    return str(match[0]["id"])
+    match = [f for f in forms if f.get("pageId") == cfg["page_id"]
+             and f.get("formElementId", cfg["form_element_id"]) == cfg["form_element_id"]]
+    if not match:
+        raise IntakeError(f"found no form on the /digital page (page id {cfg['page_id']}, form element "
+                          f"{cfg['form_element_id']})")
+    return [str(f["id"]) for f in match]
 
 
 def _raise_for(response: httpx.Response, doing: str) -> None:

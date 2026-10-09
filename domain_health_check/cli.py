@@ -9,6 +9,7 @@ A report runs only for a domain with a recorded submission, and never for one on
 from __future__ import annotations
 
 import argparse
+import json
 import smtplib
 import sys
 from datetime import date
@@ -69,6 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
     pull.add_argument("--submissions-file", type=Path,
                       help="a saved Webflow API response to read instead of Webflow, for testing")
     pull.add_argument("-o", "--output", type=Path, default=Path("reports"), help="folder for the reports")
+    pull.add_argument("--check", action="store_true",
+                      help="read the form and list how many submissions there are and which field names came back; "
+                           "records nothing, runs no report and sends no email")
     return parser
 
 
@@ -213,6 +217,8 @@ def run_intake(args) -> int:
     load_env(ENV_FILE)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    if args.check:
+        return _check_intake(args)
     try:
         mail = mailer.MailerConfig.from_env()
     except (mailer.MailerNotConfigured, ValueError) as exc:  # nobody can be told, so say it here and stop
@@ -240,3 +246,33 @@ def run_intake(args) -> int:
     if outcome.failed:
         return 2
     return 3 if any(code == 3 for code in outcome.exit_codes.values()) else 0
+
+
+def _check_intake(args) -> int:
+    """Read the /digital form and describe what came back. No consent is recorded, nothing is marked seen, no
+    report runs and no email is sent. Only counts and field names are printed, never a submitted value."""
+    try:
+        items = (json.loads(args.submissions_file.read_text(encoding="utf-8")).get("formSubmissions") or []
+                 if args.submissions_file else intake.fetch_items())
+    except (intake.IntakeError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    check = intake.check_fields(items)
+    print(f"Submissions to the /digital form: {check.submissions} "
+          f"({check.already_processed} already processed, {check.submissions - check.already_processed} new)")
+    print("Field names that came back (how many submissions carry each):")
+    for name in sorted(check.seen):
+        print(f"  {name}: {check.seen[name]}")
+    print("What intake reads:")
+    for ours, theirs in check.expected.items():
+        print(f"  {ours} <- {theirs}: {'present' if theirs in check.seen else 'NOT in any submission'}")
+    if check.unmapped:
+        print(f"Came back but not read by intake: {', '.join(check.unmapped)}")
+    if not check.submissions:
+        print("There are no submissions yet, so the field names cannot be confirmed.")
+        return 0
+    if check.missing:
+        print(f"Expected but never seen: {', '.join(check.missing)}")
+        return 3
+    print("Every field intake reads came back under the expected name.")
+    return 0
