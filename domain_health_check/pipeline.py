@@ -34,6 +34,7 @@ class Outcome:
     skipped: list[str] = field(default_factory=list)  # why each skipped submission was skipped
     failed: list[str] = field(default_factory=list)
     exit_codes: dict[str, int] = field(default_factory=dict)
+    emailed: int = 0  # review emails sent to the reviewer
 
 
 def log(line: str, path: Path | None = None) -> None:
@@ -109,6 +110,7 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     outcome.processed.append(domain)
     outcome.exit_codes[domain] = exit_code
     send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name))
+    outcome.emailed += 1
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
 
 

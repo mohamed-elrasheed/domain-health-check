@@ -352,11 +352,24 @@ message addressed to anyone else.
 - `WEBFLOW_API_TOKEN` in `.env` is a Webflow token with read access to forms only. It is never printed or logged.
 - `--submissions-file PATH` reads a saved API response instead of Webflow, for testing.
 
-Scheduled with Windows Task Scheduler (run from Command Prompt; the tasks run while you are logged in):
+Every intake run writes exactly one line to stdout, even when there is nothing to do, and everything else to
+stderr:
 
 ```
-schtasks /Create /TN "Mizan\domain-health-check intake" /SC HOURLY /MO 1 /TR "cmd /c cd /d C:\Users\melra\projects\domain-health-check && .venv\Scripts\domain-health-check.exe intake >> logs\intake-task.log 2>&1" /F
-schtasks /Create /TN "Mizan\domain-health-check sweep" /SC WEEKLY /D MON /ST 08:00 /TR "cmd /c cd /d C:\Users\melra\projects\domain-health-check && .venv\Scripts\domain-health-check-sweep.exe >> logs\sweep-task.log 2>&1" /F
+2026-10-09T14:00:03-04:00 intake: 0 new submissions, 0 reports emailed, 0 failures
+```
+
+The sweep does the same (`<timestamp> sweep: <N> businesses, <n> none, <n> weak, <n> unver, <n> good, <F> failures`),
+so a quiet line in the task log shows a run that worked, not one that never started.
+
+Scheduled with Windows Task Scheduler (run from Command Prompt; the tasks run while you are logged in).
+`scripts\run-hidden.vbs <exe> [args...] <log name>` runs `.venv\Scripts\<exe>` from the repository root with no
+window, appends its output to `logs\<log name>-task.log`, waits for it, and passes its exit code back, so the task
+history shows the real result:
+
+```
+schtasks /Create /TN "Mizan\domain-health-check intake" /SC HOURLY /MO 1 /TR "wscript.exe C:\Users\melra\projects\domain-health-check\scripts\run-hidden.vbs domain-health-check.exe intake intake" /F
+schtasks /Create /TN "Mizan\domain-health-check sweep" /SC WEEKLY /D MON /ST 08:00 /TR "wscript.exe C:\Users\melra\projects\domain-health-check\scripts\run-hidden.vbs domain-health-check-sweep.exe sweep" /F
 ```
 
 ### PDF output

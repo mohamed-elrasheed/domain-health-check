@@ -4,6 +4,7 @@ which verdict comes out. No socket is opened; conftest blocks them."""
 from __future__ import annotations
 
 import json
+import re
 import socket
 from datetime import date
 from pathlib import Path
@@ -245,16 +246,33 @@ def test_cli_writes_verdicts_and_never_touches_the_lead_list(tmp_path, capsys):
     assert not (out / "auto-one" / "evidence.png").exists()
     record = json.loads((out / "auto-one" / "result.json").read_text())
     assert "html" not in record["visits"][0]["page"]  # their page is not kept, only what we found on it
-    assert "2 businesses: 1 none, 0 weak, 0 unver, 1 good." in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "2 businesses: 1 none, 0 weak, 0 unver, 1 good." in captured.err
+    [line] = captured.out.splitlines()  # exactly one line on stdout, for logs/sweep-task.log
+    assert SUMMARY.fullmatch(line) and line.endswith(" sweep: 2 businesses, 1 none, 0 weak, 0 unver, 1 good, "
+                                                     "0 failures")
 
 
 def test_cli_trade_uses_the_rotation_names(tmp_path, capsys):
     transport = own_site_and({})
     assert cli.main([str(leads_file(tmp_path)), "-o", str(tmp_path / "o"), "--no-browser", "--trade", "cleaning"],
                     transport=transport) == 0
-    out = capsys.readouterr().out
-    assert "clean-one" in out and "auto-one" not in out
+    err = capsys.readouterr().err
+    assert "clean-one" in err and "auto-one" not in err
     assert [r.url.host for r in transport.seen] == []  # a none needs no request, not even the network check
+
+
+SUMMARY = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d sweep: \d+ businesses, \d+ none, \d+ weak, "
+                     r"\d+ unver, \d+ good, \d+ failures")
+
+
+def test_cli_writes_one_summary_line_even_when_the_run_fails(tmp_path, capsys):
+    assert cli.main([str(tmp_path / "missing.json"), "-o", str(tmp_path / "o"), "--no-browser"]) == 2
+    captured = capsys.readouterr()
+    [line] = captured.out.splitlines()
+    assert SUMMARY.fullmatch(line) and line.endswith(" sweep: 0 businesses, 0 none, 0 weak, 0 unver, 0 good, "
+                                                     "1 failures")
+    assert "Error:" in captured.err
 
 
 def test_cli_unknown_trade_or_id_is_an_error(tmp_path, capsys):
@@ -364,7 +382,7 @@ def test_cli_reads_a_hand_fault_and_marks_it(tmp_path, capsys):
     transport = own_site_and({"https://www.example.com/robots.txt": robots_ok(),
                               "https://www.example.com/": httpx.Response(200, html=GOOD)})
     assert cli.main([str(path), "-o", str(tmp_path / "o"), "--no-browser"], transport=transport) == 0
-    assert "weak   [found by hand, check before using] Stock photos only." in capsys.readouterr().out
+    assert "weak   [found by hand, check before using] Stock photos only." in capsys.readouterr().err
 
 
 def test_a_good_site_with_only_flags_stays_good():

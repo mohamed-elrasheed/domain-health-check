@@ -303,10 +303,34 @@ def test_the_cli_runs_intake_from_a_saved_response(places, monkeypatch, tmp_path
     monkeypatch.setenv("SMTP_USERNAME", "mo@mizangroupllc.com")
     monkeypatch.setenv("SMTP_PASSWORD", "app-password")
     assert cli.main(["intake", "--submissions-file", str(saved), "-o", str(places["kwargs"]["output"])]) == 0
-    out = capsys.readouterr().out
-    assert "Reported on mizangroupllc.com (exit code 0); the review went to mo@mizangroupllc.com." in out
+    captured = capsys.readouterr()
+    assert "Reported on mizangroupllc.com (exit code 0); the review went to mo@mizangroupllc.com." in captured.err
+    [line] = captured.out.splitlines()  # exactly one line on stdout, for logs/intake-task.log
+    assert INTAKE_SUMMARY.fullmatch(line)
+    assert line.endswith(" intake: 1 new submissions, 1 reports emailed, 0 failures")
     [msg] = FakeSMTP.sent
     assert msg["To"] == "mo@mizangroupllc.com"
+    assert cli.main(["intake", "--submissions-file", str(saved), "-o", str(places["kwargs"]["output"])]) == 0
+    [line] = capsys.readouterr().out.splitlines()  # a quiet run still says it ran
+    assert line.endswith(" intake: 0 new submissions, 0 reports emailed, 0 failures")
+
+
+INTAKE_SUMMARY = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d intake: \d+ new submissions, "
+                            r"\d+ reports emailed, \d+ failures")
+
+
+def test_intake_writes_its_one_line_when_email_is_not_configured(monkeypatch, tmp_path, capsys):
+    from domain_health_check import cli
+    monkeypatch.setattr(pipeline, "LOG", tmp_path / "intake.log")
+    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.delenv("SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    assert cli.main(["intake", "--submissions-file", str(tmp_path / "none.json")]) == 2
+    captured = capsys.readouterr()
+    [line] = captured.out.splitlines()
+    assert INTAKE_SUMMARY.fullmatch(line)
+    assert line.endswith(" intake: 0 new submissions, 0 reports emailed, 1 failures")
+    assert "Error:" in captured.err and FakeSMTP.sent == []
 
 
 

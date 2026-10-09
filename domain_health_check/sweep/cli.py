@@ -130,7 +130,22 @@ def write_summary(results: list[SweepResult], out: Path, today: date) -> Path:
 
 
 def main(argv: list[str] | None = None, *, transport=None, today: date | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    """One sweep. Writes exactly one summary line to stdout per run, so a quiet run in logs/sweep-task.log reads as a
+    working run; the per-business lines and every message go to stderr."""
+    args = build_parser().parse_args(argv)  # --help and --version exit here, before any run
+    counts = {"businesses": 0, "none": 0, "weak": 0, "unver": 0, "good": 0}
+    code = 2
+    try:
+        code = _sweep(args, counts, transport=transport, today=today)
+        return code
+    finally:
+        failures = 0 if code == 0 else 1
+        print(f"{datetime.now().astimezone().isoformat(timespec='seconds')} sweep: {counts['businesses']} businesses, "
+              f"{counts['none']} none, {counts['weak']} weak, {counts['unver']} unver, {counts['good']} good, "
+              f"{failures} failures", flush=True)
+
+
+def _sweep(args, counts: dict[str, int], *, transport=None, today: date | None = None) -> int:
     today = today or date.today()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -160,7 +175,8 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
                     except Deferred as deferred:
                         result = _stored(args.output, business, deferred)
                         if result is None:
-                            print(f"{business.id:32} deferred, nothing stored: {deferred}", flush=True)
+                            print(f"{business.id:32} deferred, nothing stored: {deferred}", file=sys.stderr,
+                                  flush=True)
                             continue
                     write(result, args.output)
                     results.append(result)
@@ -168,13 +184,16 @@ def main(argv: list[str] | None = None, *, transport=None, today: date | None = 
                                if result.fault and result.fault.found_by == "hand" else "")
                     when = (f" [deferred: {result.deferred_until}]" if result.deferred_until else
                             next((f" [from the visit on {v.cached_on}]" for v in result.visits if v.cached_on), ""))
-                    print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}{when}", flush=True)
+                    print(f"{result.id:32} {result.verdict:6} {by_hand}{result.sentence}{when}", file=sys.stderr,
+                          flush=True)
         except BrowserUnavailable as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 2
     summary = write_summary(results, args.output, today)
-    counts = {v: sum(r.verdict == v for r in results) for v in ("none", "weak", "unver", "good")}
-    print(f"\n{len(results)} businesses: " + ", ".join(f"{n} {v}" for v, n in counts.items()) + f". {summary}")
+    verdicts = {v: sum(r.verdict == v for r in results) for v in ("none", "weak", "unver", "good")}
+    counts.update(verdicts, businesses=len(results))
+    print(f"\n{len(results)} businesses: " + ", ".join(f"{n} {v}" for v, n in verdicts.items()) + f". {summary}",
+          file=sys.stderr)
     return 0 if _board(args, raw_leads) else 2
 
 
@@ -213,7 +232,7 @@ def _board(args, raw_leads: list[dict]) -> bool:
         for problem in problems:
             print(f"  - {problem}", file=sys.stderr)
         return False
-    print(f"Board: {export_board(raw_leads, args.output, args.previews)}")
+    print(f"Board: {export_board(raw_leads, args.output, args.previews)}", file=sys.stderr)
     return True
 
 

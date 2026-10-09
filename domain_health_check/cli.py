@@ -12,7 +12,7 @@ import argparse
 import json
 import smtplib
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from . import __version__, consent, external, intake, mailer, pipeline
@@ -211,38 +211,58 @@ def _email(report, pdf_path: Path, mail: mailer.MailerConfig) -> bool:
     return True
 
 
+def summary_time() -> str:
+    """Now, as an ISO timestamp with the local offset, for the one summary line a scheduled run writes."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
 def run_intake(args) -> int:
-    """The scheduled hourly run. Exit 0 when every new submission was reported on and its review sent, 3 when a
-    report was incomplete, 2 when anything failed (the reviewer was emailed the error)."""
+    """The scheduled hourly run. Writes exactly one line to stdout, even when there is nothing to do, so a quiet run
+    in logs/intake-task.log reads as a working run; everything else goes to stderr. Exit 0 when every new submission
+    was reported on and its review sent, 3 when a report was incomplete, 2 when anything failed (the reviewer was
+    emailed the error). --check is a manual look at the form, not a run: it prints what it found."""
     load_env(ENV_FILE)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
     if args.check:
         return _check_intake(args)
+    counts = {"new": 0, "emailed": 0, "failures": 0}
+    try:
+        return _run_intake(args, counts)
+    finally:
+        print(f"{summary_time()} intake: {counts['new']} new submissions, {counts['emailed']} reports emailed, "
+              f"{counts['failures']} failures", flush=True)
+
+
+def _run_intake(args, counts: dict[str, int]) -> int:
     try:
         mail = mailer.MailerConfig.from_env()
     except (mailer.MailerNotConfigured, ValueError) as exc:  # nobody can be told, so say it here and stop
+        counts["failures"] += 1
         print(f"Error: {exc} Intake needs it to send the reviewer each report.", file=sys.stderr)
         pipeline.log(f"FAILED: email is not configured, so intake did not run: {exc}")
         return 2
     for path in external.prune_cache():
-        print(f"Deleted a cached PageSpeed response older than 24 hours: {path.name}")
+        print(f"Deleted a cached PageSpeed response older than 24 hours: {path.name}", file=sys.stderr)
     try:
         found = intake.from_file(args.submissions_file) if args.submissions_file else intake.fetch()
     except (intake.IntakeError, OSError, ValueError) as exc:
+        counts["failures"] += 1
         print(f"Error: {exc}", file=sys.stderr)
         pipeline.intake_failed(mail, str(exc), smtp_factory=SMTP_FACTORY)
         return 2
     outcome = pipeline.process(found, mail, output=args.output, submissions_path=SUBMISSIONS, leads_path=LEADS_FILE,
                                run_log=RUN_LOG, smtp_factory=SMTP_FACTORY)
+    counts["new"] = len(outcome.processed) + len(outcome.skipped) + len(outcome.failed)
+    counts["emailed"] = outcome.emailed
+    counts["failures"] += len(outcome.failed)
     for domain in outcome.processed:
-        print(f"Reported on {domain} (exit code {outcome.exit_codes[domain]}); the review went to {mailer.REVIEWER}.")
+        print(f"Reported on {domain} (exit code {outcome.exit_codes[domain]}); the review went to {mailer.REVIEWER}.",
+              file=sys.stderr)
     for line in outcome.skipped:
-        print(f"Skipped {line}.")
+        print(f"Skipped {line}.", file=sys.stderr)
     for line in outcome.failed:
         print(f"Failed: {line}", file=sys.stderr)
-    if not (outcome.processed or outcome.skipped or outcome.failed):
-        print("No new submissions.")
     if outcome.failed:
         return 2
     return 3 if any(code == 3 for code in outcome.exit_codes.values()) else 0

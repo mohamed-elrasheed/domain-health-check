@@ -72,7 +72,7 @@ def test_a_rerun_the_same_week_requests_nothing(run, capsys):
     again = their_site()
     assert run(again, MONDAY + timedelta(days=3)) == 0
     assert to_them(again) == []
-    assert "[from the visit on 2026-10-05]" in capsys.readouterr().out
+    assert "[from the visit on 2026-10-05]" in capsys.readouterr().err
     assert state(run.out)["example.com"] == {"last_fetch": "2026-10-05", "retry_after": "2026-10-12",
                                              "reason": "fetched"}
 
@@ -92,8 +92,8 @@ def test_a_cooling_domain_with_nothing_cached_is_deferred_and_redecided(run, cap
     later = their_site()
     assert run(later, MONDAY + timedelta(days=2)) == 0
     assert to_them(later) == []
-    out = capsys.readouterr().out
-    assert "auto-one" in out and "good" in out and "[deferred: 2026-10-12]" in out
+    err = capsys.readouterr().err
+    assert "auto-one" in err and "good" in err and "[deferred: 2026-10-12]" in err
     summary = json.loads((run.out / "sweep-2026-10-07.json").read_text())
     assert summary[0]["verdict"] == "good" and summary[0]["deferred_until"] == "2026-10-12"
 
