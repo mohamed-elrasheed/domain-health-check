@@ -326,7 +326,7 @@ def nearby_line(report: DomainReport) -> str:
     """The anonymous comparison with the top-ranked listings of the same type within 10 miles: averages only, no
     other business named. "" when there were fewer than three, or no category to name them by."""
     near = report.nearby or {}
-    category = (near.get("category") or "").strip().lower()
+    category = (near.get("place_type") or "").strip().lower()
     if not category or near.get("count", 0) < 3:
         return ""
     own_rating = near.get("own_rating")

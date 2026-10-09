@@ -64,7 +64,7 @@ class DomainReport:
     cms: str = ""
     cms_evidence: str = ""
     # Page 1: the home page at phone width (PNG bytes, from the report's own browser load), and the anonymous
-    # comparison with the top-ranked nearby listings of the same type: {"category", "count", "reviews", "rating",
+    # comparison with the top-ranked nearby listings of the same type: {"place_type", "count", "reviews", "rating",
     # "own_reviews", "own_rating"}. Neither is ever committed: the screenshot is written under reports/.
     screenshot: bytes = field(default=b"", repr=False)
     nearby: dict | None = None

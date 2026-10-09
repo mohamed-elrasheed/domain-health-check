@@ -275,7 +275,9 @@ def test_not_found_never_reaches_the_top_or_the_draft():
     assert "Google Business Profile" not in mailer.draft_to_business(report)
 
 
-def test_the_primary_category_is_in_the_technical_details(with_places_key):
+def test_the_google_place_type_is_in_the_technical_details(with_places_key):
     place = {**listing("real"), "primaryType": "service", "primaryTypeDisplayName": {"text": "Services"}}
     [result] = bp.check_profile(ExternalContext(place=place, place_match="website"))
-    assert "Primary category on Google: Services (service)" in result.details
+    assert "Google place type: Services (service)" in result.details
+    assert "This is Google's broad type for the listing, not the category you chose." in result.details
+    assert not any("categor" in d.lower() and "not the category you chose" not in d for d in result.details)

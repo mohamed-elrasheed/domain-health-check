@@ -1,13 +1,14 @@
-# The nearby comparison on page 1 is printed only when the business's primary category on Google is a specific
-# trade on this list. A broad category (store, service, building_materials_store and the like) compares a business
+# The nearby comparison on page 1 is printed only when the listing's Google place type is a specific
+# trade on this list. A broad type (store, service, building_materials_store and the like) compares a business
 # with whatever happens to share that label, so the line is left out.
 #
 # Every value is a Google place type id, checked 2026-10-09 against
 # https://developers.google.com/maps/documentation/places/web-service/place-types
-# (Table A, except general_contractor, which is in Table B and is returned as a primary type).
+# (Table A, except general_contractor, which is in Table B and is returned as a primary type). A place type is
+# Google's broad type for the listing, not the category the owner chose in Business Profile.
 #
 # Google has no type for flooring stores, house cleaning services or landscapers in either table, so those trades
-# cannot be listed here: their listings carry broad categories, and the line is left out for them.
+# cannot be listed here: their listings carry broad types, and the line is left out for them.
 
 trades:
   # Personal care

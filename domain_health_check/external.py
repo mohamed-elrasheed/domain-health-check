@@ -53,7 +53,7 @@ PLACES_DETAILS = "https://places.googleapis.com/v1/places/{}"
 SEARCH_MASK = "places.id,places.displayName"  # Pro tier
 DETAILS_MASK = ("id,displayName,businessStatus,websiteUri,nationalPhoneNumber,regularOpeningHours,userRatingCount,"
                 "rating,location,primaryType,primaryTypeDisplayName")
-# The anonymous comparison on page 1: the top-ranked listings of the same primary type within 10 miles. Only their
+# The anonymous comparison on page 1: the top-ranked listings of the same Google place type within 10 miles. Only their
 # review counts and ratings are requested, never a name, and only averages are kept.
 PLACES_NEARBY = "https://places.googleapis.com/v1/places:searchNearby"
 NEARBY_MASK = "places.id,places.rating,places.userRatingCount"
@@ -85,7 +85,7 @@ class ExternalContext:
     # name that does not link back to the domain or phone), or "" when it did not run (no key, no name, an error).
     place_outcome: str = ""
     phone_compared: bool = False  # whether we had a phone number to compare listings against
-    # The top-ranked nearby listings of the same type, as averages only: {"category", "count", "reviews", "rating"}.
+    # The top-ranked nearby listings of the same type, as averages only: {"place_type", "count", "reviews", "rating"}.
     # None when it did not run or found fewer than three.
     nearby: dict | None = None
     errors: dict[str, str] = field(default_factory=dict)  # source -> why it is missing
@@ -245,16 +245,16 @@ def nearby_averages(listings: list[dict], own_id: str) -> dict | None:
 
 
 def _find_nearby(client: httpx.Client, context: ExternalContext, key: str) -> None:
-    """One Nearby Search for the business's own primary type around its own listing. Logged like every Places call
+    """One Nearby Search for the business's own Google place type around its own listing. Logged like every Places call
     (requestlog source "places"); a failure leaves the comparison out rather than sinking the report."""
     place = context.place or {}
     kind = place.get("primaryType")
     where = place.get("location") or {}
     if not kind or "latitude" not in where or "longitude" not in where:
-        context.errors["nearby"] = "the listing has no primary category or location, so we did not compare"
+        context.errors["nearby"] = "the listing has no Google place type or location, so we did not compare"
         return
     if kind not in nearby_trades():  # a broad category would compare the business with whatever shares the label
-        context.errors["nearby"] = (f"the listing's primary category ({kind}) is not a specific trade, so we did not "
+        context.errors["nearby"] = (f"the listing's Google place type ({kind}) is not a specific trade, so we did not "
                                     "compare")
         return
     body = {"includedPrimaryTypes": [kind], "maxResultCount": NEARBY_RESULTS, "rankPreference": "POPULARITY",
@@ -270,8 +270,8 @@ def _find_nearby(client: httpx.Client, context: ExternalContext, key: str) -> No
     if averages is None:
         context.errors["nearby"] = f"fewer than {NEARBY_COUNT} other listings of this type within 10 miles"
         return
-    category = (place.get("primaryTypeDisplayName") or {}).get("text") or ""
-    context.nearby = {"category": category, **averages}
+    place_type = (place.get("primaryTypeDisplayName") or {}).get("text") or ""
+    context.nearby = {"place_type": place_type, **averages}
 
 
 def _search(client: httpx.Client, key: str, query: str) -> list[dict]:

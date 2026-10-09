@@ -44,10 +44,10 @@ them, and may also appear in the top three.
 written beside the report as `home-phone.png` under `reports/`, which is never committed.
 
 **The nearby comparison** is one line: "The three top-ranked <category> near you average N reviews at R stars. You
-have N at R." One Places Nearby Search for the business's own primary type within 10 miles of its listing, ranked
+have N at R." One Places Nearby Search for the business's own Google place type within 10 miles of its listing, ranked
 by Google's popularity, the business's own listing excluded. Only review counts and ratings are requested, and only
 averages are kept or printed: another business is never named. Fewer than three listings, and the line is left
-out. It is printed only when the listing's primary category is a specific trade on the allowlist in
+out. It is printed only when the listing's Google place type is a specific trade on the allowlist in
 `config/nearby.yaml` (Google place type ids, from Google's own place-types table); for a broad category such as
 building materials store, store or service, the line is left out and no nearby search is made.
 
@@ -56,7 +56,9 @@ both with service-area businesses included (a business that hides its address is
 search). A listing is used only when its website or phone confirms it. When none is found, it goes under "Worth
 checking" as "We could not find a Google Business Profile by name, town or phone. Businesses that hide their
 address can be hard to find this way." It is never a top finding and never in the draft to the business. The
-listing's primary category is recorded in the technical details as a fact. The star rating appears here and nowhere else; it is never scored and never a finding.
+listing's Google place type is recorded in the technical details as a fact, with the line "This is
+Google's broad type for the listing, not the category you chose." It is the Places API type, not
+the category the owner picked in Business Profile, and the report never calls it their category. The star rating appears here and nowhere else; it is never scored and never a finding.
 
 **On the owner's pages** (page 1 and the price page), HSTS, Content Security Policy and nosniff collapse into one
 row, "Three security settings your developer can switch on". They stay separate in "Needs a developer" and in

@@ -101,11 +101,13 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
                                    "of this report.", "Nothing to do based on this report.", [why], ran=False)
 
     status = external.place.get("businessStatus", "")
-    category = (external.place.get("primaryTypeDisplayName") or {}).get("text", "")
+    # The Places API place type, not the category the owner chose in Business Profile.
+    place_type = (external.place.get("primaryTypeDisplayName") or {}).get("text", "")
     kind = external.place.get("primaryType", "")
     details = _listing_details(external) + [f"Business status: {status or 'not stated'}",
-                                            f"Primary category on Google: {category or 'not stated'}"
-                                            + (f" ({kind})" if kind else "")]
+                                            f"Google place type: {place_type or 'not stated'}"
+                                            + (f" ({kind})" if kind else ""),
+                                            "This is Google's broad type for the listing, not the category you chose."]
     if status == "OPERATIONAL":
         return result(Status.PASS, "Your business has a Google Business Profile, and it shows you as open.",
                       details=details)

@@ -35,7 +35,7 @@ def finding(name: str, category: str = SITE) -> CheckResult:
     return CheckResult(category, name, Status.WARN, f"{name} finding.", "Why.", f"Fix for {name}.", [])
 
 
-NEARBY = {"category": "Flooring store", "count": 3, "reviews": 141.33, "rating": 4.63, "own_reviews": 87,
+NEARBY = {"place_type": "Flooring store", "count": 3, "reviews": 141.33, "rating": 4.63, "own_reviews": 87,
           "own_rating": 4.8}
 
 
@@ -60,7 +60,7 @@ def test_the_nearby_line_names_no_one():
     assert line == ("The three top-ranked flooring stores near you average 141 reviews at 4.6 stars. You have 87 at "
                     "4.8.")
     assert layout.nearby_line(DomainReport("example.com", NOW, [], nearby=None)) == ""
-    assert layout.nearby_line(DomainReport("example.com", NOW, [], nearby={**NEARBY, "category": ""})) == ""
+    assert layout.nearby_line(DomainReport("example.com", NOW, [], nearby={**NEARBY, "place_type": ""})) == ""
 
 
 @pytest.mark.parametrize("category, plural", [("Flooring store", "flooring stores"), ("Pharmacy", "pharmacies"),
@@ -95,7 +95,7 @@ def test_one_nearby_search_around_the_listing_logged_like_every_places_call():
     assert body["includedPrimaryTypes"] == ["barber_shop"] and body["rankPreference"] == "POPULARITY"
     assert body["locationRestriction"]["circle"]["radius"] == 16_093 and body["maxResultCount"] == 4
     assert nearby.headers["X-Goog-FieldMask"] == "places.id,places.rating,places.userRatingCount"  # no names
-    assert context.nearby == {"category": "Barber shop", "count": 3, "reviews": 60.0, "rating": pytest.approx(4.5)}
+    assert context.nearby == {"place_type": "Barber shop", "count": 3, "reviews": 60.0, "rating": pytest.approx(4.5)}
     assert [e.source for e in log] == ["places"] * 3
 
 
