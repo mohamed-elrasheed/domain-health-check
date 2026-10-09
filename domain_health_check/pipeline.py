@@ -108,7 +108,7 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     exit_code = 2 if pdf is None else (0 if report.complete else 3)
     outcome.processed.append(domain)
     outcome.exit_codes[domain] = exit_code
-    send(mailer.review_message(cfg, report, pdf, exit_code, requested))
+    send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name))
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
 
 

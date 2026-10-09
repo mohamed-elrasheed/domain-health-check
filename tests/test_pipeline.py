@@ -351,3 +351,31 @@ def test_both_the_api_names_and_the_older_names_are_read(item):
 def test_the_api_name_wins_when_both_are_present():
     both = {"id": "x", "formResponse": {"Phone": "555-010-0100", "Field": "555-010-0199"}}
     assert intake.parse(both, intake.config()["fields"]).phone == "555-010-0100"
+
+
+
+@pytest.mark.parametrize("name, business, expected", [
+    ("Mohamed Elrasheed", "Mizan Group LLC", "Hello Mohamed,"),
+    ("mohamed", "", "Hello Mohamed,"),
+    ("Mary-Jane O'Neil", "", "Hello Mary-Jane,"),
+    ("José", "", "Hello José,"),
+    ("", "Mizan Group LLC", "Hello,"),
+    ("   ", "", "Hello,"),
+    ("Mizan Group LLC", "Mizan Group LLC", "Hello,"),
+    ("Harbor Lane Bakery", "Harbor Lane Bakery", "Hello,"),
+    ("Acme Plumbing Inc", "", "Hello,"),
+    ("Smith & Sons", "", "Hello,"),
+    ("Quarry Hill Landscaping Services", "", "Hello,"),
+    ("Team 7", "", "Hello,"),
+    ("info@example.com", "", "Hello,"),
+])
+def test_the_draft_greets_the_first_name_or_stays_general(name, business, expected):
+    assert mailer.greeting(name, business) == expected
+    assert mailer.draft_to_business(report_for(), name, business).splitlines()[0] == expected
+
+
+def test_the_pipeline_passes_the_submitted_name_to_the_draft(places):
+    pipeline.process([submission(name="Mohamed Elrasheed")], CFG, **places["kwargs"])
+    [msg] = FakeSMTP.sent
+    body = msg.get_body(("plain",)).get_content()
+    assert "Draft message to the business (not sent):\n" + "-" * 40 + "\nHello Mohamed,\n" in body

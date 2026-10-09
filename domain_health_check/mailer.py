@@ -15,6 +15,7 @@ also means Gmail's dark mode has no background colour to strip.
 from __future__ import annotations
 
 import os
+import re
 import smtplib
 import ssl
 from dataclasses import dataclass, field
@@ -152,10 +153,34 @@ def send(msg: EmailMessage, cfg: MailerConfig, *, smtp_factory=smtplib.SMTP) -> 
 EXIT_MEANING = {0: "complete", 2: "the run could not do what was asked", 3: "written, but incomplete"}
 
 
-def draft_to_business(report: DomainReport) -> str:
+COMPANY_WORDS = {"llc", "l.l.c.", "inc", "inc.", "incorporated", "corp", "corp.", "corporation", "co", "co.",
+                 "company", "ltd", "ltd.", "limited", "group", "services", "service", "solutions", "enterprises",
+                 "holdings", "partners", "associates", "studio", "studios", "agency", "shop", "store", "&", "and"}
+FIRST_NAME = re.compile(r"[^\W\d_](?:[^\W\d_]|['-](?=[^\W\d_]))*")
+
+
+def greeting(name: str, business_name: str = "") -> str:
+    """ "Hello Mohamed," from the first name submitted, or "Hello," when the name is empty, is the business name,
+    or reads like a company (a word such as LLC, Inc, Group or Services, an ampersand, or digits). When in doubt,
+    "Hello,": a wrong first name is worse than none."""
+    name = " ".join((name or "").split())
+    words = name.lower().replace(",", " ").split()
+    if (not name or name.lower() == " ".join((business_name or "").split()).lower() or any(c.isdigit() for c in name)
+            or any(word in COMPANY_WORDS for word in words) or len(words) > 4):
+        return "Hello,"
+    first = name.split()[0]
+    if not FIRST_NAME.fullmatch(first):
+        return "Hello,"
+    if first.islower() or first.isupper():
+        first = first.capitalize()
+    return f"Hello {first},"
+
+
+def draft_to_business(report: DomainReport, name: str = "", business_name: str = "") -> str:
     """A draft for the reviewer to edit and send, if they choose. It names the top three findings and asks nothing
     of the business: no call, no reply, no offer. Team voice, plain English."""
-    lines = ["Hello,", "", f"Thank you for asking us to look at {report.domain}. Your report is attached.", ""]
+    lines = [greeting(name, business_name), "", f"Thank you for asking us to look at {report.domain}. Your report is "
+             "attached.", ""]
     worth = layout.worth_doing(report)
     if worth:
         lines += ["These are the findings we would look at first:", ""]
@@ -168,7 +193,7 @@ def draft_to_business(report: DomainReport) -> str:
 
 
 def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, exit_code: int,
-                   submitted: str) -> EmailMessage:
+                   submitted: str, name: str = "", business_name: str = "") -> EmailMessage:
     """The reviewer's copy of one automated run: the PDF, the exit code, anything incomplete, and a draft to the
     business that is never sent by this tool."""
     score, band = layout.headline(report)
@@ -184,7 +209,8 @@ def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, ex
              f"Requested: {submitted}", "",
              "The PDF is attached." if pdf else "No PDF could be written; the Markdown report is on disk.",
              "Nothing has been sent to the business. Read the report before anything goes to them.", "",
-             "Draft message to the business (not sent):", "-" * 40, draft_to_business(report), "-" * 40]
+             "Draft message to the business (not sent):", "-" * 40, draft_to_business(report, name, business_name),
+             "-" * 40]
     msg.set_content("\n".join(lines))
     if pdf:
         msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf",
