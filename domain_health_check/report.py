@@ -103,11 +103,6 @@ def render_markdown(report: DomainReport) -> str:
     for r in report.results:
         lines.append(f"| {_cell(r.category)} | {_cell(r.name)} | {_icon(r)} {layout.label(r)} | {_cell(r.summary)} |")
 
-    passed = layout.working(report)
-    if passed:
-        lines += ["", "## What is already working"]
-        for r in passed:
-            lines += _summary_only(r)
     skipped = layout.not_checked(report)
     if skipped:
         lines += ["", "## What we could not check", "",

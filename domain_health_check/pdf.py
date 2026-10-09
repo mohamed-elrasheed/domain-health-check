@@ -222,9 +222,6 @@ def render_html(report: DomainReport) -> str:
                  '<col class="result"><col class="found"></colgroup><thead><tr><th>Area</th><th>Check</th>'
                  f'<th>Result</th><th>What we found</th></tr></thead><tbody>{rows}</tbody></table>')
 
-    passed = layout.working(report)
-    if passed:
-        parts.append("<h2>What is already working</h2>" + "".join(_summary_card(r, "pass") for r in passed))
     skipped = layout.not_checked(report)
     if skipped:
         parts.append("<h2>What we could not check</h2><p>These were not checked this time, so they are not counted "

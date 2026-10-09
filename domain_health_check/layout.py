@@ -11,7 +11,7 @@ Sections, per docs/REPORT-SPEC.md:
   3. fix it yourself: confirmed findings the owner, or whoever edits the site, can fix in its editor
   4. needs a developer: every other confirmed finding
   5. worth checking: findings we could not confirm, near the end, in honest wording
-  6. everything we checked, what is already working, what we could not check
+  6. everything we checked (a passing check appears only as its row there), what we could not check
   7. what happens next: what to do with the report, and how to reach us
   8. findings and our published prices: the last page, each confirmed finding under its rung (pricelist.py)
 
@@ -181,10 +181,6 @@ def brief(r: CheckResult) -> str:
     """Two or three sentences for the top of the report: what we found and why it matters. No technical detail."""
     why = r.explanation.split(". ")[0].rstrip(".") + "."
     return f"{r.summary} {why}"
-
-
-def working(report: DomainReport) -> list[CheckResult]:
-    return [r for r in report.results if r.ran and r.status in (Status.PASS, Status.INFO)]
 
 
 def _things(n: int) -> str:

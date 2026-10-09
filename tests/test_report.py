@@ -37,9 +37,16 @@ def test_cells_and_details_are_escaped_and_details_are_visible():
     assert "*Technical details, for whoever makes the change:*" in md
 
 
-def test_passes_are_shown():
-    md = render_markdown(report_of(Status.PASS, Status.WARN))
-    assert "### ✅ SSL certificate" in section(md, "What is already working")
+def test_passes_are_shown_once_as_a_table_row():
+    report = report_of(Status.PASS, Status.WARN)
+    md = render_markdown(report)
+    passed = next(r for r in report.results if r.status is Status.PASS)
+    cell = passed.summary.replace("|", r"\|")  # a pipe inside a table cell is escaped
+    assert f"| {passed.name} | ✅ Good | {cell} |" in md
+    assert md.count(cell) == 1 and md.count(passed.name) == 1
+    assert "What is already working" not in md
+    data = record(report)
+    assert next(r for r in data["results"] if r["name"] == passed.name)["details"] == passed.details
 
 
 def test_next_steps_without_a_recheck_promise():
@@ -72,7 +79,6 @@ def test_not_run_never_reads_as_verified():
         assert f"### ➖ {name}" in section(md, "What we could not check")
     assert "1 checks passed · 0 could be improved · 0 need action · 3 not checked" in md
     assert "## Worth doing" not in md
-    assert "Real-world loading speed" not in section(md, "What is already working")
     assert "Error: ConnectError" in section(md, "What we could not check")
     assert report.overall is Status.PASS
     assert "out of 100" not in md  # the website was not loaded, so there is no score at all
@@ -212,7 +218,7 @@ def test_information_is_its_own_state():
     assert layout.worth_doing(report) == [] and layout.next_steps(report)[0][1].startswith("Nothing here needs")
     md = render_markdown(report)
     assert "| Mail servers (MX) | ℹ️ For information |" in md and "Not checked" not in md
-    assert "### ℹ️ Mail servers (MX)" in section(md, "What is already working")
+    assert md.count("This domain is not set up for email") == 1  # its table row only
     assert "1 checks passed · 0 could be improved · 0 need action · 1 for information" in md
     from domain_health_check import pdf
     assert '<span class="pill info">For information</span>' in pdf.render_html(report)
@@ -490,3 +496,67 @@ def test_the_provenance_paragraph_comes_last_and_is_never_alone_on_a_page():
     assert "These results come only" in last and layout.PRICES_HEADING in last
     assert last.index(layout.PRICES_HEADING) < last.index("These results come only")
     assert not any(p.startswith("These results come only") for p in pages)
+
+
+
+def _headings_have_content(md: str) -> list[str]:
+    """Every heading followed by another heading of the same or a higher level, with nothing in between."""
+    empty = []
+    lines = [line for line in md.splitlines() if line.strip()]
+    for here, after in zip(lines, lines[1:] + [""]):
+        if here.startswith("#"):
+            level = len(here) - len(here.lstrip("#"))
+            if not after or (after.startswith("#") and len(after) - len(after.lstrip("#")) <= level):
+                empty.append(here)
+    return empty
+
+
+def test_a_passing_check_prints_exactly_once_in_the_pdf():
+    import io
+
+    import pytest
+
+    from domain_health_check import pdf
+    try:
+        pdf._weasyprint()
+    except OSError as exc:
+        pytest.skip(f"WeasyPrint cannot load its native libraries: {exc}")
+    pypdf = pytest.importorskip("pypdf")
+    report = flooring_like()
+    passing = [r for r in report.results if r.ran and r.status is Status.PASS]
+    assert passing
+    text = " ".join(" ".join(p.extract_text().split()) for p in pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report))).pages)
+    for r in passing:
+        assert text.count(" ".join(r.summary.split())) == 1, r.name
+        assert " ".join(r.explanation.split()) not in text, r.name
+    assert "What is already working" not in text
+
+
+def test_a_page_with_no_findings_still_renders_a_sensible_report():
+    import io
+
+    import pytest
+
+    from domain_health_check import pdf
+    report = DomainReport("example.com", NOW, [result(0, Status.PASS), result(1, Status.PASS)])
+    md = render_markdown(report)
+    assert _headings_have_content(md) == []
+    assert "Nothing on your site is broken, and everything we checked looks good." in md
+    assert "## Everything we checked" in md and "## What happens next" in md
+    assert "Nothing here needs fixing, so there is nothing you need to do with this report." in md
+    assert layout.NOTHING_TO_PRICE in md
+    for gone in ("## Worth doing", "## Fix it yourself", "## Needs a developer", "## What is already working",
+                 "## What we could not check"):
+        assert gone not in md
+    try:
+        pdf._weasyprint()
+    except OSError as exc:
+        pytest.skip(f"WeasyPrint cannot load its native libraries: {exc}")
+    pypdf = pytest.importorskip("pypdf")
+    pages = pypdf.PdfReader(io.BytesIO(pdf.render_pdf(report))).pages
+    text = " ".join(" ".join(p.extract_text().split()) for p in pages)
+    assert "Everything we checked" in text and "What happens next" in text and layout.NOTHING_TO_PRICE in text
+
+
+def test_no_section_is_left_empty_in_a_full_report():
+    assert _headings_have_content(render_markdown(flooring_like())) == []

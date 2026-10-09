@@ -35,8 +35,11 @@ def full_report() -> DomainReport:
 def test_every_result_is_in_the_document():
     report = full_report()
     html = pdf.render_html(report)
+    from domain_health_check.models import Status
     for r in report.results:
-        assert html.count(f">{r.name}<") >= 2  # a card or row, and the table row
+        assert html.count(f">{r.name}<") >= 1, r.name  # every result has its table row
+        if r.ran and r.status in (Status.PASS, Status.INFO):
+            assert html.count(f">{r.name}<") == 1, r.name  # a pass is its table row and nothing else
 
 
 def test_same_findings_and_closing_as_the_markdown():

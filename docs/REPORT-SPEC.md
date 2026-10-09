@@ -101,8 +101,9 @@ The full list, grouped by the existing categories: Website security, Domain and 
 (once built) Site health. Every check appears, including the passes.
 
 **Show the passes.** A report that only lists problems looks like a sales document. A report that says
-"your certificate is valid for 312 days — nothing to do" is the one that gets believed when it does flag
-something.
+"your certificate is valid for 312 days, nothing to do" is the one that gets believed when it does flag
+something. A pass appears once, as its row in this table, and nowhere else in the PDF or the Markdown: there is
+no separate list of what is already working. Its technical details stay in `report.json`.
 
 Technical specifics stay in `details`, visually subordinate.
 
