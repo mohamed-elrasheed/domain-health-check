@@ -78,12 +78,14 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
         # Not being findable is the finding: a customer searching by name and place would not find it either.
         # We never claim no profile exists, and we do not spend more calls trying to prove it.
         if external.place_outcome == "not_found":
+            # Never a top finding and never in the draft to the business: not finding a listing is not proof it is
+            # missing, so it goes under "Worth checking", worded as what we could not do.
             return result(
-                Status.WARN, "We could not find a Google Business Profile for this business by name and location. "
-                             "Either there is not one, or it is not set up to be found.",
+                Status.WARN, "We could not find a Google Business Profile by name, town or phone. Businesses that "
+                             "hide their address can be hard to find this way.",
                 "Search for your business on Google Maps the way a customer would, by name and town. If it does not "
                 f"come up, create or claim your free profile at {MANAGE} and make sure it shows your business name, "
-                "your website and the area you serve.", [why])
+                "your website and the area you serve.", [why], certain=False)
         if external.place_outcome == "unconfirmed":
             # Only say what we compared: without a phone number from the form, we never looked at the listing's.
             phone = " or list your phone number" if external.phone_compared else ""
@@ -99,7 +101,11 @@ def evaluate_profile(external: ExternalContext) -> CheckResult:
                                    "of this report.", "Nothing to do based on this report.", [why], ran=False)
 
     status = external.place.get("businessStatus", "")
-    details = _listing_details(external) + [f"Business status: {status or 'not stated'}"]
+    category = (external.place.get("primaryTypeDisplayName") or {}).get("text", "")
+    kind = external.place.get("primaryType", "")
+    details = _listing_details(external) + [f"Business status: {status or 'not stated'}",
+                                            f"Primary category on Google: {category or 'not stated'}"
+                                            + (f" ({kind})" if kind else "")]
     if status == "OPERATIONAL":
         return result(Status.PASS, "Your business has a Google Business Profile, and it shows you as open.",
                       details=details)

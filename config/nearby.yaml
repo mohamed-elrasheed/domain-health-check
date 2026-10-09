@@ -1,0 +1,63 @@
+# The nearby comparison on page 1 is printed only when the business's primary category on Google is a specific
+# trade on this list. A broad category (store, service, building_materials_store and the like) compares a business
+# with whatever happens to share that label, so the line is left out.
+#
+# Every value is a Google place type id, checked 2026-10-09 against
+# https://developers.google.com/maps/documentation/places/web-service/place-types
+# (Table A, except general_contractor, which is in Table B and is returned as a primary type).
+#
+# Google has no type for flooring stores, house cleaning services or landscapers in either table, so those trades
+# cannot be listed here: their listings carry broad categories, and the line is left out for them.
+
+trades:
+  # Personal care
+  - barber_shop
+  - hair_salon
+  - hair_care
+  - beauty_salon
+  - nail_salon
+  - tailor
+  # Automotive
+  - car_repair
+  - car_wash
+  - tire_shop
+  # Home trades
+  - plumber
+  - electrician
+  - roofing_contractor
+  - painter
+  - locksmith
+  - moving_company
+  - general_contractor
+  # Food and drink
+  - restaurant
+  - bakery
+  - cafe
+  - barbecue_restaurant
+  - chinese_restaurant
+  - french_restaurant
+  - greek_restaurant
+  - hamburger_restaurant
+  - indian_restaurant
+  - italian_restaurant
+  - japanese_restaurant
+  - korean_restaurant
+  - mexican_restaurant
+  - pizza_restaurant
+  - ramen_restaurant
+  - seafood_restaurant
+  - steak_house
+  - sushi_restaurant
+  - thai_restaurant
+  - vegan_restaurant
+  # Other local services
+  - florist
+  - dentist
+  - veterinary_care
+  - pet_care
+  - gym
+  - laundry
+  - real_estate_agency
+  - insurance_agency
+  - lawyer
+  - accounting

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import state_guard
 from site_helpers import healthy_site
 
 from domain_health_check import cli, dns_utils, external
@@ -206,3 +207,19 @@ def pipeline_state_stays_in_tmp(tmp_path, monkeypatch):
     from domain_health_check import intake, pipeline
     monkeypatch.setattr(pipeline, "LOG", tmp_path / "pipeline-logs" / "intake.log")
     monkeypatch.setattr(intake, "SEEN", tmp_path / "pipeline-logs" / "intake-seen.json")
+
+
+# ---------- no test touches real state (tests/state_guard.py)
+
+@pytest.fixture(autouse=True)
+def isolated_state(tmp_path, monkeypatch):
+    """Every test runs from its own empty directory, so relative paths (submissions.yaml, logs/, reports/, .env,
+    the PageSpeed cache) land there; and any touch of the real ones fails the test."""
+    work = tmp_path / "cwd"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    state_guard.TOUCHED.clear()
+    state_guard.watching(True)
+    yield
+    state_guard.watching(False)
+    assert not state_guard.TOUCHED, "a test touched real state: " + "; ".join(state_guard.TOUCHED)

@@ -47,7 +47,16 @@ written beside the report as `home-phone.png` under `reports/`, which is never c
 have N at R." One Places Nearby Search for the business's own primary type within 10 miles of its listing, ranked
 by Google's popularity, the business's own listing excluded. Only review counts and ratings are requested, and only
 averages are kept or printed: another business is never named. Fewer than three listings, and the line is left
-out. The star rating appears here and nowhere else; it is never scored and never a finding.
+out. It is printed only when the listing's primary category is a specific trade on the allowlist in
+`config/nearby.yaml` (Google place type ids, from Google's own place-types table); for a broad category such as
+building materials store, store or service, the line is left out and no nearby search is made.
+
+**Finding the Google Business Profile.** Searched by business name and town, then by the submitted phone number,
+both with service-area businesses included (a business that hides its address is otherwise left out of Google's
+search). A listing is used only when its website or phone confirms it. When none is found, it goes under "Worth
+checking" as "We could not find a Google Business Profile by name, town or phone. Businesses that hide their
+address can be hard to find this way." It is never a top finding and never in the draft to the business. The
+listing's primary category is recorded in the technical details as a fact. The star rating appears here and nowhere else; it is never scored and never a finding.
 
 **On the owner's pages** (page 1 and the price page), HSTS, Content Security Policy and nosniff collapse into one
 row, "Three security settings your developer can switch on". They stay separate in "Needs a developer" and in

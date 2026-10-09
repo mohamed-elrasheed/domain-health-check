@@ -72,8 +72,8 @@ def test_categories_read_as_plurals(category, plural):
 def test_one_nearby_search_around_the_listing_logged_like_every_places_call():
     seen = []
     own = {"id": "own", "displayName": {"text": "Example Floors"}, "websiteUri": "https://www.example.com/",
-           "userRatingCount": 87, "rating": 4.8, "primaryType": "flooring_store",
-           "primaryTypeDisplayName": {"text": "Flooring store"}, "location": {"latitude": 30.5, "longitude": -97.8}}
+           "userRatingCount": 87, "rating": 4.8, "primaryType": "barber_shop",
+           "primaryTypeDisplayName": {"text": "Barber shop"}, "location": {"latitude": 30.5, "longitude": -97.8}}
 
     def places(request: httpx.Request) -> httpx.Response:
         seen.append(request)
@@ -92,10 +92,10 @@ def test_one_nearby_search_around_the_listing_logged_like_every_places_call():
                              "test-key")
     nearby = next(r for r in seen if r.url.path.endswith(":searchNearby"))
     body = json.loads(nearby.content)
-    assert body["includedPrimaryTypes"] == ["flooring_store"] and body["rankPreference"] == "POPULARITY"
+    assert body["includedPrimaryTypes"] == ["barber_shop"] and body["rankPreference"] == "POPULARITY"
     assert body["locationRestriction"]["circle"]["radius"] == 16_093 and body["maxResultCount"] == 4
     assert nearby.headers["X-Goog-FieldMask"] == "places.id,places.rating,places.userRatingCount"  # no names
-    assert context.nearby == {"category": "Flooring store", "count": 3, "reviews": 60.0, "rating": pytest.approx(4.5)}
+    assert context.nearby == {"category": "Barber shop", "count": 3, "reviews": 60.0, "rating": pytest.approx(4.5)}
     assert [e.source for e in log] == ["places"] * 3
 
 
@@ -181,7 +181,8 @@ def test_a_contact_form_that_sends_somewhere_passes_and_a_search_box_is_not_one(
     assert len(forms) == 1
     [result] = reach.check_contact_form(page(fixture("contact-home-form.html")))
     assert result.status is Status.PASS
-    assert result.summary == "The contact form on your home page says where to send what people type."
+    assert result.summary == ("Your contact form is set up to send to an address. We did not submit it, so we "
+                              "cannot confirm messages arrive. Send yourself a test message to be sure.")
     assert "Form sends to: https://www.example.com/thanks/" in result.details
 
 
@@ -217,7 +218,7 @@ def test_the_runner_loads_the_one_contact_page_logs_it_and_never_submits(monkeyp
     monkeypatch.setattr(fetcher, "CONTACT_TRANSPORT", httpx.MockTransport(site))
     report = runner.run_checks(DomainConfig("example.com"), NOW)
     form = next(r for r in report.results if r.name == "Contact form")
-    assert form.status is Status.PASS and form.summary.startswith("The contact form on your contact page")
+    assert form.status is Status.PASS and "Found on: your contact page" in form.details
     contact_requests = [e for e in report.requests if e.source == "contact"]
     assert [(e.method, e.target) for e in contact_requests] == [("GET", f"{URL}contact-us/")]
     assert not [m for m, _ in seen if m != "GET"]  # nothing is ever submitted
@@ -254,3 +255,23 @@ def test_two_security_settings_say_two():
     assert rows == [("Two security settings your developer can switch on",
                      ["Ask your web developer or host to switch on a Content Security Policy and the nosniff "
                       "protection."])]
+
+
+
+@pytest.mark.parametrize("kind", ["building_materials_store", "store", "service", "establishment"])
+def test_a_broad_category_gets_no_comparison_and_no_nearby_search(kind):
+    seen = []
+
+    def places(request):
+        seen.append(request)
+        return httpx.Response(200, json={"places": []})
+    context = ExternalContext(place={"id": "own", "primaryType": kind, "location": {"latitude": 1, "longitude": 2}})
+    with httpx.Client(transport=httpx.MockTransport(places)) as client:
+        external._find_nearby(client, context, "test-key")
+    assert seen == [] and context.nearby is None and "not a specific trade" in context.errors["nearby"]
+
+
+def test_the_trade_allowlist_holds_only_documented_google_types():
+    trades = external.nearby_trades()
+    assert {"barber_shop", "car_repair", "restaurant", "plumber"} <= trades
+    assert not {"store", "service", "establishment", "building_materials_store", "home_improvement_store"} & trades

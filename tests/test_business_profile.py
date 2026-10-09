@@ -102,7 +102,9 @@ def test_lookalike_is_skipped_and_the_confirmed_listing_is_used(with_places_key)
     assert search_call.headers["X-Goog-FieldMask"] == "places.id,places.displayName"
     # The rating is requested for one line on page 1 only (layout.nearby_line); it is never scored or a finding.
     assert "rating" in detail_calls[0].headers["X-Goog-FieldMask"].split(",")
-    assert json.loads(search_call.content) == {"textQuery": "Example Plumbing Springfield", "pageSize": 5}
+    # Service-area businesses (no public address) are left out of Text Search unless this is set.
+    assert json.loads(search_call.content) == {"textQuery": "Example Plumbing Springfield", "pageSize": 5,
+                                               "includePureServiceAreaBusinesses": True}
 
 
 def test_name_match_without_corroboration_is_rejected(with_places_key):
@@ -158,12 +160,12 @@ def test_closed_profile_warns(status, phrase):
     assert result.status is Status.WARN and phrase in result.summary
 
 
-def test_not_findable_is_a_finding_that_claims_nothing_more():
+def test_not_findable_is_worth_checking_and_claims_nothing_more():
     context = ExternalContext(place_outcome="not_found", errors={"place": 'no listing named like "X" among 0 results'})
     [result] = bp.check_profile(context)
-    assert result.ran and result.status is Status.WARN
-    assert result.summary == ("We could not find a Google Business Profile for this business by name and location. "
-                              "Either there is not one, or it is not set up to be found.")
+    assert result.ran and result.status is Status.WARN and not result.certain  # "Worth checking", never a top finding
+    assert result.summary == ("We could not find a Google Business Profile by name, town or phone. Businesses that "
+                              "hide their address can be hard to find this way.")
     assert "does not have" not in result.summary and "no profile" not in result.summary.lower()
     assert bp.check_completeness(context) == bp.check_website_link(context, "example.com") == bp.check_reviews(context) == []
 
@@ -232,3 +234,48 @@ def test_runner_passes_the_business_from_the_config(monkeypatch):
     config = DomainConfig("example.com", business_name="Example Plumbing", city="Springfield", phone="555-010-0100")
     runner._fetch_external(config, runner.FetchError("https://example.com/", "x"))
     assert seen["business"] == Business("Example Plumbing", "Springfield", "555-010-0100")
+
+
+
+def test_a_listing_found_only_by_phone_is_used_when_it_confirms(with_places_key):
+    """The form's business name can differ from the listing's: the phone search finds it, and its phone confirms it."""
+    seen = []
+    listing_by_phone = {**listing("by-phone", name="Totally Different Name", website="",
+                                  phone="(555) 010-0100")}
+
+    def handle(request):
+        seen.append(request)
+        if request.url.path.endswith(":searchText"):
+            query = json.loads(request.content)["textQuery"]
+            places = [] if "Example" in query else [{"id": "by-phone", "displayName": {"text": "Totally Different Name"}}]
+            return httpx.Response(200, json={"places": places})
+        return httpx.Response(200, json=listing_by_phone)
+    context = find(httpx.MockTransport(handle), Business("Example Plumbing", "Springfield", "555-010-0100"))
+    assert context.place["id"] == "by-phone" and context.place_match == "phone"
+    queries = [json.loads(r.content)["textQuery"] for r in seen if r.url.path.endswith(":searchText")]
+    assert queries == ["Example Plumbing Springfield", "555-010-0100"]
+
+
+def test_not_found_by_name_or_phone_says_both_were_tried(with_places_key):
+    context = find(places_api([], {}), Business("Example Plumbing", "Springfield", "555-010-0100"))
+    assert context.place_outcome == "not_found"
+    assert "and 0 for the phone number" in context.errors["place"]
+
+
+def test_not_found_never_reaches_the_top_or_the_draft():
+    from datetime import datetime, timezone
+
+    from domain_health_check import layout, mailer
+    from domain_health_check.models import SITE, CheckResult, DomainReport
+    [not_found] = bp.check_profile(ExternalContext(place_outcome="not_found", errors={"place": "x"}))
+    heading = CheckResult(SITE, "Main heading", Status.WARN, "Your home page has no main heading.", "Why.", "Fix.", [])
+    report = DomainReport("example.com", datetime(2026, 10, 9, tzinfo=timezone.utc), [not_found, heading])
+    assert [r.name for r in layout.worth_doing(report)] == ["Main heading"]
+    assert not_found in layout.worth_checking(report)
+    assert "Google Business Profile" not in mailer.draft_to_business(report)
+
+
+def test_the_primary_category_is_in_the_technical_details(with_places_key):
+    place = {**listing("real"), "primaryType": "service", "primaryTypeDisplayName": {"text": "Services"}}
+    [result] = bp.check_profile(ExternalContext(place=place, place_match="website"))
+    assert "Primary category on Google: Services (service)" in result.details

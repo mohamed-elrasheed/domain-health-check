@@ -31,9 +31,11 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 import httpx
+import yaml
 
 from . import matching, requestlog
 from .fetcher import USER_AGENT
@@ -58,6 +60,8 @@ NEARBY_MASK = "places.id,places.rating,places.userRatingCount"
 NEARBY_METERS = 16_093  # 10 miles
 NEARBY_RESULTS = 4  # three others, plus room for the business's own listing
 NEARBY_COUNT = 3
+NEARBY_TRADES = Path(__file__).parent.parent / "config" / "nearby.yaml"  # categories specific enough to compare
+MAX_PHONE_DETAILS = 2  # details calls for listings found by phone, on top of MAX_DETAILS
 PLACES_RESULTS = 5
 MAX_DETAILS = 3  # details calls are billed at the Enterprise tier: never more than this per report
 PLACES_TIMEOUT_SECONDS = 20
@@ -249,6 +253,10 @@ def _find_nearby(client: httpx.Client, context: ExternalContext, key: str) -> No
     if not kind or "latitude" not in where or "longitude" not in where:
         context.errors["nearby"] = "the listing has no primary category or location, so we did not compare"
         return
+    if kind not in nearby_trades():  # a broad category would compare the business with whatever shares the label
+        context.errors["nearby"] = (f"the listing's primary category ({kind}) is not a specific trade, so we did not "
+                                    "compare")
+        return
     body = {"includedPrimaryTypes": [kind], "maxResultCount": NEARBY_RESULTS, "rankPreference": "POPULARITY",
             "locationRestriction": {"circle": {"center": {"latitude": where["latitude"],
                                                           "longitude": where["longitude"]},
@@ -266,6 +274,32 @@ def _find_nearby(client: httpx.Client, context: ExternalContext, key: str) -> No
     context.nearby = {"category": category, **averages}
 
 
+def _search(client: httpx.Client, key: str, query: str) -> list[dict]:
+    """One Text Search. includePureServiceAreaBusinesses: a business that hides its address (it goes to its
+    customers) is left out of Text Search unless this is set, and was, for our own listing, until it was."""
+    return _places_get(client, "POST", PLACES_SEARCH, key, SEARCH_MASK,
+                       {"textQuery": query, "pageSize": PLACES_RESULTS,
+                        "includePureServiceAreaBusinesses": True}).get("places", [])
+
+
+def _confirm(client: httpx.Client, context: ExternalContext, key: str, candidates: list[dict], domain: str,
+             business: Business) -> bool:
+    """Fetch details for each candidate until one is confirmed by its website or phone; True when one was."""
+    for candidate in candidates:
+        details = _places_get(client, "GET", PLACES_DETAILS.format(candidate["id"]), key, DETAILS_MASK)
+        how = matching.corroboration(details, domain, business.phone)
+        if how:
+            context.place, context.place_match, context.place_outcome = details, how, "found"
+            _find_nearby(client, context, key)
+            return True
+    return False
+
+
+@lru_cache(maxsize=1)
+def nearby_trades() -> frozenset[str]:
+    return frozenset(yaml.safe_load(NEARBY_TRADES.read_text(encoding="utf-8"))["trades"])
+
+
 def _find_place(client: httpx.Client, context: ExternalContext, domain: str, business: Business | None,
                 key: str) -> None:
     """Search, then fetch details for name matches until one is corroborated. Records only counts about
@@ -275,23 +309,27 @@ def _find_place(client: httpx.Client, context: ExternalContext, domain: str, bus
         return
     query = f"{business.name} {business.city}".strip()
     try:
-        found = _places_get(client, "POST", PLACES_SEARCH, key, SEARCH_MASK,
-                            {"textQuery": query, "pageSize": PLACES_RESULTS}).get("places", [])
+        found = _search(client, key, query)
         candidates = [p for p in found if matching.names_match(business.name, p.get("displayName", {}).get("text", ""))]
-        for candidate in candidates[:MAX_DETAILS]:
-            details = _places_get(client, "GET", PLACES_DETAILS.format(candidate["id"]), key, DETAILS_MASK)
-            how = matching.corroboration(details, domain, business.phone)
-            if how:
-                context.place, context.place_match, context.place_outcome = details, how, "found"
-                _find_nearby(client, context, key)
+        if _confirm(client, context, key, candidates[:MAX_DETAILS], domain, business):
+            return
+        # By the submitted phone number as well: a listing's name can differ from the one on the form. A listing
+        # found this way is used only when its website or phone confirms it, whatever it is called.
+        by_phone = []
+        if matching.phone_digits(business.phone):
+            seen_ids = {p.get("id") for p in candidates}
+            by_phone = [p for p in _search(client, key, business.phone.strip()) if p.get("id") not in seen_ids]
+            if _confirm(client, context, key, by_phone[:MAX_PHONE_DETAILS], domain, business):
                 return
     except SourceError as exc:
         context.errors["place"] = f"Places: {exc}".replace(key, "<key>")
         return
     if not candidates:
         context.place_outcome = "not_found"
+        phone = (f', and {len(by_phone)} for the phone number' if matching.phone_digits(business.phone)
+                 else ", and no phone number was given to search by")
         context.errors["place"] = (f'no listing named like "{business.name}" among {len(found)} search results for '
-                                   f'"{query}"')
+                                   f'"{query}"{phone}, none of them confirmed by website or phone')
     else:
         context.place_outcome = "unconfirmed"
         context.phone_compared = bool(matching.phone_digits(business.phone))

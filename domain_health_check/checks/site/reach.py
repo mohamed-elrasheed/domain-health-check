@@ -138,7 +138,9 @@ def evaluate_contact_form(target: tuple[str, str] | None, where_found: str, edit
     kind, value = target
     if kind == "real":
         details.append(f"Form sends to: {value}")
-        return result(Status.PASS, f"The contact form on {where_found} says where to send what people type.")
+        details.append(f"Found on: {where_found}")
+        return result(Status.PASS, "Your contact form is set up to send to an address. We did not submit it, so we "
+                                   "cannot confirm messages arrive. Send yourself a test message to be sure.")
     details.append(f"Form action: {value!r}" if value else "Form action: none")
     if editor:
         details.append(f"The page runs on {editor}, whose own script usually sends this kind of form.")
