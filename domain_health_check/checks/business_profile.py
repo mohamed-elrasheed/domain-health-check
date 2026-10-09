@@ -63,7 +63,8 @@ def _listing_details(external: ExternalContext) -> list[str]:
     place = external.place or {}
     how = {"website": "its website is on your domain", "phone": "its phone number matches the one you gave us"}
     return [f"Listing: {place.get('displayName', {}).get('text', '(no name)')}",
-            f"Confirmed as yours because {how.get(external.place_match, 'it matched')}"]
+            f"Confirmed as yours because {how.get(external.place_match, 'it matched')}"] + (
+        [f"Found by searching: {external.place_step}"] if external.place_step else [])
 
 
 # ---------- Google Business Profile

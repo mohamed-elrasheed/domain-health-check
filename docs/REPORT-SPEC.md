@@ -51,9 +51,13 @@ out. It is printed only when the listing's Google place type is a specific trade
 `config/nearby.yaml` (Google place type ids, from Google's own place-types table); for a broad category such as
 building materials store, store or service, the line is left out and no nearby search is made.
 
-**Finding the Google Business Profile.** Searched by business name and town, then by the submitted phone number,
-both with service-area businesses included (a business that hides its address is otherwise left out of Google's
-search). A listing is used only when its website or phone confirms it. When none is found, it goes under "Worth
+**Finding the Google Business Profile.** Searched in this order, every search with service-area businesses
+included (a business that hides its address is otherwise left out of Google's search), stopping at the first
+listing whose website is on the submitted domain: (1) business name plus the town or ZIP exactly as submitted;
+(2) when that value is a 5-digit ZIP or empty, business name plus the ZIP and its state, the state taken from
+Google's own answer for the ZIP; (3) business name alone; (4) the submitted phone number. A phone number alone
+never confirms a listing. A search that would repeat an earlier one is skipped, every request is logged, and the
+technical details say which search found the listing. When none is found, it goes under "Worth
 checking" as "We could not find a Google Business Profile by name, town or phone. Businesses that hide their
 address can be hard to find this way." It is never a top finding and never in the draft to the business. The
 listing's Google place type is recorded in the technical details as a fact, with the line "This is

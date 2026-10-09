@@ -118,7 +118,7 @@ def test_no_name_match_records_counts_not_other_businesses(with_places_key):
     search = [{"id": "a", "displayName": {"text": "Unrelated Bakery", "languageCode": "en"}}]
     context = find(places_api(search, {}))
     assert context.place is None and context.place_outcome == "not_found"
-    assert "among 1 search results" in context.errors["place"]
+    assert 'name and town as submitted "Example Plumbing Springfield": 1 result' in context.errors["place"]
     assert "Unrelated Bakery" not in context.errors["place"]
 
 
@@ -127,7 +127,8 @@ def test_detail_calls_are_capped(with_places_key):
     details = {f"p{i}": listing(f"p{i}", website="https://other.test/", phone="") for i in range(5)}
     seen = []
     find(places_api(search, details, seen))
-    assert len(seen) == 1 + external.MAX_DETAILS
+    details_calls = [r for r in seen if not r.url.path.endswith(":searchText")]
+    assert len(details_calls) == external.MAX_DETAILS + external.MAX_PHONE_DETAILS  # across every step, at most
 
 
 def test_no_business_name_does_not_search(with_places_key):
@@ -237,29 +238,104 @@ def test_runner_passes_the_business_from_the_config(monkeypatch):
 
 
 
-def test_a_listing_found_only_by_phone_is_used_when_it_confirms(with_places_key):
-    """The form's business name can differ from the listing's: the phone search finds it, and its phone confirms it."""
-    seen = []
-    listing_by_phone = {**listing("by-phone", name="Totally Different Name", website="",
-                                  phone="(555) 010-0100")}
+# ---------- the search order: name and town, name with ZIP and state, name alone, phone
 
+def stepped(answers: dict[str, list[dict]], details: dict[str, dict], seen: list):
+    """A fake Places API: each Text Search query answers from answers (by exact query), else nothing."""
     def handle(request):
         seen.append(request)
         if request.url.path.endswith(":searchText"):
             query = json.loads(request.content)["textQuery"]
-            places = [] if "Example" in query else [{"id": "by-phone", "displayName": {"text": "Totally Different Name"}}]
-            return httpx.Response(200, json={"places": places})
-        return httpx.Response(200, json=listing_by_phone)
-    context = find(httpx.MockTransport(handle), Business("Example Plumbing", "Springfield", "555-010-0100"))
-    assert context.place["id"] == "by-phone" and context.place_match == "phone"
-    queries = [json.loads(r.content)["textQuery"] for r in seen if r.url.path.endswith(":searchText")]
-    assert queries == ["Example Plumbing Springfield", "555-010-0100"]
+            return httpx.Response(200, json={"places": answers.get(query, [])})
+        return httpx.Response(200, json=details[request.url.path.rsplit("/", 1)[-1]])
+    return httpx.MockTransport(handle)
 
 
-def test_not_found_by_name_or_phone_says_both_were_tried(with_places_key):
+def queries(seen: list) -> list[str]:
+    return [json.loads(r.content)["textQuery"] for r in seen if r.url.path.endswith(":searchText")]
+
+
+OURS = {"id": "ours", "displayName": {"text": "Example Plumbing"}}
+POSTAL = {"displayName": {"text": "20121"}, "formattedAddress": "Springfield, VA 20121, USA", "types": ["postal_code"]}
+
+
+def test_step_1_name_and_town_as_submitted(with_places_key):
+    seen = []
+    context = find(stepped({"Example Plumbing Springfield": [OURS]}, {"ours": listing("ours")}, seen))
+    assert context.place_step == "name and town as submitted" and queries(seen) == ["Example Plumbing Springfield"]
+
+
+def test_step_2_name_zip_and_state_when_a_zip_was_submitted(with_places_key):
+    seen = []
+    answers = {"20121": [POSTAL], "Example Plumbing 20121 VA": [OURS]}
+    context = find(stepped(answers, {"ours": listing("ours")}, seen), Business("Example Plumbing", "20121", ""))
+    assert context.place_step == "name, ZIP and state"
+    assert queries(seen) == ["Example Plumbing 20121", "20121", "Example Plumbing 20121 VA"]
+    lookup = next(r for r in seen if json.loads(r.content).get("textQuery") == "20121")
+    assert "includePureServiceAreaBusinesses" not in json.loads(lookup.content)  # finding the ZIP, not a business
+
+
+def test_step_2_is_skipped_for_a_town_name(with_places_key):
+    seen = []
+    context = find(stepped({"Example Plumbing": [OURS]}, {"ours": listing("ours")}, seen))
+    assert context.place_step == "name alone"
+    assert queries(seen) == ["Example Plumbing Springfield", "Example Plumbing"]
+
+
+def test_step_3_name_alone_finds_a_listing_the_zip_searches_missed(with_places_key):
+    seen = []
+    answers = {"20121": [POSTAL], "Example Plumbing": [OURS]}
+    context = find(stepped(answers, {"ours": listing("ours")}, seen), Business("Example Plumbing", "20121", ""))
+    assert context.place_step == "name alone"
+    assert queries(seen) == ["Example Plumbing 20121", "20121", "Example Plumbing 20121 VA", "Example Plumbing"]
+
+
+def test_step_4_phone_finds_a_listing_whose_website_confirms_it(with_places_key):
+    seen = []
+    by_phone = {"id": "by-phone", "displayName": {"text": "A Different Name"}}
+    context = find(stepped({"555-010-0100": [by_phone]}, {"by-phone": listing("by-phone", name="A Different Name")},
+                           seen), Business("Example Plumbing", "Springfield", "555-010-0100"))
+    assert context.place_step == "phone" and context.place_match == "website"
+    assert queries(seen) == ["Example Plumbing Springfield", "Example Plumbing", "555-010-0100"]
+
+
+def test_a_phone_match_alone_never_confirms_a_listing(with_places_key):
+    by_phone = {"id": "by-phone", "displayName": {"text": "Example Plumbing"}}
+    no_site = listing("by-phone", website="", phone="(555) 010-0100")
+    context = find(stepped({"555-010-0100": [by_phone], "Example Plumbing": [by_phone]}, {"by-phone": no_site}, []),
+                   Business("Example Plumbing", "Springfield", "555-010-0100"))
+    assert context.place is None and context.place_outcome == "unconfirmed"
+
+
+def test_an_empty_town_does_not_repeat_the_same_search(with_places_key):
+    seen = []
+    find(stepped({}, {}, seen), Business("Example Plumbing", "", ""))
+    assert queries(seen) == ["Example Plumbing"]
+
+
+def test_the_search_stops_at_the_first_confirmed_listing_and_every_request_is_logged(with_places_key):
+    from domain_health_check import requestlog
+    seen = []
+    answers = {"Example Plumbing Springfield": [OURS], "Example Plumbing": [OURS]}
+    with requestlog.recording() as log:
+        find(stepped(answers, {"ours": listing("ours")}, seen), Business("Example Plumbing", "Springfield",
+                                                                         "555-010-0100"))
+    assert queries(seen) == ["Example Plumbing Springfield"]
+    assert [e.source for e in log] == ["places", "places"] and len(log) == len(seen)
+
+
+def test_the_step_is_in_the_profile_details(with_places_key):
+    context = ExternalContext(place=listing("real"), place_match="website", place_step="name alone")
+    [result] = bp.check_profile(context)
+    assert "Found by searching: name alone" in result.details
+
+
+def test_not_found_lists_every_search_made(with_places_key):
     context = find(places_api([], {}), Business("Example Plumbing", "Springfield", "555-010-0100"))
     assert context.place_outcome == "not_found"
-    assert "and 0 for the phone number" in context.errors["place"]
+    for searched in ('name and town as submitted "Example Plumbing Springfield": 0 results',
+                     'name alone "Example Plumbing": 0 results', 'phone "555-010-0100": 0 results'):
+        assert searched in context.errors["place"]
 
 
 def test_not_found_never_reaches_the_top_or_the_draft():

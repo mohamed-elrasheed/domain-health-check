@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -80,7 +81,9 @@ class ExternalContext:
     psi_mobile: list[dict] = field(default_factory=list)  # raw responses, one per run that succeeded
     psi_desktop: dict | None = None  # one run; None means did not run
     place: dict | None = None  # Places details for a confirmed match; None means not found or did not run
-    place_match: str = ""  # how the match was confirmed: "website" or "phone"
+    place_match: str = ""  # how the match was confirmed: always "website" (a listing counts only by its website)
+    place_step: str = ""  # which search found it: "name and town as submitted", "name, ZIP and state", "name alone",
+    # or "phone"
     # What the search came to: "found", "not_found" (no listing by that name and place), "unconfirmed" (a similar
     # name that does not link back to the domain or phone), or "" when it did not run (no key, no name, an error).
     place_outcome: str = ""
@@ -283,13 +286,18 @@ def _search(client: httpx.Client, key: str, query: str) -> list[dict]:
 
 
 def _confirm(client: httpx.Client, context: ExternalContext, key: str, candidates: list[dict], domain: str,
-             business: Business) -> bool:
-    """Fetch details for each candidate until one is confirmed by its website or phone; True when one was."""
+             budget: list[int], checked: set[str], step: str) -> bool:
+    """Fetch details for each candidate until one has its website on the submitted domain; True when one does.
+    A phone number alone never confirms a listing. budget caps details calls across every step."""
     for candidate in candidates:
+        if budget[0] <= 0:
+            return False
+        budget[0] -= 1
+        checked.add(candidate.get("id"))
         details = _places_get(client, "GET", PLACES_DETAILS.format(candidate["id"]), key, DETAILS_MASK)
-        how = matching.corroboration(details, domain, business.phone)
-        if how:
-            context.place, context.place_match, context.place_outcome = details, how, "found"
+        if matching.corroboration(details, domain, "") == "website":
+            context.place, context.place_match, context.place_outcome = details, "website", "found"
+            context.place_step = step
             _find_nearby(client, context, key)
             return True
     return False
@@ -302,41 +310,79 @@ def nearby_trades() -> frozenset[str]:
 
 def _find_place(client: httpx.Client, context: ExternalContext, domain: str, business: Business | None,
                 key: str) -> None:
-    """Search, then fetch details for name matches until one is corroborated. Records only counts about
-    other businesses, never their names."""
+    """Search in order until a listing is confirmed, stopping at the first. Every search includes service-area
+    businesses, and a listing counts only when its website is on the submitted domain:
+
+      1. business name plus the town or ZIP exactly as submitted;
+      2. when that value is a 5-digit ZIP or empty: business name plus the ZIP and its state, the state read from
+         Google's own answer for the ZIP (one more search, made only for this step);
+      3. business name alone;
+      4. the submitted phone number.
+
+    A step whose query would repeat an earlier one is skipped. Every request is logged like any other. Records only
+    counts about other businesses, never their names."""
     if business is None or not business.name.strip():
         context.errors["place"] = "no business name was given, so we did not search"
         return
-    query = f"{business.name} {business.city}".strip()
-    try:
+    name, town = business.name.strip(), business.city.strip()
+    tried: list[tuple[str, str, int]] = []  # (step, query, results)
+    named: dict[str, dict] = {}  # name-matching candidates across every step, by id
+    budget = [MAX_DETAILS + MAX_PHONE_DETAILS]  # details calls are billed at the Enterprise tier
+
+    def step(label: str, query: str, by_name: bool = True) -> bool:
+        if not query or query in (q for _, q, _ in tried):
+            return False
         found = _search(client, key, query)
-        candidates = [p for p in found if matching.names_match(business.name, p.get("displayName", {}).get("text", ""))]
-        if _confirm(client, context, key, candidates[:MAX_DETAILS], domain, business):
+        tried.append((label, query, len(found)))
+        pool = []
+        for place in found:
+            matches = matching.names_match(name, place.get("displayName", {}).get("text", ""))
+            if matches:
+                named.setdefault(place.get("id"), place)
+            if (matches or not by_name) and place.get("id") not in context_checked:
+                pool.append(place)
+        return _confirm(client, context, key, pool, domain, budget, context_checked, label)
+
+    context_checked: set[str] = set()
+    try:
+        if step("name and town as submitted", f"{name} {town}".strip()):
             return
-        # By the submitted phone number as well: a listing's name can differ from the one on the form. A listing
-        # found this way is used only when its website or phone confirms it, whatever it is called.
-        by_phone = []
-        if matching.phone_digits(business.phone):
-            seen_ids = {p.get("id") for p in candidates}
-            by_phone = [p for p in _search(client, key, business.phone.strip()) if p.get("id") not in seen_ids]
-            if _confirm(client, context, key, by_phone[:MAX_PHONE_DETAILS], domain, business):
+        if not town or ZIP.fullmatch(town):
+            state = _state_for_zip(client, key, town) if town else ""
+            if step("name, ZIP and state", " ".join(part for part in (name, town, state) if part)):
                 return
+        if step("name alone", name):
+            return
+        if matching.phone_digits(business.phone) and step("phone", business.phone.strip(), by_name=False):
+            return
     except SourceError as exc:
         context.errors["place"] = f"Places: {exc}".replace(key, "<key>")
         return
-    if not candidates:
+    searched = "; ".join(f'{label} "{query}": {count} result{"s" if count != 1 else ""}'
+                         for label, query, count in tried)
+    if not named:
         context.place_outcome = "not_found"
-        phone = (f', and {len(by_phone)} for the phone number' if matching.phone_digits(business.phone)
-                 else ", and no phone number was given to search by")
-        context.errors["place"] = (f'no listing named like "{business.name}" among {len(found)} search results for '
-                                   f'"{query}"{phone}, none of them confirmed by website or phone')
+        context.errors["place"] = f'no listing named like "{name}" was confirmed by its website ({searched})'
     else:
         context.place_outcome = "unconfirmed"
-        context.phone_compared = bool(matching.phone_digits(business.phone))
-        phone = " or lists the phone number we were given" if context.phone_compared else ""
-        if len(candidates) == 1:
-            context.errors["place"] = (f'1 listing is named like "{business.name}", but it does not link to '
-                                       f"{domain}{phone}, so we did not use it")
-        else:
-            context.errors["place"] = (f'{len(candidates)} listings are named like "{business.name}", but none '
-                                       f"links to {domain}{phone}, so we did not use any of them")
+        many = len(named) != 1
+        context.errors["place"] = (f'{len(named)} listing{"s are" if many else " is"} named like "{name}", but '
+                                   f'{"none links" if many else "it does not link"} to {domain}, so we did not use '
+                                   f'{"any of them" if many else "it"} ({searched})')
+
+
+ZIP = re.compile(r"\d{5}")
+STATE_IN_ADDRESS = re.compile(r",\s*([A-Z]{2})\s+\d{5}\b")
+
+
+def _state_for_zip(client: httpx.Client, key: str, zip_code: str) -> str:
+    """The state a ZIP is in, from Google's own answer for it ("Centreville, VA 20121, USA" gives VA), or "" when
+    Google does not return the ZIP itself. One Text Search, logged like the others."""
+    found = _places_get(client, "POST", PLACES_SEARCH, key, "places.displayName,places.formattedAddress,places.types",
+                        {"textQuery": zip_code, "pageSize": 1}).get("places", [])
+    for place in found:
+        if "postal_code" in (place.get("types") or []) and place.get("displayName", {}).get("text") == zip_code:
+            match = STATE_IN_ADDRESS.search(place.get("formattedAddress") or "")
+            if match:
+                return match.group(1)
+    return ""
