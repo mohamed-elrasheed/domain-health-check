@@ -136,6 +136,7 @@ def bad(**changes) -> agents.Draft:
     ("This is a WARN, so it could be better.", 'status label "WARN"'),
     ("The one visitors are most likely to notice is speed.", '"most likely"'),
     ("Your website is in very good shape.", '"very good"'),
+    ("None of them needs rushing.", '"rushing"'),
 ])
 def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
     problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))
@@ -289,3 +290,13 @@ def test_the_eval_plants_ten_claims_and_measures_each_layer(tmp_path, monkeypatc
     # trips it, since the number is not in the report.
     assert {r["kind"] for r in summary["rows"] if r["code_caught"]} == {"a wrong score"}
     assert "Planted 10:" in capsys.readouterr().out
+
+
+def test_a_step_for_something_the_website_platform_sets_is_caught():
+    f = agents.facts(report())
+    for c in f["checks"]:
+        if c["name"] == "Meta description":
+            c["who"] = agents.WHO["platform"]
+    problems = agents.code_check(draft_from(GOOD), f)
+    assert problems == ['What would help asks the owner to change "Meta description", which their website platform '
+                        "sets."]

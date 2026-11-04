@@ -118,7 +118,13 @@ the design working. The reviews flagged three kinds of problem:
 | "very good shape" and "the one visitors are most likely to notice" | Praise and ranking the report never states | The prompt bans them, and the code check catches the common phrases before a review is paid for |
 | "DS record", "header" and "WARN" used without a plain explanation | Technical terms and status labels in owner text | The prompt says to explain each term from the check's own explanation, and the code check rejects status labels |
 
-It also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
+A second run, still on the first version, added two more lessons. The draft asked the owner to add security
+settings that their website platform controls, so code now rejects any step for a check the platform sets. And the
+review called a plain definition of "DS record" unsupported because the data does not define it, which clashed with
+the rule to explain every term. The review now accepts a short, accurate definition that makes no claim about the
+website, and the draft prefers plain words ("whoever manages your domain") to technical names.
+
+The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku
 calls with 27,804 in and 6,175 out.

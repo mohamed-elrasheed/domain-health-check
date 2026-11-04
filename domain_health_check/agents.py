@@ -82,12 +82,15 @@ order, then any other check whose status is FAIL. Only use checks whose status i
 something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as urgent.
 
 next_steps: what would help, one item per check, for checks whose status is WARN or FAIL. Say what to do or what
-to ask for, based on the check's fix. Do not say who does it; we add that. A step often has to name something the
-owner will ask for, such as a DS record or a security header. Keep the name and explain it in plain words in the
-same sentence, using the check's own explanation.
+to ask for, based on the check's fix. Do not say who does it; we add that. Leave out any check whose who is "Set by
+your website platform": the owner cannot change it. Prefer plain descriptions to technical names, such as
+"whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name, such
+as a DS record, keep the name and explain it in plain words in the same sentence.
 
 For every item in missing and next_steps, set check to the exact name of the check it is about, as written in
 the data.
+
+Do not add advice about timing, such as "no rush" or "soon". The data does not say when to act.
 
 Never write the status labels PASS, WARN, FAIL or NOT CHECKED. Say "broken today", "could be better" or "not
 checked" instead. You do not have to mention checks that were not checked; if you do, use the words "not checked".
@@ -122,8 +125,9 @@ Check every sentence in the draft, one at a time. For each sentence, ask:
 
 Our code writes some lines, and they are not claims to check: the headings "The short version:", "What we would
 look at first:" and "What would help:", and the label in parentheses at the end of each step, which says who can
-do it. A plain explanation of a technical term is supported when it matches that check's explanation or fix in
-the data.
+do it. A short plain explanation of a technical term is supported when it is accurate general knowledge and adds
+no claim about this website. A step that says what to ask for, or whom to ask, is advice, not a claim about the
+website: it is supported when it follows that check's fix in the data.
 
 Then check the voice rules: written as "we", plain everyday words, any technical term explained in the same
 sentence, no dashes used as punctuation, no exclamation marks, no ellipses, no words in all capitals for
@@ -263,7 +267,7 @@ CAPS = re.compile(r"\b[A-Z]{2,}\b")
 STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
-            "excellent", "great shape", "perfect")
+            "excellent", "great shape", "perfect", "no rush", "rushing")
 
 
 def code_check(d: Draft, facts: dict) -> list[str]:
@@ -283,6 +287,9 @@ def code_check(d: Draft, facts: dict) -> list[str]:
                 problems.append(f'{section} names a check the report does not have: "{item.check}".')
             elif found["status"] not in ("WARN", "FAIL"):
                 problems.append(f'{section} lists "{item.check}", but the report says {found["status"]}.')
+            elif section == "What would help" and found.get("who") == WHO["platform"]:
+                problems.append(f'What would help asks the owner to change "{item.check}", which their website '
+                                "platform sets.")
     listed = [i.check for i in d.missing]
     for name in facts["top_findings"]:
         if name not in listed:
