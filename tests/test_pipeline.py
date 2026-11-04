@@ -411,7 +411,7 @@ def test_the_pipeline_puts_a_passed_ai_draft_in_the_review_email(places, monkeyp
 
     def fake_run(report, output_dir=None):
         seen.append((report.domain, output_dir))
-        d = agents.Draft("Nothing on your website is broken today.", [], [], "Your report is attached.")
+        d = agents.Draft("Nothing on your website is broken today.", [], [])
         return agents.Outcome("passed", "Passed the code check and 3 of 3 reviews.", draft=d)
     monkeypatch.setattr(pipeline.agents, "run", fake_run)
     pipeline.process([submission()], CFG, **places["kwargs"])

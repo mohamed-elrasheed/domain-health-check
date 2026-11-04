@@ -44,7 +44,6 @@ GOOD = {
         {"check": "DMARC (anti-spoofing policy)", "text": "Ask whoever runs your email to add a DMARC record, a "
                                                           "setting that stops others sending email as you."},
     ],
-    "email_body": "Thank you for asking us to look at your website. Your full report is attached.",
 }
 PASS = {"passed": True, "reason": "Every claim matches the data.", "unsupported_claims": [], "voice_problems": []}
 FAIL = {"passed": False, "reason": "One claim is not in the data.",
@@ -79,12 +78,22 @@ def draft_from(data: dict) -> agents.Draft:
 
 def test_facts_carry_the_results_and_nothing_about_the_requests_or_the_person():
     f = agents.facts(report())
-    assert set(f) == {"domain", "checked_at", "score", "score_out_of", "reading", "complete", "incomplete",
-                      "platform", "top_findings", "checks"}
-    assert set(f["checks"][0]) == {"name", "category", "status", "certain", "summary", "explanation", "fix", "who"}
+    assert set(f) == {"domain", "checked_at", "score", "score_out_of", "reading", "complete", "platform",
+                      "top_findings", "checks"}
+    by_name = {c["name"]: c for c in f["checks"]}
+    assert set(by_name["Main heading"]) == {"name", "category", "status", "summary", "certain", "explanation", "fix",
+                                            "who"}
+    assert set(by_name["SSL certificate"]) == {"name", "category", "status", "summary"}  # nothing to do, so less
     text = json.dumps(f)
     assert "No h1 element" not in text  # technical details stay out
     assert "requests" not in f and "nearby" not in f
+
+
+def test_why_a_run_was_incomplete_stays_on_this_computer():
+    r = report()
+    r.incomplete.append(r"The browser could not start: C:\Users\someone\AppData\Local\ms-playwright")
+    f = agents.facts(r)
+    assert f["complete"] is False and "AppData" not in json.dumps(f)
 
 
 def test_facts_mark_what_was_not_checked_and_who_can_fix_each_finding():
@@ -124,6 +133,9 @@ def bad(**changes) -> agents.Draft:
     ("Your site loads in 9.7 seconds.", "number 9.7"),
     ("Your site scored 88 out of 100.", "number 88"),
     ("Your site is VERY slow.", '"VERY"'),
+    ("This is a WARN, so it could be better.", 'status label "WARN"'),
+    ("The one visitors are most likely to notice is speed.", '"most likely"'),
+    ("Your website is in very good shape.", '"very good"'),
 ])
 def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
     problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))
@@ -156,6 +168,15 @@ def test_leaving_out_a_top_finding_is_caught():
 def test_who_can_fix_each_step_is_added_by_code():
     text = draft_from(GOOD).text(agents.facts(report()))
     assert "(You can do this yourself.)" in text and "(We can help with this.)" in text
+
+
+def test_code_writes_the_greeting_the_opening_and_the_signature_and_none_of_it_is_reviewed():
+    f = agents.facts(report())
+    reviewed = draft_from(GOOD).text(f)
+    full = agents.owner_email(draft_from(GOOD), f, "Jane Doe")
+    opening = "Thank you for asking us to look at example.com. Your full report is attached."
+    assert full.startswith(f"Hello Jane,\n\n{opening}\n\nThe short version:")
+    assert opening not in reviewed and "Hello" not in reviewed and "Mizan Digital Services" not in reviewed
 
 
 # ---------- the workflow

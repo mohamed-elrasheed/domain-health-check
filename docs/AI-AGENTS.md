@@ -18,7 +18,7 @@ form submission (consent)
     facts()       code     cuts the report down to what the writer needs
       │
       ▼
- 2. Draft         Sonnet   bottom line, what is missing, what would help, a short email
+ 2. Draft         Sonnet   bottom line, what is missing, what would help
       │
       ▼
     code_check()  code     every rule a program can check exactly ── fails? template goes out
@@ -39,9 +39,9 @@ That makes it cheaper, testable, and easy to audit.
 |---|---|
 | Facts come from code, not AI | A model can be wrong in a confident voice. A tested check cannot invent a finding. The chart and score are drawn by code from the same data. |
 | `facts()` sends only what the writer needs | No request log, no technical details, no nearby averages, nothing about who filled in the form. Less data sent means less to leak and less to misuse. |
-| Code decides what code can decide | Which findings lead (the report's own ranking), who can fix each one (the price list), the greeting and the signature. The models only write sentences about facts they were given. |
+| Code decides what code can decide | Which findings lead (the report's own ranking), who can fix each one (the price list), the greeting, the opening line and the signature. The models only write sentences about facts they were given. |
 | Sonnet writes, Haiku reviews | Writing for a person is the hard part. Checking claims against data is narrow, and Haiku costs about a twentieth as much. |
-| A code check before the review | Dashes, exclamation marks, prices, hype words, numbers or capitals not in the report, check names that do not exist, a passing check listed as a problem, a top finding left out. A program checks these exactly and for free, so a draft that breaks one never pays for a review. |
+| A code check before the review | Dashes, exclamation marks, prices, hype words, status labels, praise or ranking the report does not state, numbers or capitals not in the report, check names that do not exist, a passing check listed as a problem, a top finding left out. A program checks these exactly and for free, so a draft that breaks one never pays for a review. |
 | Three reviews, all must pass | One review can miss something. Three independent ones must agree. A wrong pass is worse than a wrong fail. |
 | Structured outputs | The API holds each reply to a JSON schema, so code can read `passed` instead of guessing from prose. Forced tool calls return an error on Sonnet 5.5, so they are not used. |
 | Fail closed | No key, the switch off, an API error, a spending limit, a model that stops early or refuses, or one failed review: the template goes out and Mo is told why. `run()` never raises. |
@@ -106,6 +106,22 @@ fine, a check that does not exist, a wrong score, an invented measurement, a pro
 price in words, a warning made urgent, and a guess about something that was not checked. Nine are worded to slip
 past the code check, so the eval measures the AI reviewer. It also reviews the untouched draft as a control, since
 a reviewer that fails everything would catch everything too. Results are saved as `eval-<model>.json`.
+
+## What the first real run taught
+
+The first run on mizangroupllc.com (November 4, 2026) failed all three reviews, and the template went out, which is
+the design working. The reviews flagged three kinds of problem:
+
+| Flagged | Cause | Fix |
+|---|---|---|
+| "Thank you for asking..." and "The full report is attached" were called unsupported | Our design: the prompt told the model to write lines that are not in the data, then the review checked them against the data | Code writes the opening now. The model writes only the bottom line, what is missing and what would help |
+| "very good shape" and "the one visitors are most likely to notice" | Praise and ranking the report never states | The prompt bans them, and the code check catches the common phrases before a review is paid for |
+| "DS record", "header" and "WARN" used without a plain explanation | Technical terms and status labels in owner text | The prompt says to explain each term from the check's own explanation, and the code check rejects status labels |
+
+It also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
+facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
+tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku
+calls with 27,804 in and 6,175 out.
 
 ## Cost
 
