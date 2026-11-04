@@ -16,7 +16,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from . import __version__, agents, ask, consent, external, intake, mailer, pipeline
+from . import __version__, agents, ask, consent, external, intake, mailer, pipeline, watchdog
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .pdf import write_pdf
 from .report import report_dir, write_record, write_report
@@ -252,20 +252,30 @@ def run_intake(args) -> int:
     if args.check:
         return _check_intake(args)
     counts = {"new": 0, "emailed": 0, "failures": 0}
+    timer = watchdog.start(_hung)
     try:
         return _run_intake(args, counts)
     finally:
+        timer.cancel()
         print(f"{summary_time()} intake: {counts['new']} new submissions, {counts['emailed']} reports emailed, "
               f"{counts['failures']} failures", flush=True)
+
+
+def _hung(minutes: float) -> None:
+    """The watchdog's first step when a run passes its time limit: say so where it will be seen."""
+    pipeline.log(f"FAILED: intake ran longer than {minutes:g} minutes and was stopped; where it was stuck is in "
+                 f"{watchdog.HANG_FILE}")
+    watchdog.alert(f"intake ran longer than {minutes:g} minutes and was stopped")
 
 
 def _run_intake(args, counts: dict[str, int]) -> int:
     try:
         mail = mailer.MailerConfig.from_env()
-    except (mailer.MailerNotConfigured, ValueError) as exc:  # nobody can be told, so say it here and stop
+    except (mailer.MailerNotConfigured, ValueError) as exc:  # nobody can be told by email, so alert and stop
         counts["failures"] += 1
         print(f"Error: {exc} Intake needs it to send the reviewer each report.", file=sys.stderr)
         pipeline.log(f"FAILED: email is not configured, so intake did not run: {exc}")
+        watchdog.alert("email is not configured, so intake did not run")
         return 2
     for path in external.prune_cache():
         print(f"Deleted a cached PageSpeed response older than 24 hours: {path.name}", file=sys.stderr)

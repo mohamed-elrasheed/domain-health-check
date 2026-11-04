@@ -6,6 +6,42 @@ evidence. Newest first. Each fix adds its entry in the same pull request, so thi
 A problem counts when it produced a wrong result, a false alarm, a security risk or a wasted run. The numbers are
 from real runs on mizangroupllc.com, our own site, unless an entry says otherwise.
 
+## Running it for real (November 4)
+
+### A draft that passed every check was still too long to send (PR #20)
+- **Problem:** the Fantastic Floors draft passed the code check and all three reviews, then listed all 13 warnings
+  under "What we would look at first" and gave the same PageSpeed step twice, once for speed and once for
+  accessibility, because both checks share a fix. Every sentence was true, so nothing caught it.
+- **Cause:** the writer was allowed to list every warning, and no rule looked for repeats. The reviewers judge
+  whether each sentence is true, not whether the whole message is short and useful.
+- **What we did:** code now decides what the message leads with: the report's top findings, at most three, plus
+  anything broken today. Code adds one line saying how many more the attached report lists. The code check rejects
+  any other check and any step said twice.
+- **What it fixed:** the message stays a priority list, and the full detail stays in the PDF. Judging the whole
+  message for clarity is the editor review's job (next pull request).
+
+### The review email failed, and so did the email reporting it (PR #20)
+- **Problem:** the scheduled run could not send the review (`SMTPServerDisconnected`), and the failure email went
+  the same way. The only trace was a line in `logs/intake.log`. The cause was the Google app password, replaced the
+  same day.
+- **What we did:** any email to the reviewer that fails is also written to `logs/ALERT.txt` and, with `NTFY_TOPIC`
+  set, sent as a phone notification through ntfy, a channel that does not depend on email. The notification names
+  only the kind of failure.
+- **What it fixed:** an email outage is now loud instead of silent.
+
+### A run hung and never said why (PR #20)
+- **Problem:** a run started the wrathforge.net report and never logged a result. The process was still running
+  13 minutes later and had to be ended by hand.
+- **What we did:** every intake run has a time limit (20 minutes by default). Past it, the run writes where every
+  thread was stuck to `logs/intake-hang.log`, raises an alert, and exits with code 4.
+- **What it fixed:** a hang can no longer sit unnoticed, and the next one leaves the evidence of its cause.
+
+### The PC move lost the scheduled task and the PDF libraries (setup)
+- **Problem:** after moving to a new PC, the hourly intake task no longer existed and the PDF failed with
+  `cannot load library 'libgobject-2.0-0'`.
+- **What we did:** recreated the task from the README line and installed Pango through MSYS2, as the README says.
+- **What it fixed:** the next run wrote the PDF and emailed the review.
+
 ## Findings agent
 
 ### Grading a right answer as wrong (PR #17)
