@@ -152,6 +152,22 @@ def test_cli_email_sends_one_report_to_the_reviewer(cli_env, capsys):
     assert "Emailed to mo@mizangroupllc.com" in capsys.readouterr().out
 
 
+def test_cli_ai_flag_runs_the_agents_without_the_switch_and_prints_the_outcome(cli_env, monkeypatch, capsys):
+    from domain_health_check import agents
+    calls = []
+    monkeypatch.setattr(agents, "run", lambda report, output_dir=None, require_switch=True:
+                        calls.append(require_switch) or agents.Outcome("off", "AI drafts are off (test)."))
+    assert cli.main(["report", "example.com", "-o", str(cli_env), "--no-color", "--no-pdf", "--ai"]) == 0
+    assert calls == [False]  # --ai is the decision for a manual run; the AI_DRAFTS switch is for intake
+    assert "AI draft: off. AI drafts are off (test)." in capsys.readouterr().out
+
+
+def test_cli_without_the_ai_flag_never_runs_the_agents(cli_env, monkeypatch):
+    from domain_health_check import agents
+    monkeypatch.setattr(agents, "run", lambda *a, **k: pytest.fail("the agents ran without --ai"))
+    assert cli.main(["report", "example.com", "-o", str(cli_env), "--no-color", "--no-pdf"]) == 0
+
+
 def test_cli_email_without_settings_stops_before_running_checks(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "run_checks", lambda d: pytest.fail("checks ran without mail settings"))
     assert cli.main(["report", "example.com", "-o", str(tmp_path), "--email"]) == 2

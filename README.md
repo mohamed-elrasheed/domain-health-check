@@ -378,6 +378,27 @@ schtasks /Create /TN "Mizan\domain-health-check intake" /SC HOURLY /MO 1 /TR "ws
 schtasks /Create /TN "Mizan\domain-health-check sweep" /SC WEEKLY /D MON /ST 08:00 /TR "wscript.exe C:\Users\melra\projects\domain-health-check\scripts\run-hidden.vbs domain-health-check-sweep.exe sweep" /F
 ```
 
+### AI drafts (optional)
+
+When AI drafts are on, the draft message in Mo's review email is written by Claude instead of the template, and
+checked before Mo sees it. The facts still come only from the checks above; no model touches the findings, the
+score or the chart.
+
+1. `facts()` cuts the report down to what a writer needs: the results in plain English, the score, and the report's
+   own top findings. Never the request log, the technical details, or anything about who asked.
+2. The draft agent (Claude Sonnet 5.5) writes a bottom line, what is missing, what would help, and a short email.
+3. A code check rejects any draft with a dash used as punctuation, an exclamation mark, a price, a hype word, a
+   number or capitals not in the report, a check that does not exist, a passing check listed as a problem, or a top
+   finding left out.
+4. The review agent (Claude Haiku 5.5) checks every claim against the facts, three separate times. All three must
+   pass.
+5. Anything that fails, errors or is switched off sends the template instead, and the email says why.
+
+`domain-health-check report <domain> --ai` tries it by hand on a domain with a recorded submission. `AI_DRAFTS=on`
+in `.env` turns it on for the hourly intake, once the privacy policy says report data goes to an AI service. Every
+run is kept as `ai.json` beside `report.json`, and `scripts/eval_review.py` measures how many planted false claims
+the review catches. How it works and why: [docs/AI-AGENTS.md](docs/AI-AGENTS.md).
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report
@@ -487,6 +508,7 @@ domain_health_check/
   report.py         Markdown report, and keeping only the latest per domain
   pdf.py            PDF report (WeasyPrint), from the same report object
   mailer.py         emails a finished report to the reviewer, never to the site owner
+  agents.py         optional AI draft and review of the owner's message, with a template fallback
   assets/           logo and Plus Jakarta Sans (SIL Open Font License)
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper

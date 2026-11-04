@@ -75,6 +75,7 @@ domain_health_check/
 ├── mailer.py       # sends a finished report to Mo, never to the site owner (REVIEWER is hard-coded)
 ├── intake.py       # reads new /digital form submissions through the Webflow API
 ├── pipeline.py     # intake -> consent -> report -> email Mo the review; never the business
+├── agents.py       # optional: Claude drafts the owner's message, a code check and 3 reviews gate it
 ├── terminal.py     # DomainReport -> console
 ├── dns_utils.py
 └── checks/         # each public check_* returns list[CheckResult]
@@ -203,6 +204,20 @@ These produced wrong findings in a real audit. Encode them, do not rediscover th
   same domain later is how we show what changed, so nothing deletes an older run automatically. Each report
   states its run date, so an old one cannot pass for current. `reports/` stays gitignored. Cached PageSpeed
   responses are still deleted after 24 hours.
+
+## AI drafts (`agents.py`)
+
+The owner's message can be drafted by Claude and gated before Mo sees it. See `docs/AI-AGENTS.md`. Keep these:
+
+- **Facts come from the checks.** No model ever decides a finding, a status, the score, the ranking or the chart.
+- **`facts()` is an allowlist.** Never add the request log, technical details, nearby averages, or anything about
+  the submitter to what the models see.
+- **Code decides what code can decide**: which findings lead, who can fix each one, the greeting, the signature.
+- **Fail closed.** Any error, refusal, early stop, spend limit, code-check problem or failed review sends the
+  template. `agents.run()` never raises. Never add a retry loop.
+- **The review never rewrites.** It judges. All `REVIEW_RUNS` must pass.
+- **Off by default.** The hourly intake needs `AI_DRAFTS=on`; a key alone is not enough.
+- Tests use a fake client (the network is blocked). Real quality is measured by `scripts/eval_review.py`.
 
 ## Do not
 

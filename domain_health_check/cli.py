@@ -15,10 +15,10 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from . import __version__, consent, external, intake, mailer, pipeline
+from . import __version__, agents, consent, external, intake, mailer, pipeline
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .pdf import write_pdf
-from .report import write_record, write_report
+from .report import report_dir, write_record, write_report
 from .runner import run_checks
 from .terminal import format_summary, use_color
 
@@ -57,6 +57,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--city", default="", help="the city from the /digital form")
     report.add_argument("--phone", default="", help="the phone number from the /digital form")
     report.add_argument("--no-color", action="store_true", help="plain terminal output without colours")
+    report.add_argument("--ai", action="store_true",
+                        help="also write the owner's message with the draft and review agents, print it, and keep "
+                             "the run as ai.json (needs ANTHROPIC_API_KEY in .env and the ai extra)")
 
     record = commands.add_parser("record-submission", help="record that someone asked for a report on a domain")
     record.add_argument("domain")
@@ -172,6 +175,8 @@ def report(args) -> int:
         print(format_summary(result, color, path))
         record_path = write_record(result, args.output)
         print(f"  Record: {record_path} ({len(result.requests)} requests in {record_path.with_name('requests.log')})")
+        if args.ai:
+            _ai(result, args.output)
         if not args.no_pdf or mail:
             pdf_path = _write_pdf(result, args.output)
             output_failed = output_failed or pdf_path is None
@@ -188,6 +193,19 @@ def report(args) -> int:
     if output_failed:
         return 2
     return 3 if incomplete else 0
+
+
+def _ai(report, output_dir: Path) -> None:
+    """Run the draft and review agents for a report someone asked for, and show the result. The --ai flag is the
+    decision to send this report's facts to the AI service, so the AI_DRAFTS switch is not needed here."""
+    outcome = agents.run(report, output_dir=output_dir, require_switch=False)
+    print(f"  AI draft: {outcome.status}. {outcome.reason}")
+    if outcome.status != "off":
+        print(f"  {outcome.usage_line()} Run log: {report_dir(report, output_dir) / 'ai.json'}")
+    for line in outcome.flagged():
+        print(f"    - {line}")
+    if outcome.passed:
+        print("\n" + agents.owner_email(outcome.draft, agents.facts(report)) + "\n")
 
 
 def _write_pdf(report, output_dir: Path) -> Path | None:
