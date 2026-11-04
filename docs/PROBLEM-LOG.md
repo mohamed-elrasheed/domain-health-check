@@ -8,6 +8,19 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### An independent audit found a FAIL that could vanish, from a rule we added that day (PR #31)
+- **Problem:** an independent audit of the whole workflow found that the code check enforced only the report's
+  top findings, not everything the message must lead with, which also includes anything broken today. A draft
+  that listed nothing could hide a FAIL, and PR #30's closing line would then have told the owner nothing needed
+  action. The audit proved it with a probe: a missing mail server, and a message saying none needed action.
+- **Also from the audit:** the writer's prompt still said "if the website is in good shape, say so plainly"
+  (which the code check rejects) and "say so" for checks that were not checked (which the code check also
+  rejects), so the prompt invited failures.
+- **What we did:** the code check requires every check in lead_with, with a test using a FAIL outside the top
+  findings. The "needs action" line is gone (see the next entry). The two contradicting prompt lines are removed.
+  The audit's other findings are listed in the pull request and fixed in their own pull requests.
+- **What it fixed:** a broken check can no longer be left out of the message.
+
 ### A clean site invited the writer to sum it up (PR #30)
 - **Problem:** the last consented site has nothing broken and nothing the report ranks as worth doing first, so the
   message had only its short version. Redrafted 5 times, it passed 1 of 5. Three drafts filled the space with a
@@ -20,7 +33,10 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   and the writer adds none, nor a count. When there is nothing to lead with, code's closing line says what the
   report's own count says: "None of them needs action now, and the report explains each one." The code check also
   rejects "doing well", "sound shape" and "good condition" as a backstop.
-- **What it fixed:** to be measured on the next redraft.
+- **What it fixed:** the verdicts stopped, and the code line was wrong. On the next redraft all three reviews
+  rejected "None of them needs action now" in 5 of 5 drafts, rightly: this site's DMARC is in monitoring-only mode,
+  so forged email is still delivered, and the report recommends fixing it. The reviewers judged a line they were
+  told was code's, and they were right to. PR #31 removes it.
 
 ### The fourth site: praise caught by the reviews, now caught by code (PR #29)
 - **Problem:** the last consented site ran clean (26 pass, 6 warn, 0 fail). The draft said "the site is in healthy
