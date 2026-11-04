@@ -386,10 +386,11 @@ score or the chart.
 
 1. `facts()` cuts the report down to what a writer needs: the results in plain English, the score, and the report's
    own top findings. Never the request log, the technical details, or anything about who asked.
-2. The draft agent (Claude Sonnet 5.5) writes a bottom line, what is missing, what would help, and a short email.
+2. The draft agent (Claude Sonnet 5.5) writes a bottom line, what is missing and what would help. Code writes the
+   greeting, the opening, who can do each step, and the signature.
 3. A code check rejects any draft with a dash used as punctuation, an exclamation mark, a price, a hype word, a
-   number or capitals not in the report, a check that does not exist, a passing check listed as a problem, or a top
-   finding left out.
+   status label such as WARN, praise or ranking the report does not state, a number or capitals not in the report,
+   a check that does not exist, a passing check listed as a problem, or a top finding left out.
 4. The review agent (Claude Haiku 5.5) checks every claim against the facts, three separate times. All three must
    pass.
 5. Anything that fails, errors or is switched off sends the template instead, and the email says why.

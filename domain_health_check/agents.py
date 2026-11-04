@@ -8,15 +8,15 @@ This is a fixed workflow, not an autonomous agent. The steps never change, so no
 to do next:
 
     report ──> facts()        code   only what the agents need, nothing else (least privilege)
-           ──> draft()        Sonnet writes the bottom line, what is missing, what would help, and the email
+           ──> draft()        Sonnet writes the bottom line, what is missing and what would help
            ──> code_check()   code   every rule a program can check exactly, checked exactly
            ──> review() x3    Haiku  checks every claim against the facts; all three must pass
            ──> Outcome        passed: the AI draft goes in Mo's review email. Anything else: the template does.
 
 Rules this file keeps:
   * Facts come from tested code. The models never see the web, the request log, or who submitted the form.
-  * Anything code can decide, code decides: which findings lead, who can fix each one, the greeting, the
-    signature and the chart. The models only write words about facts they were given.
+  * Anything code can decide, code decides: which findings lead, who can fix each one, the greeting, the opening,
+    the signature and the chart. The models only write words about facts they were given.
   * Fail closed. No key, the switch off, an API error, a spend limit, a refusal, a draft that breaks a rule, or
     one review out of three that says no: the template goes out and Mo is told why. Nothing here raises.
   * Nothing here sends anything. Mo reads every draft and decides.
@@ -73,20 +73,29 @@ Write so anyone can understand it, whatever their technical level. Use short sen
 you must use a technical term, explain it in the same sentence.
 
 bottom_line: two or three sentences. How the website is doing overall, what matters most, and whether anything
-is broken today.
+is broken today. Base the overall judgment on the report's reading, in plain words. Do not add praise or a
+judgment of your own, such as "very good" or "excellent", and do not say which finding visitors will notice most
+or rank findings in any way the data does not.
 
 missing: what is missing or wrong, most important first. Include every check named in top_findings, in that
 order, then any other check whose status is FAIL. Only use checks whose status is WARN or FAIL. A FAIL means
 something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as urgent.
 
 next_steps: what would help, one item per check, for checks whose status is WARN or FAIL. Say what to do or what
-to ask for. Do not say who does it; we add that.
+to ask for, based on the check's fix. Do not say who does it; we add that. Leave out any check whose who is "Set by
+your website platform": the owner cannot change it. Prefer plain descriptions to technical names, such as
+"whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name, such
+as a DS record, keep the name and explain it in plain words in the same sentence.
 
 For every item in missing and next_steps, set check to the exact name of the check it is about, as written in
 the data.
 
-email_body: two to four short sentences to the owner. Thank them for asking us to look at their website and say
-the full report is attached. No greeting and no signature; we add those.
+Do not add advice about timing, such as "no rush" or "soon". The data does not say when to act.
+
+Never write the status labels PASS, WARN, FAIL or NOT CHECKED. Say "broken today", "could be better" or "not
+checked" instead. You do not have to mention checks that were not checked; if you do, use the words "not checked".
+
+We write the greeting, the thank you, the line saying the report is attached, and the signature. Do not write them.
 
 If the website is in good shape, say so plainly, and leave missing and next_steps empty. Do not invent problems
 to fill space.
@@ -114,9 +123,16 @@ Check every sentence in the draft, one at a time. For each sentence, ask:
    data says certain is false, does the draft present it as worth checking rather than as found?
 4. Does it avoid prices, competitors, and any promise to check the site again?
 
+Our code writes some lines, and they are not claims to check: the headings "The short version:", "What we would
+look at first:" and "What would help:", and the label in parentheses at the end of each step, which says who can
+do it. A short plain explanation of a technical term is supported when it is accurate general knowledge and adds
+no claim about this website. A step that says what to ask for, or whom to ask, is advice, not a claim about the
+website: it is supported when it follows that check's fix in the data.
+
 Then check the voice rules: written as "we", plain everyday words, any technical term explained in the same
 sentence, no dashes used as punctuation, no exclamation marks, no ellipses, no words in all capitals for
-emphasis, and no words like "critical", "urgent", "alarming", "huge" or "amazing".
+emphasis, no status labels such as WARN, no praise or ranking the data does not state, and no words like
+"critical", "urgent", "alarming", "huge" or "amazing".
 
 If you are not sure a sentence is backed by the data, treat it as unsupported. A wrong pass is worse than a
 wrong fail.
@@ -127,16 +143,18 @@ Set passed to true only if there are no unsupported claims and no voice problems
 exactly as they appear in the draft. Keep the reason to one to three sentences, written for a technical reader.
 """
 
+# Written by code, so it is never a claim for the review to check.
+OPENING = "Thank you for asking us to look at {domain}. Your full report is attached."
+
 _ITEM = {"type": "object", "additionalProperties": False, "required": ["check", "text"],
          "properties": {"check": {"type": "string"}, "text": {"type": "string"}}}
 DRAFT_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["bottom_line", "missing", "next_steps", "email_body"],
+    "required": ["bottom_line", "missing", "next_steps"],
     "properties": {
         "bottom_line": {"type": "string"},
         "missing": {"type": "array", "items": _ITEM},
         "next_steps": {"type": "array", "items": _ITEM},
-        "email_body": {"type": "string"},
     },
 }
 REVIEW_SCHEMA = {
@@ -155,22 +173,19 @@ REVIEW_SCHEMA = {
 
 def facts(report: DomainReport) -> dict:
     """The only data the agents see: the results in plain English, the score, and what leads. Built from the same
-    record report.json holds, then cut down. Never the request log, the technical details, nearby averages, or
-    anything about the person who asked."""
+    record report.json holds, then cut down. Never the request log, the technical details, nearby averages, why a
+    run was incomplete (those reasons can carry file paths from this computer), or anything about the person who
+    asked. A check that passed sends only its name and summary: there is nothing for the owner to do about it."""
     full = record(report)
     top = [r.name for r in layout.worth_doing(report)]
     checks = []
     for r in full["results"]:
-        checks.append({
-            "name": r["name"],
-            "category": r["category"],
-            "status": r["status"] if r["ran"] else "NOT CHECKED",
-            "certain": r["certain"],
-            "summary": r["summary"],
-            "explanation": r["explanation"],
-            "fix": r["fix"],
-            "who": WHO.get(r["rung"]) if r["rung"] else None,
-        })
+        status = r["status"] if r["ran"] else "NOT CHECKED"
+        check = {"name": r["name"], "category": r["category"], "status": status, "summary": r["summary"]}
+        if status in ("WARN", "FAIL"):
+            check.update(certain=r["certain"], explanation=r["explanation"], fix=r["fix"],
+                         who=WHO.get(r["rung"]) if r["rung"] else None)
+        checks.append(check)
     return {
         "domain": full["domain"],
         "checked_at": full["checked_at"],
@@ -178,7 +193,6 @@ def facts(report: DomainReport) -> dict:
         "score_out_of": 100,
         "reading": full["reading"],
         "complete": full["complete"],
-        "incomplete": full["incomplete"],
         "platform": full["platform"]["name"] if full["platform"] else None,
         "top_findings": top,
         "checks": checks,
@@ -198,13 +212,12 @@ class Draft:
     bottom_line: str
     missing: list[Item]
     next_steps: list[Item]
-    email_body: str
 
     def text(self, facts: dict) -> str:
         """The words the agents wrote, laid out the way the owner reads them, with who can do each step added by
-        code from the price list. No greeting and no signature: those are code's, and are not checked."""
-        who = {c["name"]: c["who"] for c in facts["checks"]}
-        parts = [self.email_body.strip(), "", f"The short version: {self.bottom_line.strip()}"]
+        code from the price list. No greeting, opening or signature: those are code's, and are not checked."""
+        who = {c["name"]: c.get("who") for c in facts["checks"]}
+        parts = [f"The short version: {self.bottom_line.strip()}"]
         if self.missing:
             parts += ["", "What we would look at first:", *[f"- {i.text.strip()}" for i in self.missing]]
         if self.next_steps:
@@ -216,10 +229,10 @@ class Draft:
 
 
 def owner_email(draft: Draft, facts: dict, name: str = "", business_name: str = "") -> str:
-    """The full message to the business: code's greeting, the checked words, code's signature."""
+    """The full message to the business: code's greeting and opening, the checked words, code's signature."""
     reach = layout.contact()
-    return "\n".join([greeting(name, business_name), "", draft.text(facts), "", "Mizan Digital Services",
-                      f"{reach['phone']} · {reach['email']}"])
+    return "\n".join([greeting(name, business_name), "", OPENING.format(domain=facts["domain"]), "",
+                       draft.text(facts), "", "Mizan Digital Services", f"{reach['phone']} · {reach['email']}"])
 
 
 def _parse_draft(data: dict) -> Draft:
@@ -232,9 +245,9 @@ def _parse_draft(data: dict) -> Draft:
             raise ValueError(f"the draft's {key} is not a list of check and text pairs")
         return [Item(i["check"], i["text"]) for i in value]
 
-    if not all(isinstance(data.get(k), str) for k in ("bottom_line", "email_body")):
-        raise ValueError("the draft is missing its bottom line or email body")
-    return Draft(data["bottom_line"], items("missing"), items("next_steps"), data["email_body"])
+    if not isinstance(data.get("bottom_line"), str):
+        raise ValueError("the draft is missing its bottom line")
+    return Draft(data["bottom_line"], items("missing"), items("next_steps"))
 
 
 def draft(facts: dict, client, *, model: str = DRAFT_MODEL) -> tuple[Draft, Usage]:
@@ -251,6 +264,10 @@ RECHECK = re.compile(r"\bre-?check|\bcheck (?:it |(?:your|the) \w+ )?again\b|\b(
                      r"(?:the|these) checks )?again\b", re.I)
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 CAPS = re.compile(r"\b[A-Z]{2,}\b")
+STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
+# Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
+UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
+            "excellent", "great shape", "perfect", "no rush", "rushing")
 
 
 def code_check(d: Draft, facts: dict) -> list[str]:
@@ -263,8 +280,6 @@ def code_check(d: Draft, facts: dict) -> list[str]:
 
     if not d.bottom_line.strip():
         problems.append("The draft has no bottom line.")
-    if not d.email_body.strip():
-        problems.append("The draft has no email body.")
     for section, items in (("What we would look at first", d.missing), ("What would help", d.next_steps)):
         for item in items:
             found = by_name.get(item.check)
@@ -272,6 +287,9 @@ def code_check(d: Draft, facts: dict) -> list[str]:
                 problems.append(f'{section} names a check the report does not have: "{item.check}".')
             elif found["status"] not in ("WARN", "FAIL"):
                 problems.append(f'{section} lists "{item.check}", but the report says {found["status"]}.')
+            elif section == "What would help" and found.get("who") == WHO["platform"]:
+                problems.append(f'What would help asks the owner to change "{item.check}", which their website '
+                                "platform sets.")
     listed = [i.check for i in d.missing]
     for name in facts["top_findings"]:
         if name not in listed:
@@ -288,6 +306,11 @@ def code_check(d: Draft, facts: dict) -> list[str]:
         for word in HYPE:
             if re.search(rf"\b{word}\b", line, re.I):
                 problems.append(f'The word "{word}": "{line}"')
+        for label in STATUS_LABEL.findall(line):
+            problems.append(f'The status label "{label}" instead of plain words: "{line}"')
+        for phrase in UNSTATED:
+            if re.search(rf"\b{phrase}\b", line, re.I):
+                problems.append(f'"{phrase}" is a judgment the report does not state: "{line}"')
         if re.search(r"\$\s?\d", line):
             problems.append(f'A price: "{line}"')
         if RECHECK.search(line):
