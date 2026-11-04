@@ -357,3 +357,21 @@ def test_redraft_times_reports_the_pass_rate_and_keeps_the_first_passing_draft(t
     assert saved["times"] == 3 and saved["passed"] == 1 and len(saved["attempts"]) == 3
     assert saved["status"] == "passed" and saved["draft"] is not None  # the eval plants claims in this one
     assert [a["status"] for a in saved["attempts"]] == ["failed", "passed", "failed"]
+
+
+def test_redraft_can_measure_a_different_review_model(tmp_path, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "redraft", Path(__file__).parent.parent / "scripts" / "redraft.py")
+    redraft = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(redraft)
+
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
+    client = FakeClient(GOOD, PASS, PASS, PASS)
+    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (client, None))
+    assert redraft.main([str(log), "--review-model", agents.DRAFT_MODEL]) == 0
+    assert [c["model"] for c in client.calls] == [agents.DRAFT_MODEL] * 4
+    saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
+    assert saved["review_model"] == agents.DRAFT_MODEL
