@@ -137,6 +137,9 @@ def bad(**changes) -> agents.Draft:
     ("The one visitors are most likely to notice is speed.", '"most likely"'),
     ("Your website is in very good shape.", '"very good"'),
     ("None of them needs rushing.", '"rushing"'),
+    ("PageSpeed Insights is Google's free tool that tests how fast a page loads.", "costs nothing"),
+    ("It costs nothing to try.", "costs nothing"),
+    ("You can use it at no cost.", "costs nothing"),
 ])
 def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
     problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))
@@ -146,6 +149,13 @@ def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem
 def test_numbers_and_acronyms_from_the_report_are_allowed():
     ok = bad(bottom_line="Your site scored 39 out of 100. Your SSL certificate is valid for 80 more days.")
     assert agents.code_check(ok, agents.facts(report())) == []
+
+
+def test_feel_free_is_an_idiom_and_free_is_allowed_when_the_report_says_it():
+    facts = agents.facts(report())
+    assert agents.code_check(bad(bottom_line="Feel free to ask us about any of this."), facts) == []
+    facts["checks"][0]["summary"] += " The test is free."
+    assert agents.code_check(bad(bottom_line="The test is free."), facts) == []
 
 
 def test_a_check_the_report_does_not_have_is_caught():

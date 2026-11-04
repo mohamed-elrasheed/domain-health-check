@@ -141,6 +141,11 @@ Both flags were real: the draft dropped the report's own hedge ("in some cases")
 the data never says. The draft prompt now says to keep the data's hedges and add no details of its own about a term
 or a tool.
 
+The fourth run, still on the third run's prompts, passed two of three reviews. The one failure was the same added
+detail: the draft called PageSpeed Insights "Google's free tool" again. A model can repeat a mistake after being
+told not to, so the code check now rejects "free", "no cost" and "costs nothing" unless the report itself says so.
+That rule costs nothing to run and never relies on a review catching it.
+
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku
