@@ -76,6 +76,7 @@ domain_health_check/
 ├── intake.py       # reads new /digital form submissions through the Webflow API
 ├── pipeline.py     # intake -> consent -> report -> email Mo the review; never the business
 ├── agents.py       # optional: Claude drafts the owner's message, a code check and 3 reviews gate it
+├── ask.py          # the findings agent: Mo asks about a saved report, Claude picks read-only tools
 ├── terminal.py     # DomainReport -> console
 ├── dns_utils.py
 └── checks/         # each public check_* returns list[CheckResult]
@@ -218,6 +219,21 @@ The owner's message can be drafted by Claude and gated before Mo sees it. See `d
 - **The review never rewrites.** It judges. All `REVIEW_RUNS` must pass.
 - **Off by default.** The hourly intake needs `AI_DRAFTS=on`; a key alone is not enough.
 - Tests use a fake client (the network is blocked). Real quality is measured by `scripts/eval_review.py`.
+
+## The findings agent (`ask.py`)
+
+Mo asks a question about one saved report folder and Claude chooses which tools to call. Its reader is Mo, so it
+may see technical details, the request log and prices, which the owner's message never does. Keep these:
+
+- **Read-only tools over one folder.** Never add a tool that reaches the network, takes a file path, writes,
+  sends, or runs a report. Safety comes from what the agent can reach, not from what it is told.
+- **Never anything about the submitter.** The tools read `report.json` and `requests.log` only, never
+  `submissions.yaml` or the form.
+- **Mo only.** Its answers are never sent to a business or put in a report.
+- **The step cap stays.** `MAX_STEPS` rounds, then it stops and says so.
+- **Sources are checked by code.** Every cited check must exist and must have been looked up in that session.
+- **Every question is logged** to `ask.jsonl` in the report folder, which stays out of git with `reports/`.
+- Tests use a scripted fake client. Real quality is measured by `scripts/eval_ask.py`, graded by code.
 
 ## Do not
 

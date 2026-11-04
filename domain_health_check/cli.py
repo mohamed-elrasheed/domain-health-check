@@ -2,6 +2,7 @@
 
     domain-health-check report example.com            run the checks and write the report
     domain-health-check record-submission example.com --source form --email owner@example.com
+    domain-health-check ask reports/example.com/2026-11-04 "Why is DNSSEC off?"   ask the findings agent
 
 A report runs only for a domain with a recorded submission, and never for one on the lead list.
 """
@@ -15,7 +16,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from . import __version__, agents, consent, external, intake, mailer, pipeline
+from . import __version__, agents, ask, consent, external, intake, mailer, pipeline
 from .config import ConfigError, DomainConfig, load_config, load_env, normalize_domain
 from .pdf import write_pdf
 from .report import report_dir, write_record, write_report
@@ -76,6 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
     pull.add_argument("--check", action="store_true",
                       help="read the form and list how many submissions there are and which field names came back; "
                            "records nothing, runs no report and sends no email")
+    question = commands.add_parser("ask", help="ask the findings agent a question about a saved report; it reads "
+                                                "only that report folder and answers you, never the business")
+    question.add_argument("folder", type=Path, help="a report folder, such as reports/example.com/2026-11-04")
+    question.add_argument("question", help="the question, in quotes")
     return parser
 
 
@@ -88,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         return report(args)
     if args.command == "intake":
         return run_intake(args)
+    if args.command == "ask":
+        return run_ask(args)
     parser.print_help(sys.stderr)
     return 2
 
@@ -315,3 +322,29 @@ def _check_intake(args) -> int:
         return 3
     print("Every field intake reads came back under the expected name.")
     return 0
+
+
+def run_ask(args) -> int:
+    """The findings agent: one question, answered from one saved report folder, printed for Mo."""
+    if not (args.folder / "report.json").exists():
+        print(f"Error: {args.folder} has no report.json. Give a folder such as reports/example.com/2026-11-04.",
+              file=sys.stderr)
+        return 2
+    load_env(ENV_FILE)
+    client, why = agents.make_client(require_switch=False)
+    if client is None:
+        print(why, file=sys.stderr)
+        return 2
+    folder = ask.Folder(args.folder)
+    answer = ask.ask(folder, args.question, client)
+    print(answer.text)
+    print()
+    for step in answer.steps:
+        shown = json.dumps(step["input"], ensure_ascii=False) if step["input"] else ""
+        print(f"  step {step['round']}: {step['tool']}{' ' + shown if shown else ''}")
+    for problem in answer.problems:
+        print(f"  Source check: {problem}")
+    used = "; ".join(f"{u.input_tokens:,} in, {u.output_tokens:,} out" for u in answer.usage)
+    print(f"  {answer.status}. {len(answer.usage)} model call{'s' if len(answer.usage) != 1 else ''}, about "
+          f"${answer.cost:.4f} ({used}). Logged in {ask.write_log(folder, args.question, answer)}")
+    return 0 if answer.status == "answered" and not answer.problems else 1

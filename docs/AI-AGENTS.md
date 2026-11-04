@@ -189,6 +189,46 @@ facts no longer include those reasons, and a check that passed now sends only it
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku
 calls with 27,804 in and 6,175 out.
 
+## The findings agent
+
+`agents.py` is a fixed workflow on purpose: a business owner reads what it writes, so no model decides what
+happens next. `ask.py` is an agent: Mo asks a question about a saved report, and the model decides which tools to
+call, reads the results, and decides when it has enough.
+
+```
+domain-health-check ask reports/mizangroupllc.com/<date> "Why is DNSSEC off, and who can fix it?"
+```
+
+```
+question ──> Sonnet ──> wants a tool? ── yes ──> code runs it on the saved folder ──> result back to Sonnet ─┐
+                 ▲                                                                                          │
+                 └──────────────────────────── up to 8 rounds ──────────────────────────────────────────────┘
+                 │ no
+                 ▼
+          answer + "Sources:" ──> code checks every source was really looked up ──> printed for Mo, logged
+```
+
+| Tool | Reads |
+|---|---|
+| `get_overview` | domain, date, score, reading, complete or not, platform, number of requests |
+| `list_checks` | every check, its status and one-line summary |
+| `get_check` | one check in full: explanation, fix, technical details, certain or not, who can fix it |
+| `get_prices` | who can fix a check and the matching lines from the published price lists |
+| `search_requests` | up to 30 matching lines of the request log |
+
+| In this code | The security idea |
+|---|---|
+| Five read-only tools, no network, no path argument, nothing that writes | Least privilege. Safety comes from what the agent can reach, not from what it is told. A fooled model can only answer wrongly. |
+| Tool results treated as data | Injection defense. The report quotes the website's own text, and that text never becomes an instruction with power behind it. |
+| `MAX_STEPS = 8` | Resource limits. A model that loops is stopped, the way a rate limit stops a script. |
+| Sources checked by code | Integrity check. An answer citing a check it never read is flagged. |
+| `ask.jsonl` | Audit logging. Every question, every tool call and every answer. |
+| Answers go to Mo only | Data classification. Prices and the request log are fine for the operator, never for the customer message. |
+
+`scripts/eval_ask.py <folder>` builds questions whose answers code already knows from the report (which checks
+warn, the score, which were not checked, the request count, who can fix a finding, and one question the report
+cannot answer), asks the agent each one, and grades the answers with code rather than another model.
+
 ## Cost
 
 Prices checked 2026-11-04 (per million tokens): Opus 5.5 $4 in and $20 out, Sonnet 5.5 $2 in and $10 out, Haiku
