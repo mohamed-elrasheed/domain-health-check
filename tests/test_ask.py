@@ -82,7 +82,7 @@ def test_several_tools_in_one_round_all_get_results(folder):
     results = client.calls[1]["messages"][-1]["content"]
     assert [r["tool_use_id"] for r in results] == ["t0", "t1"]
     assert "Email and domain settings" in results[1]["content"]
-    assert answer.looked_up == ["DNSSEC"]
+    assert answer.looked_up == ["DNSSEC", "Page title", "Contact form"]  # list_checks showed all three
 
 
 def test_the_loop_stops_at_the_step_cap(folder):
@@ -114,6 +114,14 @@ def test_every_cited_source_must_be_real_and_looked_up(folder, reply, problem):
     assert answer.status == "answered" and problem in answer.problems
 
 
+def test_a_check_seen_in_the_list_can_be_cited(folder):
+    # The first real eval flagged correct answers: list_checks had shown every name and status, but only a
+    # full lookup counted. A row the agent was shown is a row it read.
+    client = FakeClient(tools(("list_checks", {})), text("DNSSEC is the one warning.\nSources: DNSSEC"))
+    answer = ask.ask(folder, "Which checks warn?", client)
+    assert answer.problems == [] and set(answer.looked_up) == {"DNSSEC", "Page title", "Contact form"}
+
+
 def test_sources_none_is_allowed_when_the_report_does_not_say(folder):
     answer = ask.ask(folder, "What did the owner write in the form?",
                      FakeClient(text("The report does not say.\nSources: none")))
@@ -131,12 +139,12 @@ def test_the_tools_are_read_only_and_none_reaches_the_network_or_a_path():
 
 def test_an_unknown_tool_or_check_comes_back_as_an_error_the_model_can_read(folder):
     assert "error" in folder.call("fetch_url", {"url": "https://example.com"})[0]
-    result, looked_up = folder.call("get_check", {"name": "Online checkout"})
-    assert "error" in result and looked_up is None
+    result, shown = folder.call("get_check", {"name": "Online checkout"})
+    assert "error" in result and shown == []
 
 
 def test_check_names_match_without_case(folder):
-    assert folder.call("get_check", {"name": "dnssec"})[1] == "DNSSEC"
+    assert folder.call("get_check", {"name": "dnssec"})[1] == ["DNSSEC"]
 
 
 def test_unchecked_checks_say_so(folder):

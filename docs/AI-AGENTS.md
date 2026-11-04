@@ -225,6 +225,11 @@ question ──> Sonnet ──> wants a tool? ── yes ──> code runs it on
 | `ask.jsonl` | Audit logging. Every question, every tool call and every answer. |
 | Answers go to Mo only | Data classification. Prices and the request log are fine for the operator, never for the customer message. |
 
+The first real eval passed 5 of 7, and both failures were ours: the agent listed every check, answered which
+ones warn correctly, and cited them, but the source check only counted a check opened in full. A check shown in
+the list was read too, so it now counts. The answers themselves were right in all seven, and a real question
+("Why is DNSSEC off, and who can fix it?") took three lookups and about two cents.
+
 `scripts/eval_ask.py <folder>` builds questions whose answers code already knows from the report (which checks
 warn, the score, which were not checked, the request count, who can fix a finding, and one question the report
 cannot answer), asks the agent each one, and grades the answers with code rather than another model.

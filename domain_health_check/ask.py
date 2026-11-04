@@ -134,17 +134,21 @@ class Folder:
         return self.checks.get(name) or next(
             (r for n, r in self.checks.items() if n.lower() == name.strip().lower()), None)
 
-    def call(self, name: str, args: dict) -> tuple[object, str | None]:
-        """Run one tool. Returns (result, the check name it looked up, if any). An unknown tool is an error
+    def call(self, name: str, args: dict) -> tuple[object, list[str]]:
+        """Run one tool. Returns (result, the check names it showed the agent). list_checks shows every check's
+        name, status and summary, so citing any of them after it is grounded. An unknown tool is an error
         result, never an exception, so the model can correct itself."""
-        if name in ("get_overview", "list_checks"):
-            return getattr(self, name)(), None
+        if name == "get_overview":
+            return self.get_overview(), []
+        if name == "list_checks":
+            result = self.list_checks()
+            return result, [c["name"] for c in result]
         if name in ("get_check", "get_prices"):
             result = getattr(self, name)(str(args.get("name", "")))
-            return result, (result.get("name") if "error" not in result else None)
+            return result, ([] if "error" in result else [result["name"]])
         if name == "search_requests":
-            return self.search_requests(str(args.get("text", ""))), None
-        return {"error": f"There is no tool named {name}."}, None
+            return self.search_requests(str(args.get("text", ""))), []
+        return {"error": f"There is no tool named {name}."}, []
 
 
 # ---------- the loop
@@ -154,7 +158,7 @@ class Answer:
     status: str  # answered, stopped (hit the step cap), error, off
     text: str
     steps: list[dict] = field(default_factory=list)  # every tool call: name, input, result size
-    looked_up: list[str] = field(default_factory=list)  # check names the agent actually read
+    looked_up: list[str] = field(default_factory=list)  # check names a tool actually showed the agent
     sources: list[str] = field(default_factory=list)  # check names the answer cites
     problems: list[str] = field(default_factory=list)  # from the source check
     usage: list[agents.Usage] = field(default_factory=list)
@@ -207,9 +211,8 @@ def ask(folder: Folder, question: str, client, *, model: str = MODEL, max_steps:
             for block in response.content:
                 if getattr(block, "type", "") != "tool_use":
                     continue
-                result, checked = folder.call(block.name, dict(block.input or {}))
-                if checked and checked not in answer.looked_up:
-                    answer.looked_up.append(checked)
+                result, shown = folder.call(block.name, dict(block.input or {}))
+                answer.looked_up += [n for n in shown if n not in answer.looked_up]
                 body = json.dumps(result, ensure_ascii=False, default=str)
                 answer.steps.append({"round": round_, "tool": block.name, "input": block.input,
                                      "result_chars": len(body)})
