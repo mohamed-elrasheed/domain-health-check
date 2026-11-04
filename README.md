@@ -383,6 +383,11 @@ message addressed to anyone else.
 - A domain on the lead list is skipped and logged, never run.
 - Each submission is processed once (`logs/intake-seen.json`, marked before the run starts).
 - A request with no website emails Mo a notice; any failure, in reading the form or in a run, emails Mo the error.
+- When that email itself cannot be sent, the failure is never silent: it is appended to `logs/ALERT.txt`, and with
+  `NTFY_TOPIC` set in `.env` it also arrives as a phone notification through [ntfy](https://ntfy.sh) (open source,
+  no account). The notification names only the kind of failure, never a domain or anything a person submitted.
+- A run that passes `INTAKE_TIME_LIMIT_MINUTES` (default 20) is stopped with exit code 4, after writing where
+  every thread was stuck to `logs/intake-hang.log` and raising the same alert.
 - `WEBFLOW_API_TOKEN` in `.env` is a Webflow token with read access to forms only. It is never printed or logged.
 - `--submissions-file PATH` reads a saved API response instead of Webflow, for testing.
 

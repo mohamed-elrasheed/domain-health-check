@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import agents, consent, intake, mailer
+from . import agents, consent, intake, mailer, watchdog
 from .config import ConfigError, DomainConfig, normalize_domain
 from .pdf import write_pdf
 from .report import write_record, write_report
@@ -120,11 +120,13 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
 
 
 def _tell(send, message) -> None:
-    """Send a message to the reviewer; if even that fails, it is in the log."""
+    """Send a message to the reviewer; if even that fails, it is in the log and raised as an alert outside email,
+    because the email that would have reported the failure is the thing that failed."""
     try:
         send(message)
     except Exception as exc:
         log(f"could not email {mailer.REVIEWER}: {type(exc).__name__}: {exc}")
+        watchdog.alert("the email to the reviewer could not be sent")
 
 
 def intake_failed(cfg: mailer.MailerConfig, error: str, smtp_factory=None) -> None:

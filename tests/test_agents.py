@@ -41,8 +41,6 @@ GOOD = {
     "next_steps": [
         {"check": "Main heading", "text": "Add one clear heading at the top of your home page."},
         {"check": "Meta description", "text": "Add a one or two sentence description in your site settings."},
-        {"check": "DMARC (anti-spoofing policy)", "text": "Ask whoever runs your email to add a DMARC record, a "
-                                                          "setting that stops others sending email as you."},
     ],
 }
 PASS = {"passed": True, "reason": "Every claim matches the data.", "unsupported_claims": [], "voice_problems": []}
@@ -79,7 +77,7 @@ def draft_from(data: dict) -> agents.Draft:
 def test_facts_carry_the_results_and_nothing_about_the_requests_or_the_person():
     f = agents.facts(report())
     assert set(f) == {"domain", "checked_at", "score", "score_out_of", "reading", "complete", "platform",
-                      "top_findings", "checks"}
+                      "top_findings", "lead_with", "more_to_look_at", "checks"}
     by_name = {c["name"]: c for c in f["checks"]}
     assert set(by_name["Main heading"]) == {"name", "category", "status", "summary", "certain", "explanation", "fix",
                                             "who"}
@@ -179,7 +177,9 @@ def test_leaving_out_a_top_finding_is_caught():
 
 def test_who_can_fix_each_step_is_added_by_code():
     text = draft_from(GOOD).text(agents.facts(report()))
-    assert "(You can do this yourself.)" in text and "(We can help with this.)" in text
+    assert "(You can do this yourself.)" in text
+    # DMARC is a warning the message does not lead with; the unchecked Reviews row is not counted.
+    assert "The attached report lists 1 more thing that could be better." in text
 
 
 def test_code_writes_the_greeting_the_opening_and_the_signature_and_none_of_it_is_reviewed():
@@ -376,3 +376,32 @@ def test_redraft_can_measure_a_different_review_model(tmp_path, monkeypatch):
     assert [c["model"] for c in client.calls] == [agents.DRAFT_MODEL] * 4
     saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
     assert saved["review_model"] == agents.DRAFT_MODEL
+
+
+# ---------- what the message leads with (Nov 4: a real draft listed all 13 warnings and repeated a step)
+
+def test_the_message_leads_with_the_top_findings_and_anything_broken_and_counts_the_rest():
+    r = report()
+    r.results.append(CheckResult(WEBSITE, "TLS version", Status.FAIL, "An old TLS version is in use.", "Why.", "Fix."))
+    f = agents.facts(r)
+    assert f["lead_with"] == f["top_findings"] + ["TLS version"]
+    assert f["more_to_look_at"] == 1  # DMARC; the unchecked Reviews row is not counted
+
+
+def test_a_warning_the_message_does_not_lead_with_is_caught():
+    extra = {"check": "DMARC (anti-spoofing policy)", "text": "Ask for a DMARC record."}
+    for key in ("missing", "next_steps"):
+        problems = agents.code_check(bad(**{key: GOOD[key] + [extra]}), agents.facts(report()))
+        assert any('"DMARC (anti-spoofing policy)", which the message does not lead with' in p for p in problems)
+
+
+def test_the_same_step_twice_is_caught():
+    twice = GOOD["next_steps"] + [{"check": "Meta description", "text": "Add one  clear heading at the top of "
+                                                                         "your home page."}]
+    problems = agents.code_check(bad(next_steps=twice), agents.facts(report()))
+    assert any("says the same thing twice" in p for p in problems)
+
+
+def test_the_count_line_reads_right_with_and_without_a_list():
+    assert agents.more_line(1, True) == "The attached report lists 1 more thing that could be better."
+    assert agents.more_line(4, False) == "The attached report lists 4 things that could be better."

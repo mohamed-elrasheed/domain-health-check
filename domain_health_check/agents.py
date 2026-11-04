@@ -78,19 +78,20 @@ is broken today. Base the overall judgment on the report's reading, in plain wor
 judgment of your own, such as "very good" or "excellent", and do not say which finding visitors will notice most
 or rank findings in any way the data does not.
 
-missing: what is missing or wrong, most important first. Include every check named in top_findings, in that
-order, then any other check whose status is FAIL. Only use checks whose status is WARN or FAIL. A FAIL means
-something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as urgent.
-Describe each finding in the words its summary and explanation use. Do not group findings under a label of your
-own, such as "browser settings", and do not narrow or widen what a term covers.
+missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
+attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
+FAIL means something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as
+urgent. Describe each finding in the words its summary and explanation use. Do not group findings under a label of
+your own, such as "browser settings", and do not narrow or widen what a term covers.
 
-next_steps: what would help, one item per check, for checks whose status is WARN or FAIL. Say what to do or what
-to ask for, based on the check's fix. Do not say who does it; we add that. Leave out any check whose who is "Set by
-your website platform": the owner cannot change it. Prefer plain descriptions to technical names, such as
-"whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name, such
-as a DS record, keep the name and explain it in plain words in the same sentence. When you explain a term or a
-tool, use only what the data says about it. Keep its hedges, such as "could" or "in some cases", and add no details
-of your own, such as what a tool costs, who makes it, or how it works inside.
+next_steps: what would help, for the checks you listed in missing and no others. Say what to do or what to ask
+for, based on the check's fix. If two checks call for the same step, write it once, under the first check. Do not
+say who does it; we add that. Leave out any check whose who is "Set by your website platform": the owner cannot
+change it. Prefer plain descriptions to technical names, such as "whoever manages your domain" rather than "DNS
+provider". When the owner has to ask for something by name, such as a DS record, keep the name and explain it in
+plain words in the same sentence. When you explain a term or a tool, use only what the data says about it. Keep
+its hedges, such as "could" or "in some cases", and add no details of your own, such as what a tool costs, who
+makes it, or how it works inside.
 
 For every item in missing and next_steps, set check to the exact name of the check it is about, as written in
 the data.
@@ -131,10 +132,11 @@ Check every sentence in the draft, one at a time. For each sentence, ask:
 4. Does it avoid prices, competitors, and any promise to check the site again?
 
 Our code writes some lines, and they are not claims to check: the headings "The short version:", "What we would
-look at first:" and "What would help:", and the label in parentheses at the end of each step, which says who can
-do it. A short plain explanation of a technical term is supported when it is accurate general knowledge and adds
-no claim about this website. A step that says what to ask for, or whom to ask, is advice, not a claim about the
-website: it is supported when it follows that check's fix in the data.
+look at first:" and "What would help:", the line saying how many more things the attached report lists, and the
+label in parentheses at the end of each step, which says who can do it. A short plain explanation of a technical
+term is supported when it is accurate general knowledge and adds no claim about this website. A step that says
+what to ask for, or whom to ask, is advice, not a claim about the website: it is supported when it follows that
+check's fix in the data.
 
 Then check the voice rules: written as "we", plain everyday words, any technical term explained in the same
 sentence or the one right after it, no dashes used as punctuation, no exclamation marks, no ellipses, no words
@@ -185,6 +187,7 @@ def facts(report: DomainReport) -> dict:
     asked. A check that passed sends only its name and summary: there is nothing for the owner to do about it."""
     full = record(report)
     top = [r.name for r in layout.worth_doing(report)]
+    lead, more = _lead_with(full["results"], top)
     checks = []
     for r in full["results"]:
         status = r["status"] if r["ran"] else "NOT CHECKED"
@@ -202,8 +205,20 @@ def facts(report: DomainReport) -> dict:
         "complete": full["complete"],
         "platform": full["platform"]["name"] if full["platform"] else None,
         "top_findings": top,
+        "lead_with": lead,
+        "more_to_look_at": more,
         "checks": checks,
     }
+
+
+def _lead_with(results: list[dict], top: list[str]) -> tuple[list[str], int]:
+    """What the message leads with, decided by code: the report's top findings (at most three), then anything
+    broken today. Everything else that could be better stays in the attached report, and code adds one line saying
+    how many. A message listing all thirteen warnings of a real report was too long to be a priority list."""
+    failing = [r["name"] for r in results if r["ran"] and r["status"] == "FAIL" and r["name"] not in top]
+    lead = top + failing
+    more = sum(1 for r in results if r["ran"] and r["status"] in ("WARN", "FAIL") and r["name"] not in lead)
+    return lead, more
 
 
 # ---------- the draft
@@ -227,12 +242,22 @@ class Draft:
         parts = [f"The short version: {self.bottom_line.strip()}"]
         if self.missing:
             parts += ["", "What we would look at first:", *[f"- {i.text.strip()}" for i in self.missing]]
+        more = facts.get("more_to_look_at", 0)
+        if more:
+            parts += ["", more_line(more, bool(self.missing))]
         if self.next_steps:
             parts += ["", "What would help:"]
             for i in self.next_steps:
                 label = who.get(i.check)
                 parts.append(f"- {i.text.strip()}" + (f" ({label}.)" if label else ""))
         return "\n".join(parts)
+
+
+def more_line(more: int, after_list: bool) -> str:
+    """Code's line pointing at the rest of the report, so the message stays short without hiding anything."""
+    things = "thing" if more == 1 else "things"
+    return (f"The attached report lists {more} more {things} that could be better." if after_list
+            else f"The attached report lists {more} {things} that could be better.")
 
 
 def owner_email(draft: Draft, facts: dict, name: str = "", business_name: str = "") -> str:
@@ -301,9 +326,18 @@ def code_check(d: Draft, facts: dict) -> list[str]:
                 problems.append(f'What would help asks the owner to change "{item.check}", which their website '
                                 "platform sets.")
     listed = [i.check for i in d.missing]
+    lead = facts.get("lead_with", facts["top_findings"])
     for name in facts["top_findings"]:
         if name not in listed:
             problems.append(f'What we would look at first leaves out "{name}", one of the report\'s top findings.')
+    for section, items in (("What we would look at first", d.missing), ("What would help", d.next_steps)):
+        for item in items:
+            if item.check in by_name and item.check not in lead:
+                problems.append(f'{section} lists "{item.check}", which the message does not lead with; the '
+                                "attached report covers it.")
+        texts = [" ".join(i.text.lower().split()) for i in items]
+        for twice in sorted({t for t in texts if texts.count(t) > 1}):
+            problems.append(f'{section} says the same thing twice: "{twice}"')
 
     text = d.text(facts)
     for line in filter(None, (line.strip() for line in text.splitlines())):
