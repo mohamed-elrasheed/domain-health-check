@@ -8,6 +8,17 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### Told not to quote a phrase, the writer said it in other words (PR #26)
+- **Problem:** after PR #25 told the writer not to quote the report's heading ("Here is what is costing you
+  customers"), 6 of 6 drafts still said the findings were "costing you customers" in their own words. The new code
+  rule caught every one before any review ran, so each failure cost about 2 cents instead of 9.
+- **Also found:** the editor passed a hand-written message on the same report 5 of 5, so the editor is fair and
+  the remaining failures are the writer's.
+- **What we did:** the writer no longer sees the phrase. The reading in its facts says "could be better" instead;
+  the PDF heading is unchanged. A model reliably repeats what is in its input, so the fix is to keep the phrase out
+  of the input, not to add a rule against it. The code rule stays as the backstop.
+- **What it fixed:** to be measured on the next redraft.
+
 ### A fresh report fixed the old copy and showed what was left (PR #25)
 - **Problem:** with the new wording in a fresh report, the first draft and five redrafts still passed the editor 0
   of 6, though every draft passed the code check and all three reviews. The old flags were gone ("tune-up"

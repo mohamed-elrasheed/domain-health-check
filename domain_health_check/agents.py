@@ -243,7 +243,7 @@ def facts(report: DomainReport) -> dict:
         "checked_at": full["checked_at"],
         "score": full["score"],
         "score_out_of": 100,
-        "reading": full["reading"],
+        "reading": calm(full["reading"]),
         "complete": full["complete"],
         "platform": full["platform"]["name"] if full["platform"] else None,
         "top_findings": top,
@@ -256,11 +256,23 @@ def facts(report: DomainReport) -> dict:
 def upgrade_facts(saved: dict) -> dict:
     """Facts saved in an ai.json from before lead_with existed, given the same lead and count facts() makes now,
     from the saved checks alone. Lets scripts/redraft.py test today's rules without visiting the website again."""
+    saved = {**saved, "reading": calm(saved["reading"])}
     if "lead_with" in saved:
         return saved
     rows = [{"name": c["name"], "ran": c["status"] != "NOT CHECKED", "status": c["status"]} for c in saved["checks"]]
     lead, more = _lead_with(rows, list(saved["top_findings"]))
     return {**saved, "lead_with": lead, "more_to_look_at": more}
+
+
+def calm(reading: str | None) -> str | None:
+    """The report's reading as the writer sees it. The PDF heading says some findings "could be costing you
+    customers", which has the attached report's ranking beside it. In a short email next to "nothing is broken" it
+    read as pressure, and telling the writer not to quote it did not stop it saying it in other words (6 of 6 drafts
+    on Nov 4). So the writer never sees the phrase. The PDF keeps it."""
+    if not reading:
+        return reading
+    return (reading.replace("Here is what is costing you customers.", "Some things could be better.")
+            .replace("could be costing you customers", "could be better"))
 
 
 def _lead_with(results: list[dict], top: list[str]) -> tuple[list[str], int]:
