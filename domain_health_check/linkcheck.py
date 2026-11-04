@@ -31,7 +31,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 import httpx
 from selectolax.parser import HTMLParser
 
-from . import requestlog
+from . import netguard, requestlog
 from .fetcher import PageContext, robots_allows, same_site, status_phrase
 from .identity import USER_AGENT
 
@@ -132,7 +132,7 @@ def _run(queue: list[LinkResult], transport: httpx.BaseTransport | None) -> None
             return gates[(urlsplit(url).hostname or "").lower()]
 
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS, follow_redirects=True,
-                      max_redirects=MAX_HOPS, transport=transport,
+                      max_redirects=MAX_HOPS, transport=transport or netguard.PublicOnly(),
                       event_hooks=requestlog.httpx_hooks("links")) as client:
         def one(result: LinkResult) -> None:
             if time.monotonic() > deadline:
@@ -159,6 +159,9 @@ def _check(client: httpx.Client, result: LinkResult) -> None:
         return
     except httpx.TimeoutException:
         result.outcome, result.detail = "broken", f"no answer within {TIMEOUT_SECONDS} seconds"
+        return
+    except netguard.PrivateAddress:
+        result.outcome, result.detail = "not verified", "it points to a private network address, which we never contact"
         return
     except httpx.ConnectError as exc:
         result.outcome, result.detail = "broken", f"could not connect ({exc})"
