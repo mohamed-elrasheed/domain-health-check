@@ -221,13 +221,15 @@ question ──> Sonnet ──> wants a tool? ── yes ──> code runs it on
 | Five read-only tools, no network, no path argument, nothing that writes | Least privilege. Safety comes from what the agent can reach, not from what it is told. A fooled model can only answer wrongly. |
 | Tool results treated as data | Injection defense. The report quotes the website's own text, and that text never becomes an instruction with power behind it. |
 | `MAX_STEPS = 8` | Resource limits. A model that loops is stopped, the way a rate limit stops a script. |
-| Sources checked by code | Integrity check. An answer citing a check it never read is flagged. |
+| Sources checked by code, at the depth claimed | Integrity check. Each source says (list) or (full). A (full) source must have been opened with `get_check` or `get_prices`, a (list) source must at least have been listed, and every dollar amount must come from a price line the agent read. |
 | `ask.jsonl` | Audit logging. Every question, every tool call and every answer. |
 | Answers go to Mo only | Data classification. Prices and the request log are fine for the operator, never for the customer message. |
 
 The first real eval passed 5 of 7, and both failures were ours: the agent listed every check, answered which
-ones warn correctly, and cited them, but the source check only counted a check opened in full. A check shown in
-the list was read too, so it now counts. The answers themselves were right in all seven, and a real question
+ones warn correctly, and cited them, but the source check only counted a check opened in full. The list shows a
+check's status and summary and nothing else, so it is a real source for "which checks warn" and not for a fix or
+a price. Sources now carry their depth, (list) or (full), and code holds each one to it. The answers themselves
+were right in all seven, and a real question
 ("Why is DNSSEC off, and who can fix it?") took three lookups and about two cents.
 
 `scripts/eval_ask.py <folder>` builds questions whose answers code already knows from the report (which checks

@@ -413,8 +413,8 @@ domain-health-check ask reports/mizangroupllc.com/2026-11-04 "Why is DNSSEC off,
 It has five read-only tools over that one saved report folder (the overview, the list of checks, one check in
 full, who can fix it with the published price lines, and a search of the request log). It has no network tool, no
 file path to choose and nothing that writes, so it cannot touch a website or send anything. It stops after eight
-rounds of lookups. Its answer ends with the checks it used, and code confirms each one is a real check it actually
-looked up. Every question is appended to `ask.jsonl` in the report folder. `scripts/eval_ask.py` asks it questions
+rounds of lookups. Its answer ends with the checks it used and how deeply it read each, and code confirms each one
+at that depth, and that every price it quotes came from the price list. Every question is appended to `ask.jsonl` in the report folder. `scripts/eval_ask.py` asks it questions
 whose answers code already knows from the report and grades them with code.
 
 ### PDF output

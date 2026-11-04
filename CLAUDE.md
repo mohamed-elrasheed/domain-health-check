@@ -231,7 +231,9 @@ may see technical details, the request log and prices, which the owner's message
   `submissions.yaml` or the form.
 - **Mo only.** Its answers are never sent to a business or put in a report.
 - **The step cap stays.** `MAX_STEPS` rounds, then it stops and says so.
-- **Sources are checked by code.** Every cited check must exist and must have been looked up in that session.
+- **Sources are checked by code, at the depth claimed.** A (full) source must have been opened with `get_check` or
+  `get_prices`; a (list) source must at least have been in `list_checks`; every dollar amount must come from a
+  price line the agent read. Do not loosen this to make an eval pass.
 - **Every question is logged** to `ask.jsonl` in the report folder, which stays out of git with `reports/`.
 - Tests use a scripted fake client. Real quality is measured by `scripts/eval_ask.py`, graded by code.
 
