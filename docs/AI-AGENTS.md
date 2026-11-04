@@ -94,6 +94,18 @@ service:
 AI_DRAFTS=on
 ```
 
+## Changing a prompt
+
+After the first `--ai` run, try prompt changes against the saved facts instead of running the report again:
+
+```
+python scripts/redraft.py reports/mizangroupllc.com/<date>/ai.json
+```
+
+It runs the draft, the code check and the three reviews on the facts in that log, prints the result, and saves it as
+`ai-redraft.json`. The website is never contacted, so testing a prompt does not spend the report's one-visitor
+footprint, and it takes seconds instead of a full run.
+
 ## Measuring it
 
 ```
@@ -123,6 +135,11 @@ settings that their website platform controls, so code now rejects any step for 
 review called a plain definition of "DS record" unsupported because the data does not define it, which clashed with
 the rule to explain every term. The review now accepts a short, accurate definition that makes no claim about the
 website, and the draft prefers plain words ("whoever manages your domain") to technical names.
+
+The third run, on the tuned version, cut the flags from nine to two and the cost from four cents to under three.
+Both flags were real: the draft dropped the report's own hedge ("in some cases") and called a Google tool free, which
+the data never says. The draft prompt now says to keep the data's hedges and add no details of its own about a term
+or a tool.
 
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the

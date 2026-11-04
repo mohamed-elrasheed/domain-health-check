@@ -85,7 +85,9 @@ next_steps: what would help, one item per check, for checks whose status is WARN
 to ask for, based on the check's fix. Do not say who does it; we add that. Leave out any check whose who is "Set by
 your website platform": the owner cannot change it. Prefer plain descriptions to technical names, such as
 "whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name, such
-as a DS record, keep the name and explain it in plain words in the same sentence.
+as a DS record, keep the name and explain it in plain words in the same sentence. When you explain a term or a
+tool, use only what the data says about it. Keep its hedges, such as "could" or "in some cases", and add no details
+of your own, such as what a tool costs, who makes it, or how it works inside.
 
 For every item in missing and next_steps, set check to the exact name of the check it is about, as written in
 the data.
