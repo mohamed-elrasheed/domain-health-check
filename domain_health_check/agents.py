@@ -234,7 +234,7 @@ def facts(report: DomainReport) -> dict:
     asked. A check that passed sends only its name and summary: there is nothing for the owner to do about it."""
     full = record(report)
     top = [r.name for r in layout.worth_doing(report)]
-    lead, more = _lead_with(full["results"], top)
+    lead, more = _lead_with(full["results"], top or _first_findings(full["results"]))
     checks = []
     for r in full["results"]:
         status = r["status"] if r["ran"] else "NOT CHECKED"
@@ -262,10 +262,10 @@ def upgrade_facts(saved: dict) -> dict:
     """Facts saved in an ai.json from before lead_with existed, given the same lead and count facts() makes now,
     from the saved checks alone. Lets scripts/redraft.py test today's rules without visiting the website again."""
     saved = {**saved, "reading": calm(saved["reading"])}
-    if "lead_with" in saved:
+    if "lead_with" in saved and (saved["lead_with"] or not _first_findings(saved["checks"])):
         return saved
     rows = [{"name": c["name"], "ran": c["status"] != "NOT CHECKED", "status": c["status"]} for c in saved["checks"]]
-    lead, more = _lead_with(rows, list(saved["top_findings"]))
+    lead, more = _lead_with(rows, list(saved["top_findings"]) or _first_findings(saved["checks"]))
     return {**saved, "lead_with": lead, "more_to_look_at": more}
 
 
@@ -278,6 +278,17 @@ def calm(reading: str | None) -> str | None:
         return reading
     return (reading.replace("Here is what is costing you customers.", "Some things could be better.")
             .replace("could be costing you customers", "could be better"))
+
+
+def _first_findings(checks: list[dict]) -> list[str]:
+    """When the report ranks nothing as costing customers, the message still needs something to lead with: a
+    clean site with six warnings got a message that said only "see the report", and the editor failed it 5 of 5
+    for giving no next step. So it leads with the report's own first three confirmed findings, in the report's
+    order (its ladder of what matters to a visitor first). Code decides this, never the model."""
+    found = [c for c in checks if c.get("status") in ("WARN", "FAIL") and c.get("certain", True)
+             and c.get("ran", True)]
+    found.sort(key=lambda c: (layout.TIER.get(c["name"], (len(layout.LADDER), 99)), c.get("status") != "FAIL"))
+    return [c["name"] for c in found[:layout.TOP]]
 
 
 def _lead_with(results: list[dict], top: list[str]) -> tuple[list[str], int]:
