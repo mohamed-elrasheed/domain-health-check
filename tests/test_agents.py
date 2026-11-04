@@ -134,6 +134,7 @@ def bad(**changes) -> agents.Draft:
     ("This is a WARN, so it could be better.", 'status label "WARN"'),
     ("The one visitors are most likely to notice is speed.", '"most likely"'),
     ("Your website is in very good shape.", '"very good"'),
+    ("The site is in healthy shape overall.", '"healthy shape"'),
     ("None of them needs rushing.", '"rushing"'),
     ("Some checks were not checked, and we say which below.", "not checked"),
     ("PageSpeed Insights is Google's free tool that tests how fast a page loads.", "costs nothing"),

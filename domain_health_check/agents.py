@@ -370,7 +370,8 @@ SENTENCE = re.compile(r"(?<=[.?])\s+")
 STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
-            "excellent", "great shape", "perfect", "no rush", "rushing")
+            "excellent", "great shape", "good shape", "healthy shape", "in good health", "perfect", "no rush",
+            "rushing")
 # Saying something costs nothing is a claim about money. Runs 3 and 4 both called a Google tool free, which the
 # data never says, so code catches it unless the report itself says so. "Feel free" is an idiom, not a price.
 COST = (r"(?<!feel )\bfree\b", r"\bno cost\b", r"\bcosts? nothing\b")
