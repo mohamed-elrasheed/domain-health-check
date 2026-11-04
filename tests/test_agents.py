@@ -433,3 +433,11 @@ def test_the_editor_sees_the_message_but_never_the_report_data():
 def test_an_editor_that_cannot_run_fails_closed():
     outcome = agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, RuntimeError("overloaded")))
     assert outcome.status == "failed" and "The editor could not run" in outcome.reason
+
+
+def test_facts_saved_before_lead_with_get_the_same_lead_and_count_as_today():
+    today = agents.facts(report())
+    saved = {k: v for k, v in today.items() if k not in ("lead_with", "more_to_look_at")}
+    upgraded = agents.upgrade_facts(saved)
+    assert upgraded["lead_with"] == today["lead_with"] and upgraded["more_to_look_at"] == today["more_to_look_at"]
+    assert agents.upgrade_facts(today) is today

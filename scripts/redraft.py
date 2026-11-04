@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--review-model", default=agents.REVIEW_MODEL, help="the model that reviews each draft")
     args = parser.parse_args(argv)
 
-    facts = json.loads(args.log.read_text(encoding="utf-8"))["facts"]
+    facts = agents.upgrade_facts(json.loads(args.log.read_text(encoding="utf-8"))["facts"])
     load_env(Path(".env"))
     client, why = agents.make_client(require_switch=False)
     if client is None:
