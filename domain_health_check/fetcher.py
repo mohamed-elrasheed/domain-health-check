@@ -29,7 +29,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-from . import requestlog
+from . import netguard, requestlog
 from . import robots as robots_txt
 from .identity import ROBOTS_TOKEN, USER_AGENT  # noqa: F401 (re-exported: fetcher owns the report's fetch)
 
@@ -195,7 +195,7 @@ def fetch_page(domain: str, *, transport: httpx.BaseTransport | None = None) -> 
     url = f"https://{domain}/"
     with httpx.Client(
         headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS,
-        follow_redirects=True, max_redirects=MAX_REDIRECTS, transport=transport,
+        follow_redirects=True, max_redirects=MAX_REDIRECTS, transport=transport or netguard.PublicOnly(),
         event_hooks=requestlog.httpx_hooks("page"),
     ) as client:
         robots_requested = f"https://{domain}/robots.txt"
@@ -344,7 +344,7 @@ def browser_render(url: str, offline: bool = False, routes: Callable | None = No
 
         with Session(hint=" to read the page the way a visitor sees it", offline=offline) as session, \
                 session.tab(url, on_request=seen, on_resource=lambda u, k: resources.append((u, k)),
-                            on_console=console, routes=routes) as (tab, response):
+                            on_console=console, routes=routes or netguard.browser_guard()) as (tab, response):
             if response.status and response.status >= 400:
                 raise RenderFailed(f"the browser got status {response.status} ({status_phrase(response.status)})")
             # The owner's page 1 shows their home page as a visitor's phone first shows it: taken before marking
@@ -397,7 +397,7 @@ def fetch_favicon(page: PageContext, *, transport: httpx.BaseTransport | None = 
         tries.append((fallback, False))
     found: list[FetchedIcon] = []
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS, follow_redirects=True,
-                      max_redirects=3, transport=transport or ICON_TRANSPORT,
+                      max_redirects=3, transport=transport or ICON_TRANSPORT or netguard.PublicOnly(),
                       event_hooks=requestlog.httpx_hooks("favicon")) as client:
         for url, named in tries:
             if same_site(url, page.final_url) and page.robots and not robots_allows(
@@ -443,7 +443,7 @@ def fetch_contact_page(page: PageContext, url: str, *, transport: httpx.BaseTran
     if page.robots and not robots_allows(page.robots.status, page.robots.text, url):
         return None
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_SECONDS, follow_redirects=True,
-                      max_redirects=MAX_REDIRECTS, transport=transport or CONTACT_TRANSPORT,
+                      max_redirects=MAX_REDIRECTS, transport=transport or CONTACT_TRANSPORT or netguard.PublicOnly(),
                       event_hooks=requestlog.httpx_hooks("contact")) as client:
         try:
             found = _get_file(client, url, CONTACT_MAX_BYTES)

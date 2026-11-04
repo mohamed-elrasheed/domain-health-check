@@ -251,6 +251,18 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Security and supply chain
 
+### A submitted page could make the report contact our own network (PR #32)
+- **Problem:** an independent audit (November 4) found that nothing stopped the report from following a link,
+  redirect or script to a private address. Anyone can submit a domain, so a page linking to `http://192.168.1.1/`,
+  or a domain whose DNS points at 127.0.0.1, would have made the PC running the report send requests into its own
+  network, and the answers could reach the report and the AI facts. This is server-side request forgery.
+- **What we did:** `netguard.py`. Every HTTP request the report makes, including each redirect hop, goes through a
+  transport that refuses loopback, private, link-local, reserved and multicast addresses before anything is sent.
+  The browser aborts the same requests. A refused link is reported as not verified, never contacted.
+- **Limit:** the address is checked when a request starts; a DNS answer that changes before the connection
+  (rebinding) is not yet covered. Stated in the module.
+- **What it fixed:** tests prove a private redirect hop and a private link never reach the network.
+
 ### Real API keys pasted outside `.env` (November 3)
 - **Problem:** real keys were pasted into `.env.example`, which is committed, and into a chat.
 - **What we did:** removed them before any commit, rotated all five keys, and set the rule that keys live only in
