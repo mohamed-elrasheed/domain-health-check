@@ -270,6 +270,9 @@ STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
             "excellent", "great shape", "perfect", "no rush", "rushing")
+# Saying something costs nothing is a claim about money. Runs 3 and 4 both called a Google tool free, which the
+# data never says, so code catches it unless the report itself says so. "Feel free" is an idiom, not a price.
+COST = (r"(?<!feel )\bfree\b", r"\bno cost\b", r"\bcosts? nothing\b")
 
 
 def code_check(d: Draft, facts: dict) -> list[str]:
@@ -313,6 +316,9 @@ def code_check(d: Draft, facts: dict) -> list[str]:
         for phrase in UNSTATED:
             if re.search(rf"\b{phrase}\b", line, re.I):
                 problems.append(f'"{phrase}" is a judgment the report does not state: "{line}"')
+        for pattern in COST:
+            if re.search(pattern, line, re.I) and not re.search(pattern, grounded, re.I):
+                problems.append(f'Says something costs nothing, which the report does not state: "{line}"')
         if re.search(r"\$\s?\d", line):
             problems.append(f'A price: "{line}"')
         if RECHECK.search(line):
