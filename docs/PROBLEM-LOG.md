@@ -8,6 +8,18 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### A redraft cannot test a change to the report's own wording (PR #24)
+- **Problem:** after PR #23, five more redrafts passed 0 of 5 and still showed the old wording: "this job belongs
+  with a tune-up" and the two-group image counts.
+- **Cause:** `redraft.py` re-runs the model from the facts saved in `ai.json` when the report ran, and those facts
+  hold each check's text as it read then. A prompt change shows up in a redraft; a change to a check's copy shows
+  up only in a new report. The prompt changes did work: "could be better" now appears once, not on every item.
+- **Also found:** the image check said "decorative images can be left blank" in both its explanation and its fix,
+  so every message that used both said it twice, and "a few gaps can be fine" sat beside "none of the images".
+- **What we did:** the explanation no longer repeats the point the fix makes. The writer keeps each finding to
+  its summary and the one or two sentences that say why it matters. A copy change is measured on a fresh report.
+- **What it fixed:** to be measured on the fresh report.
+
 ### The editor's first real test: 0 of 5, and most causes were in our own copy (PR #23)
 - **Problem:** five redrafts of a client's message, now limited to three findings, passed 0 of 5. Two failed a
   review on "SEO plugin" left unexplained. Three passed every review and failed the editor, each for things a

@@ -50,8 +50,7 @@ HEADING_ORDER_EXPLANATION = (
 )
 ALT_TEXT_EXPLANATION = (
     "Without a written description, search engines cannot tell what your pictures show, and screen readers have "
-    "nothing to read aloud to people with visual impairments. That description is called alt text. Purely "
-    "decorative images can be left blank on purpose, so a few gaps can be fine."
+    "nothing to read aloud to people with visual impairments. That description is called alt text."
 )
 
 
