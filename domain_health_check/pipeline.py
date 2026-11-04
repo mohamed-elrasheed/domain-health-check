@@ -2,8 +2,10 @@
 
 Every hour (Windows Task Scheduler runs `domain-health-check intake`): read new submissions to the /digital form,
 record each as consent, run the report with the details as submitted, and email the reviewer the PDF, the exit
-code, anything incomplete and a draft message to the business. The draft is never sent by this tool, and nothing
-here can email anyone but the reviewer (mailer.REVIEWER; mailer.send refuses anything else).
+code, anything incomplete and a draft message to the business. When AI drafts are on (agents.py), that draft is
+written by the draft agent and must pass the code check and three reviews; otherwise it is the template. The
+draft is never sent by this tool, and nothing here can email anyone but the reviewer (mailer.REVIEWER;
+mailer.send refuses anything else).
 
 Rules, in the order they apply:
   * A submission is marked seen before anything else happens to it, so a crash midway can never process it twice.
@@ -19,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import consent, intake, mailer
+from . import agents, consent, intake, mailer
 from .config import ConfigError, DomainConfig, normalize_domain
 from .pdf import write_pdf
 from .report import write_record, write_report
@@ -109,7 +111,10 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     exit_code = 2 if pdf is None else (0 if report.complete else 3)
     outcome.processed.append(domain)
     outcome.exit_codes[domain] = exit_code
-    send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name))
+    ai = agents.run(report, output_dir=output)  # never raises; AI_DRAFTS=on in .env turns it on
+    if ai.status != "off":
+        log(f"{domain}: AI draft {ai.status}. {ai.reason} {ai.usage_line()}")
+    send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name, ai))
     outcome.emailed += 1
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
 

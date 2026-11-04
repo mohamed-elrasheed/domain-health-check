@@ -193,9 +193,10 @@ def draft_to_business(report: DomainReport, name: str = "", business_name: str =
 
 
 def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, exit_code: int,
-                   submitted: str, name: str = "", business_name: str = "") -> EmailMessage:
+                   submitted: str, name: str = "", business_name: str = "", ai=None) -> EmailMessage:
     """The reviewer's copy of one automated run: the PDF, the exit code, anything incomplete, and a draft to the
-    business that is never sent by this tool."""
+    business that is never sent by this tool. ai is the agents.Outcome for this report, or None: a passed AI draft
+    replaces the template, and a failed or broken one keeps the template and says why."""
     score, band = layout.headline(report)
     msg = EmailMessage()
     msg["From"] = cfg.username
@@ -208,9 +209,20 @@ def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, ex
              f"Score: {score} out of 100. {band}" if score is not None else band, "",
              f"Requested: {submitted}", "",
              "The PDF is attached." if pdf else "No PDF could be written; the Markdown report is on disk.",
-             "Nothing has been sent to the business. Read the report before anything goes to them.", "",
-             "Draft message to the business (not sent):", "-" * 40, draft_to_business(report, name, business_name),
-             "-" * 40]
+             "Nothing has been sent to the business. Read the report before anything goes to them.", ""]
+    if ai is not None and ai.passed:
+        from .agents import facts, owner_email  # here, not at the top: agents imports this module
+        lines += [f"Draft message to the business (written by AI; {ai.reason} Not sent):", "-" * 40,
+                  owner_email(ai.draft, facts(report), name, business_name), "-" * 40]
+    else:
+        lines += ["Draft message to the business (not sent):", "-" * 40,
+                  draft_to_business(report, name, business_name), "-" * 40]
+    if ai is not None and ai.status != "off":  # off is the default; it gets no line in every email
+        lines += ["", f"AI draft: {ai.status}. {ai.reason}"]
+        flagged = ai.flagged()
+        if flagged:
+            lines += ["Flagged:", *[f"- {line}" for line in flagged]]
+        lines.append(ai.usage_line())
     msg.set_content("\n".join(lines))
     if pdf:
         msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf",

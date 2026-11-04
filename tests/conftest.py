@@ -47,7 +47,8 @@ def no_network(monkeypatch):
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _blocked)  # httpx.MockTransport still works
     rdap._load_bootstrap.cache_clear()
     # Never let a developer's real API key, or their .env file, into a test run.
-    for secret in ("PAGESPEED_API_KEY", "PLACES_API_KEY", "SMTP_USERNAME", "SMTP_PASSWORD", "REPORT_RECIPIENT"):
+    for secret in ("PAGESPEED_API_KEY", "PLACES_API_KEY", "SMTP_USERNAME", "SMTP_PASSWORD", "REPORT_RECIPIENT",
+                   "ANTHROPIC_API_KEY", "AI_DRAFTS"):
         monkeypatch.delenv(secret, raising=False)
     monkeypatch.setattr(cli, "ENV_FILE", Path(__file__).parent / "no-such.env")
 

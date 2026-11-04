@@ -1,0 +1,270 @@
+"""The draft and review agents. Every model call here goes to a fake client: the suite blocks the network, and
+what is under test is our side of the workflow, the facts we send, the checks we run on what comes back, and that
+every failure falls back to the template. How well the real models do is measured by scripts/eval_review.py."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+import pytest
+
+from domain_health_check import agents, mailer
+from domain_health_check.models import EMAIL, LOCAL, SITE, WEBSITE, CheckResult, DomainReport, Status
+
+NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+CFG = mailer.MailerConfig("smtp.gmail.com", 587, "mo@mizangroupllc.com", "app-password")
+
+
+def report() -> DomainReport:
+    return DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "SSL certificate", Status.PASS, "Your certificate is valid for 80 more days.", "Why."),
+        CheckResult(SITE, "Main heading", Status.WARN, "Your home page has no main heading.", "Why.", "Add one.",
+                    ["No h1 element on the page."]),
+        CheckResult(SITE, "Meta description", Status.WARN, "Your home page has no description for search results.",
+                    "Why.", "Add one."),
+        CheckResult(EMAIL, "DMARC (anti-spoofing policy)", Status.WARN, "No DMARC record was found.", "Why.",
+                    "Ask for one."),
+        CheckResult(LOCAL, "Reviews", Status.WARN, "We could not look up reviews.", "Why.", ran=False),
+    ])
+
+
+GOOD = {
+    "bottom_line": "Nothing on your website is broken today. Two things could help more people find you.",
+    "missing": [
+        {"check": "Main heading", "text": "Your home page has no main heading, a title that says what the page is "
+                                          "about. This could be better."},
+        {"check": "Meta description", "text": "Your home page has no short description for search results. "
+                                              "This could be better."},
+    ],
+    "next_steps": [
+        {"check": "Main heading", "text": "Add one clear heading at the top of your home page."},
+        {"check": "Meta description", "text": "Add a one or two sentence description in your site settings."},
+        {"check": "DMARC (anti-spoofing policy)", "text": "Ask whoever runs your email to add a DMARC record, a "
+                                                          "setting that stops others sending email as you."},
+    ],
+    "email_body": "Thank you for asking us to look at your website. Your full report is attached.",
+}
+PASS = {"passed": True, "reason": "Every claim matches the data.", "unsupported_claims": [], "voice_problems": []}
+FAIL = {"passed": False, "reason": "One claim is not in the data.",
+        "unsupported_claims": ["Your site loads in nine seconds."], "voice_problems": []}
+
+
+class FakeClient:
+    """Stands in for anthropic.Anthropic: messages.create returns the next scripted reply, or raises it."""
+
+    def __init__(self, *replies):
+        self.replies = list(replies)
+        self.calls: list[dict] = []
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        stop = "end_turn"
+        if isinstance(reply, tuple):
+            reply, stop = reply
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(reply))],
+                               usage=SimpleNamespace(input_tokens=1000, output_tokens=200), stop_reason=stop)
+
+
+def draft_from(data: dict) -> agents.Draft:
+    return agents._parse_draft(data)
+
+
+# ---------- the facts: only what the agents need
+
+def test_facts_carry_the_results_and_nothing_about_the_requests_or_the_person():
+    f = agents.facts(report())
+    assert set(f) == {"domain", "checked_at", "score", "score_out_of", "reading", "complete", "incomplete",
+                      "platform", "top_findings", "checks"}
+    assert set(f["checks"][0]) == {"name", "category", "status", "certain", "summary", "explanation", "fix", "who"}
+    text = json.dumps(f)
+    assert "No h1 element" not in text  # technical details stay out
+    assert "requests" not in f and "nearby" not in f
+
+
+def test_facts_mark_what_was_not_checked_and_who_can_fix_each_finding():
+    by_name = {c["name"]: c for c in agents.facts(report())["checks"]}
+    assert by_name["Reviews"]["status"] == "NOT CHECKED"
+    assert by_name["Main heading"]["who"] == "You can do this yourself"
+    assert by_name["DMARC (anti-spoofing policy)"]["who"] == "We can help with this"
+
+
+def test_the_report_decides_what_leads_not_the_model():
+    assert agents.facts(report())["top_findings"] == ["Main heading", "Meta description"]
+
+
+# ---------- the code check
+
+def test_a_good_draft_passes_the_code_check():
+    assert agents.code_check(draft_from(GOOD), agents.facts(report())) == []
+
+
+def bad(**changes) -> agents.Draft:
+    return draft_from({**GOOD, **changes})
+
+
+@pytest.mark.parametrize("sentence, problem", [
+    ("Your site is fine — mostly.", "dash"),
+    ("Your site is fine - mostly.", "dash"),
+    ("Your site is great!", "exclamation"),
+    ("Your site is fine...", "ellipsis"),
+    ("Your site is fine…", "ellipsis"),
+    ("This is urgent.", '"urgent"'),
+    ("This is a critical gap.", '"critical"'),
+    ("We can fix it for $99.", "price"),
+    ("We will check your site again next month.", "check again"),
+    ("We can recheck it for you.", "check again"),
+    ("Your competitors are ahead.", "competitors"),
+    ("I looked at your site.", "First person"),
+    ("Your site loads in 9.7 seconds.", "number 9.7"),
+    ("Your site scored 88 out of 100.", "number 88"),
+    ("Your site is VERY slow.", '"VERY"'),
+])
+def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
+    problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))
+    assert any(problem in p for p in problems), problems
+
+
+def test_numbers_and_acronyms_from_the_report_are_allowed():
+    ok = bad(bottom_line="Your site scored 39 out of 100. Your SSL certificate is valid for 80 more days.")
+    assert agents.code_check(ok, agents.facts(report())) == []
+
+
+def test_a_check_the_report_does_not_have_is_caught():
+    problems = agents.code_check(bad(missing=GOOD["missing"] + [{"check": "Online checkout", "text": "Broken."}]),
+                                 agents.facts(report()))
+    assert any('does not have: "Online checkout"' in p for p in problems)
+
+
+def test_a_passing_or_unchecked_check_listed_as_missing_is_caught():
+    for name, status in (("SSL certificate", "PASS"), ("Reviews", "NOT CHECKED")):
+        problems = agents.code_check(bad(missing=GOOD["missing"] + [{"check": name, "text": "A problem."}]),
+                                     agents.facts(report()))
+        assert any(f'lists "{name}", but the report says {status}' in p for p in problems), problems
+
+
+def test_leaving_out_a_top_finding_is_caught():
+    problems = agents.code_check(bad(missing=GOOD["missing"][:1]), agents.facts(report()))
+    assert any('leaves out "Meta description"' in p for p in problems)
+
+
+def test_who_can_fix_each_step_is_added_by_code():
+    text = draft_from(GOOD).text(agents.facts(report()))
+    assert "(You can do this yourself.)" in text and "(We can help with this.)" in text
+
+
+# ---------- the workflow
+
+def test_a_good_draft_that_passes_three_reviews_passes(tmp_path):
+    client = FakeClient(GOOD, PASS, PASS, PASS)
+    outcome = agents.run(report(), client, output_dir=tmp_path)
+    assert outcome.passed and outcome.reason == "Passed the code check and 3 of 3 reviews."
+    draft_call, *review_calls = client.calls
+    assert draft_call["model"] == agents.DRAFT_MODEL
+    assert [c["model"] for c in review_calls] == [agents.REVIEW_MODEL] * 3
+    for call in client.calls:  # structured outputs, never a forced tool call
+        assert call["output_config"]["format"]["type"] == "json_schema" and "tool_choice" not in call
+    assert "example.com" in draft_call["messages"][0]["content"]
+    assert outcome.cost == pytest.approx(0.004 + 3 * 0.0002)
+
+
+def test_one_failed_review_of_three_fails_the_draft():
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, FAIL, PASS))
+    assert outcome.status == "failed"
+    assert "only 2 of 3 reviews" in outcome.reason
+    assert outcome.flagged() == ["Your site loads in nine seconds."]
+
+
+def test_a_draft_that_breaks_a_rule_is_never_sent_for_review():
+    client = FakeClient({**GOOD, "bottom_line": "Your site is great!"})
+    outcome = agents.run(report(), client)
+    assert outcome.status == "failed" and len(client.calls) == 1  # the draft only; no review was paid for
+    assert "no review was run" in outcome.reason
+
+
+@pytest.mark.parametrize("reply", [
+    RuntimeError("connection refused"),
+    ({"bottom_line": "Half a"}, "max_tokens"),  # stopped early
+    ({"bottom_line": "x"}, "refusal"),
+    {"bottom_line": 3, "missing": [], "next_steps": [], "email_body": ""},  # wrong shape
+])
+def test_a_broken_draft_call_is_an_error_and_never_raises(reply):
+    outcome = agents.run(report(), FakeClient(reply))
+    assert outcome.status == "error" and not outcome.passed
+
+
+def test_a_review_that_cannot_run_counts_as_a_failed_review():
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, RuntimeError("overloaded"), PASS))
+    assert outcome.status == "failed"
+    assert "This review could not run: RuntimeError: overloaded" in outcome.reason
+
+
+def test_off_without_the_switch_or_the_key(monkeypatch):
+    monkeypatch.delenv(agents.SWITCH, raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")
+    outcome = agents.run(report())
+    assert outcome.status == "off" and "AI_DRAFTS" in outcome.reason
+    monkeypatch.setenv(agents.SWITCH, "on")
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    assert "ANTHROPIC_API_KEY" in agents.run(report()).reason
+    # The --ai flag on a manual run is its own decision, so it does not need the switch, but still needs the key.
+    assert "ANTHROPIC_API_KEY" in agents.run(report(), require_switch=False).reason
+
+
+def test_the_run_log_keeps_everything_the_eval_needs(tmp_path):
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, FAIL), output_dir=tmp_path)
+    log = json.loads((tmp_path / "example.com" / "2026-11-03" / "ai.json").read_text(encoding="utf-8"))
+    assert log["status"] == "failed" and log["facts"]["domain"] == "example.com"
+    assert log["draft"]["bottom_line"] == GOOD["bottom_line"]
+    assert len(log["reviews"]) == 3 and len(log["usage"]) == 4
+    assert "requests" not in json.dumps(log["facts"])
+
+
+# ---------- the review email
+
+def test_a_passed_draft_replaces_the_template_in_the_review_email():
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS))
+    msg = mailer.review_message(CFG, report(), None, 0, "test", "Test Person", "Example LLC", outcome)
+    body = msg.get_content()
+    assert msg["To"] == mailer.REVIEWER
+    assert "written by AI; Passed the code check and 3 of 3 reviews." in body
+    assert "Hello Test," in body and GOOD["bottom_line"] in body
+    assert "AI cost: about $" in body
+
+
+def test_a_failed_draft_keeps_the_template_and_says_why():
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, FAIL, PASS))
+    body = mailer.review_message(CFG, report(), None, 0, "test", ai=outcome).get_content()
+    assert "Draft message to the business (not sent):" in body
+    assert GOOD["bottom_line"] not in body
+    assert "AI draft: failed." in body and "- Your site loads in nine seconds." in body
+
+
+# ---------- the eval script, offline
+
+def test_the_eval_plants_ten_claims_and_measures_each_layer(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "eval_review", Path(__file__).parent.parent / "scripts" / "eval_review.py")
+    eval_review = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(eval_review)
+
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
+    # A reviewer that passes everything: whatever is caught here, the code check caught.
+    replies = [PASS] * 33
+    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (FakeClient(*replies), None))
+    assert eval_review.main([str(log)]) == 0
+    summary = json.loads(log.with_name(f"eval-{agents.REVIEW_MODEL}.json").read_text(encoding="utf-8"))
+    assert summary["planted"] == 10 and summary["control_passed"] is True
+    assert summary["caught_by_ai"] == 0
+    # The plants are worded to slip past the code check, so the eval measures the AI reviewer. Only the wrong score
+    # trips it, since the number is not in the report.
+    assert {r["kind"] for r in summary["rows"] if r["code_caught"]} == {"a wrong score"}
+    assert "Planted 10:" in capsys.readouterr().out
