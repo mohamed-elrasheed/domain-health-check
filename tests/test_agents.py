@@ -34,9 +34,8 @@ GOOD = {
     "bottom_line": "Nothing on your website is broken today. Two things could help more people find you.",
     "missing": [
         {"check": "Main heading", "text": "Your home page has no main heading, a title that says what the page is "
-                                          "about. This could be better."},
-        {"check": "Meta description", "text": "Your home page has no short description for search results. "
-                                              "This could be better."},
+                                          "about."},
+        {"check": "Meta description", "text": "Your home page has no short description for search results."},
     ],
     "next_steps": [
         {"check": "Main heading", "text": "Add one clear heading at the top of your home page."},
@@ -441,3 +440,10 @@ def test_facts_saved_before_lead_with_get_the_same_lead_and_count_as_today():
     upgraded = agents.upgrade_facts(saved)
     assert upgraded["lead_with"] == today["lead_with"] and upgraded["more_to_look_at"] == today["more_to_look_at"]
     assert agents.upgrade_facts(today) is today
+
+
+def test_the_same_sentence_on_every_item_is_caught():
+    padded = [{"check": i["check"], "text": i["text"] + " This could be better, but it is not broken."}
+              for i in GOOD["missing"]]
+    problems = agents.code_check(bad(missing=padded), agents.facts(report()))
+    assert any('appears in 2 items: "this could be better, but it is not broken."' in p for p in problems)

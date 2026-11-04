@@ -25,9 +25,10 @@ DESCRIPTION_MIN, DESCRIPTION_MAX = 70, 160
 ALT_TEXT_PASS_SHARE = 0.9
 # WordPress has no meta description field of its own: it comes from an SEO plugin, which the site may not have.
 WORDPRESS_DESCRIPTION_FIX = (
-    "In WordPress, the meta description comes from an SEO plugin, not from WordPress itself, so look for it in "
-    "that plugin's settings for your home page. If your site has no SEO plugin installed, this job belongs with a "
-    "tune-up."
+    "In WordPress, the meta description comes from an SEO plugin (an add-on that controls how your pages appear in "
+    "search results), not from WordPress itself, so look for it in that plugin's settings for your home page. If "
+    "your site has no SEO plugin, ask whoever built or manages your website to add one; adding it is part of a "
+    "tune-up on our price list."
 )
 LISTED = 10  # how many offending items the details list before summarizing the rest
 
@@ -366,7 +367,12 @@ def evaluate_alt_text(images: list[tuple], rendered: bool = False, editor: str =
     weak = [row for row in lacking if row[3] != NO_DESCRIPTION]
     noun = "image" if total == 1 else "images"
     weakly = "described only by a file name or the word 'logo'"
-    if missing:
+    if missing and weak and len(lacking) == total:
+        # Every image lacks a useful description. Said as one fact, so the counts do not read as separate groups.
+        fact = (f"None of the {total} images on your home page has a useful description: {len(missing)} "
+                f"{'has' if len(missing) == 1 else 'have'} none, and {len(weak)} {'has' if len(weak) == 1 else 'have'} "
+                "only a file name or the word 'logo'")
+    elif missing:
         fact = (f"{len(missing)} of {total} {noun} on your home page {'has' if len(missing) == 1 else 'have'} no "
                 "description")
         if weak:
@@ -379,7 +385,8 @@ def evaluate_alt_text(images: list[tuple], rendered: bool = False, editor: str =
         linked = sum(1 for row in must if row[2] == "link")
         parts = ([counted_as(logos, "logo image", "logo images")] if logos else []) + (
             [counted_as(linked, "linked image", "linked images")] if linked else [])
-        fact += f" {' and '.join(parts)} {'needs' if len(must) == 1 else 'need'} a real description."
+        lead = "Of these, " if len(lacking) == total and missing and weak else ""
+        fact += f" {lead}{' and '.join(parts)} {'needs' if len(must) == 1 else 'need'} a real description."
     elif len(lacking) == 1:
         fact += " It is not inside a link and is not a logo."
     elif lacking:

@@ -81,18 +81,21 @@ or rank findings in any way the data does not.
 
 missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
 attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
-FAIL means something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as
-urgent. Describe each finding in the words its summary and explanation use. Do not group findings under a label of
-your own, such as "browser settings", and do not narrow or widen what a term covers.
+FAIL means something is broken today. A WARN means it could be better. Say once, in the bottom line, that the
+findings could be better and whether anything is broken; do not repeat that on each item. Mark an item "broken
+today" only when its status is FAIL. Never present a WARN as urgent. Describe each finding in the words its
+summary and explanation use. Do not group findings under a label of your own, such as "browser settings", and do
+not narrow or widen what a term covers.
 
 next_steps: what would help, for the checks you listed in missing and no others. Say what to do or what to ask
 for, based on the check's fix. If two checks call for the same step, write it once, under the first check. Do not
-say who does it; we add that. Leave out any check whose who is "Set by your website platform": the owner cannot
-change it. Prefer plain descriptions to technical names, such as "whoever manages your domain" rather than "DNS
-provider". When the owner has to ask for something by name, such as a DS record, keep the name and explain it in
-plain words in the same sentence. When you explain a term or a tool, use only what the data says about it. Keep
-its hedges, such as "could" or "in some cases", and add no details of your own, such as what a tool costs, who
-makes it, or how it works inside.
+repeat in a step what the finding above it already said. A fix that points to "the technical details" means the
+technical details in the attached report: say so. Do not say who does it; we add that. Leave out any check whose
+who is "Set by your website platform": the owner cannot change it. Prefer plain descriptions to technical names,
+such as "whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name,
+such as a DS record, keep the name and explain it in plain words in the same sentence. When you explain a term or
+a tool, use only what the data says about it. Keep its hedges, such as "could" or "in some cases", and add no
+details of your own, such as what a tool costs, who makes it, or how it works inside.
 
 For every item in missing and next_steps, set check to the exact name of the check it is about, as written in
 the data.
@@ -342,6 +345,7 @@ RECHECK = re.compile(r"\bre-?check|\bcheck (?:it |(?:your|the) \w+ )?again\b|\b(
                      r"(?:the|these) checks )?again\b", re.I)
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 CAPS = re.compile(r"\b[A-Z]{2,}\b")
+SENTENCE = re.compile(r"(?<=[.?])\s+")
 STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
@@ -384,6 +388,15 @@ def code_check(d: Draft, facts: dict) -> list[str]:
         texts = [" ".join(i.text.lower().split()) for i in items]
         for twice in sorted({t for t in texts if texts.count(t) > 1}):
             problems.append(f'{section} says the same thing twice: "{twice}"')
+    # The same sentence in more than one item is padding (Nov 4: "This could be better, but it is not broken." on
+    # every finding after the short version had already said it).
+    seen: dict[str, int] = {}
+    for item in d.missing + d.next_steps:
+        for sentence in {" ".join(x.lower().split()) for x in SENTENCE.split(item.text) if len(x.split()) >= 4}:
+            seen[sentence] = seen.get(sentence, 0) + 1
+    for sentence, n in sorted(seen.items()):
+        if n > 1:
+            problems.append(f'The same sentence appears in {n} items: "{sentence}"')
 
     text = d.text(facts)
     for line in filter(None, (line.strip() for line in text.splitlines())):
