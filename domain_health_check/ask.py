@@ -112,9 +112,15 @@ class Folder:
         if r is None:
             return {"error": f'No check is named "{name}". Use list_checks for the exact names.'}
         rung = pricelist.load().rungs.get(r.get("rung") or "")
-        return {"name": r["name"], "category": r["category"], "status": self._status(r), "summary": r["summary"],
-                "explanation": r["explanation"], "fix": r["fix"], "details": r["details"],
-                "certain": r["certain"], "who": rung.label if rung else None}
+        found = {"name": r["name"], "category": r["category"], "status": self._status(r), "summary": r["summary"],
+                 "explanation": r["explanation"], "fix": r["fix"], "details": r["details"],
+                 "certain": r["certain"], "who": rung.label if rung else None}
+        if rung is not None and rung.key == "platform":
+            # The fix is written for a site that controls this setting. On a hosted builder the report shows the
+            # owner no fix for it, and the agent should not present the developer's fix as the owner's next step.
+            found["fix_note"] = ("The report does not show this fix to the owner: the website platform sets this, "
+                                 "so the fix applies only if the site moves off it.")
+        return found
 
     def get_prices(self, name: str) -> dict:
         r = self._find(name)

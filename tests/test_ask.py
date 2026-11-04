@@ -214,6 +214,15 @@ def test_the_eval_builds_its_questions_and_right_answers_from_the_report_itself(
     assert by_question["Which checks have a WARN or FAIL status?"]["expect"] == ["DNSSEC"]
     assert by_question["Which checks were not checked?"]["expect"] == ["Contact form"]
     assert by_question["Who can fix DNSSEC?"] == {"question": "Who can fix DNSSEC?",
-                                                  "expect": ["Email and domain settings"], "cite": "DNSSEC"}
+                                                  "expect": ["email", "domain", "settings"], "cite": "DNSSEC"}
+    assert eval_ask.key_words("Set by your website platform") == ["website", "platform"]
     assert by_question["What did the person who asked for this report write in the form?"]["expect"] == [
         "The report does not say"]
+
+
+def test_a_platform_set_check_says_its_fix_is_not_the_owners(tmp_path):
+    report = DomainReport("example.com", NOW, [
+        CheckResult("Website security", "Content Security Policy", Status.WARN, "No Content Security Policy is set.",
+                    "Why.", "Ask your web developer to add a Content-Security-Policy header.")], platform="Webflow")
+    found = ask.Folder(write_record(report, tmp_path).parent).get_check("Content Security Policy")
+    assert found["who"] == "Set by your website platform" and "only if the site moves off it" in found["fix_note"]

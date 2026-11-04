@@ -232,6 +232,12 @@ a price. Sources now carry their depth, (list) or (full), and code holds each on
 were right in all seven, and a real question
 ("Why is DNSSEC off, and who can fix it?") took three lookups and about two cents.
 
+With sources held to their depth, the next run passed 6 of 7. The seventh answer was right ("the website platform
+sets the Content Security Policy") but did not use the exact label, so the eval now grades a label by its key
+words. That answer also caught a real mismatch in our own data: on a hosted builder the check's fix still told the
+owner to ask a developer for a header the platform controls. The report never shows that fix for a platform-set
+check, and `get_check` now says so, so the agent does not present it as the owner's next step.
+
 `scripts/eval_ask.py <folder>` builds questions whose answers code already knows from the report (which checks
 warn, the score, which were not checked, the request count, who can fix a finding, and one question the report
 cannot answer), asks the agent each one, and grades the answers with code rather than another model.

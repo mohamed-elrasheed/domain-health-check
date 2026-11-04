@@ -19,6 +19,14 @@ from pathlib import Path
 from domain_health_check import agents, ask, pricelist
 from domain_health_check.config import load_env
 
+STOP = {"your", "with", "from", "that", "this", "they", "them"}
+
+
+def key_words(label: str) -> list[str]:
+    """The words of a label an answer must use, so "the website platform sets this" passes for "Set by your website
+    platform". The first real eval failed a correct answer for paraphrasing the exact label."""
+    return [w for w in label.lower().split() if len(w) >= 4 and w not in STOP]
+
 
 def cases(folder: ask.Folder) -> list[dict]:
     """(question, the strings a right answer must contain, a check the answer must cite or None)."""
@@ -42,7 +50,8 @@ def cases(folder: ask.Folder) -> list[dict]:
         out.append({"question": f"What does the report say to do about {warns[0]}, and why?",
                     "expect": [], "cite": first["name"]})
         if rung:
-            out.append({"question": f"Who can fix {warns[0]}?", "expect": [rung.label], "cite": first["name"]})
+            out.append({"question": f"Who can fix {warns[0]}?", "expect": key_words(rung.label),
+                        "cite": first["name"]})
     return out
 
 
