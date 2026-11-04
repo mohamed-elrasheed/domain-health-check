@@ -1,5 +1,33 @@
 # domain-health-check
 
+## For hiring managers
+
+A working tool that a one-person business uses with real customers, built to show how AI goes into a real workflow
+safely: the facts come from tested code, models only write and check sentences about those facts, and a person
+approves everything a customer sees.
+
+| What | Measured result |
+|---|---|
+| Report | 38 checks on a real run: security, domain, email, search, speed, Google Business Profile |
+| AI-written owner message: good drafts that pass all gates | 5 of 5 |
+| Planted false claims the AI review catches | 10 of 10, with no false alarm on the untouched draft |
+| Findings agent: answers graded by code | 7 of 7 |
+| Cost per AI-written message | about 7 cents |
+| Tests | 1,251, run in CI on Python 3.11 and 3.13 with the network blocked |
+| Supply chain | pip-audit and gitleaks in CI; 62 published vulnerabilities found and fixed |
+
+Two kinds of AI, used where each fits:
+
+- **A gated workflow** for anything a business owner reads: Claude Sonnet drafts, code checks every rule a program
+  can check exactly, three separate reviews must all pass, and any failure sends a plain template instead.
+- **A tool-using agent** for the operator only: it picks from five read-only tools over one saved report, stops
+  after eight rounds, and code checks every source it cites.
+
+Where to look: [the scorecard](docs/SCORECARD.md), [how the AI parts work and why](docs/AI-AGENTS.md), and
+[every problem we hit, what we changed and what it fixed](docs/PROBLEM-LOG.md).
+
+## What it is
+
 A command-line tool that runs health checks on a list of domains and writes a plain-English report
 for each one, suitable for handing to a non-technical client. It produces the free report offered at
 [mizangroupllc.com/digital](https://www.mizangroupllc.com/digital).
