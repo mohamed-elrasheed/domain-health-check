@@ -8,6 +8,15 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The fourth site: praise caught by the reviews, now caught by code (PR #29)
+- **Problem:** the last consented site ran clean (26 pass, 6 warn, 0 fail). The draft said "the site is in healthy
+  shape overall", which the report never says. All three reviews failed it, so the review email carried the
+  template, as designed.
+- **What we did:** "healthy shape", "good shape" and "in good health" join the phrases the code check rejects,
+  beside "great shape" and "very good". A phrase a program can match no longer waits for three model calls.
+- **What it fixed:** that draft now fails in the code check, before any review is paid for. The gates worked on
+  their first run on this site: the unstated praise never reached the reviewer's inbox as the AI draft.
+
 ### A pointer to our price list read as a sales push (PR #27)
 - **Problem:** with "costing you customers" gone (PR #26 worked: 0 of 5 drafts said it), every draft passed the
   code check and all three reviews, and the editor failed 4 of 5 on one line carried over from a check's fix:
