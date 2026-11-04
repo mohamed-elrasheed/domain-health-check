@@ -10,7 +10,7 @@ to do next:
     report ──> facts()        code   only what the agents need, nothing else (least privilege)
            ──> draft()        Sonnet writes the bottom line, what is missing and what would help
            ──> code_check()   code   every rule a program can check exactly, checked exactly
-           ──> review() x3    Haiku  checks every claim against the facts; all three must pass
+           ──> review() x3    Sonnet checks every claim against the facts, in separate calls; all three must pass
            ──> Outcome        passed: the AI draft goes in Mo's review email. Anything else: the template does.
 
 Rules this file keeps:
@@ -37,15 +37,16 @@ from .report import record, report_dir
 
 # The models, by their API IDs. A dateless ID is the pinned snapshot; Anthropic never points it at another model.
 DRAFT_MODEL = "claude-sonnet-5-5"  # writing for a person is the hard part, so the stronger model writes
-REVIEW_MODEL = "claude-haiku-5-5"  # checking claims against data is narrow, so the cheapest model checks
+# Haiku reviewed first and passed 1 draft in 10, mostly on false alarms. Sonnet passed 2 in 5 and every flag was real.
+REVIEW_MODEL = "claude-sonnet-5-5"  # a fresh call with no memory of the draft call, so the writer never grades itself
 REVIEW_RUNS = 3  # independent reviews; the draft passes only if every one passes
 DRAFT_MAX_TOKENS = 8000  # output tokens include any thinking the model does, so leave room
 REVIEW_MAX_TOKENS = 4000
 
 # US dollars per million tokens, (input, output), from https://platform.claude.com/docs/en/about-claude/pricing,
-# checked 2026-11-03. Haiku's rate is for prompts of 100,000 tokens or less; ours are a few thousand. Used only to
-# estimate what a run cost, for the scorecard. The bill in the Console is the real number.
-PRICES = {DRAFT_MODEL: (2.00, 10.00), REVIEW_MODEL: (0.10, 0.50)}
+# checked 2026-11-04. Haiku's rate is for prompts of 100,000 tokens or less; ours are a few thousand. Every model a
+# script can measure is listed. Used only to estimate what a run cost; the bill in the Console is the real number.
+PRICES = {"claude-opus-5-5": (4.00, 20.00), "claude-sonnet-5-5": (2.00, 10.00), "claude-haiku-5-5": (0.10, 0.50)}
 
 # Turning AI drafts on for the scheduled intake is a decision, not a side effect of having a key: the privacy
 # policy has to say report data goes to an AI service first. AI_DRAFTS=on in .env is that decision.
@@ -97,7 +98,8 @@ the data.
 Do not add advice about timing, such as "no rush" or "soon". The data does not say when to act.
 
 Never write the status labels PASS, WARN, FAIL or NOT CHECKED. Say "broken today", "could be better" or "not
-checked" instead. You do not have to mention checks that were not checked; if you do, use the words "not checked".
+checked" instead. Do not mention checks that were not checked: the report lists them, and a line that promises a
+list the message does not give is false.
 
 We write the greeting, the thank you, the line saying the report is attached, and the signature. Do not write them.
 
@@ -123,8 +125,9 @@ Check every sentence in the draft, one at a time. For each sentence, ask:
 1. Is every fact, number, check name and result in this sentence stated in the data?
 2. Does it describe a result correctly? A FAIL means broken today. A WARN means it could be better. A WARN must
    never be described as broken or urgent. A PASS must never be described as a problem.
-3. If the data says a check is NOT CHECKED, does the draft say it was not checked instead of guessing? If the
-   data says certain is false, does the draft present it as worth checking rather than as found?
+3. If the draft mentions a check the data says is NOT CHECKED, does it avoid guessing a result? The draft does not
+   have to mention those checks. If the data says certain is false, does the draft present it as worth checking
+   rather than as found?
 4. Does it avoid prices, competitors, and any promise to check the site again?
 
 Our code writes some lines, and they are not claims to check: the headings "The short version:", "What we would
@@ -323,6 +326,8 @@ def code_check(d: Draft, facts: dict) -> list[str]:
                 problems.append(f'Says something costs nothing, which the report does not state: "{line}"')
         if re.search(r"\$\s?\d", line):
             problems.append(f'A price: "{line}"')
+        if re.search(r"\bnot (?:been )?checked\b", line, re.I):
+            problems.append(f'Mentions checks that were not checked, which the report already lists: "{line}"')
         if RECHECK.search(line):
             problems.append(f'A promise to check again: "{line}"')
         if re.search(r"\bcompetitors?\b", line, re.I):

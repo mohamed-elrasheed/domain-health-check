@@ -137,6 +137,7 @@ def bad(**changes) -> agents.Draft:
     ("The one visitors are most likely to notice is speed.", '"most likely"'),
     ("Your website is in very good shape.", '"very good"'),
     ("None of them needs rushing.", '"rushing"'),
+    ("Some checks were not checked, and we say which below.", "not checked"),
     ("PageSpeed Insights is Google's free tool that tests how fast a page loads.", "costs nothing"),
     ("It costs nothing to try.", "costs nothing"),
     ("You can use it at no cost.", "costs nothing"),
@@ -202,7 +203,7 @@ def test_a_good_draft_that_passes_three_reviews_passes(tmp_path):
     for call in client.calls:  # structured outputs, never a forced tool call
         assert call["output_config"]["format"]["type"] == "json_schema" and "tool_choice" not in call
     assert "example.com" in draft_call["messages"][0]["content"]
-    assert outcome.cost == pytest.approx(0.004 + 3 * 0.0002)
+    assert outcome.cost == pytest.approx(4 * 0.004)  # Sonnet writes and reviews: 1,000 in and 200 out per call
 
 
 def test_one_failed_review_of_three_fails_the_draft():

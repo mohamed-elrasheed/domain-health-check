@@ -24,7 +24,7 @@ form submission (consent)
     code_check()  code     every rule a program can check exactly ── fails? template goes out
       │
       ▼
- 3. Review x3     Haiku    every claim against the facts, three separate times ── any fails? template goes out
+ 3. Review x3     Sonnet   every claim against the facts, three separate calls ── any fails? template goes out
       │
       ▼
  4. Mo            person   reads the review email, sends the draft or does not
@@ -40,7 +40,7 @@ That makes it cheaper, testable, and easy to audit.
 | Facts come from code, not AI | A model can be wrong in a confident voice. A tested check cannot invent a finding. The chart and score are drawn by code from the same data. |
 | `facts()` sends only what the writer needs | No request log, no technical details, no nearby averages, nothing about who filled in the form. Less data sent means less to leak and less to misuse. |
 | Code decides what code can decide | Which findings lead (the report's own ranking), who can fix each one (the price list), the greeting, the opening line and the signature. The models only write sentences about facts they were given. |
-| Sonnet writes, Haiku reviews | Writing for a person is the hard part. Checking claims against data is narrow, and Haiku costs about a twentieth as much. |
+| Sonnet writes, Sonnet reviews in separate calls | Haiku reviewed first, at a twentieth of the price, and passed 1 good draft in 10, mostly on false alarms. Sonnet passed 2 in 5 and every flag it raised was a real mistake. Each review is a fresh call that never sees the draft call, so the writer still never grades its own work. Opus is next if Sonnet ever is not enough. |
 | A code check before the review | Dashes, exclamation marks, prices, hype words, status labels, praise or ranking the report does not state, numbers or capitals not in the report, check names that do not exist, a passing check listed as a problem, a top finding left out. A program checks these exactly and for free, so a draft that breaks one never pays for a review. |
 | Three reviews, all must pass | One review can miss something. Three independent ones must agree. A wrong pass is worse than a wrong fail. |
 | Structured outputs | The API holds each reply to a JSON schema, so code can read `passed` instead of guessing from prose. Forced tool calls return an error on Sonnet 5.5, so they are not used. |
@@ -177,6 +177,13 @@ catches were real: a draft said the unchecked items were listed "where they matt
 called a Content Security Policy "a list". The finding is that Haiku is not steady enough for this judgment, so
 `redraft.py --review-model` now measures another reviewer on the same facts before the default changes.
 
+Five drafts with Sonnet as the reviewer passed two. The three reviews agreed with each other almost every time,
+and every flag was a real mistake by the writer: two drafts promised to say "below" which checks were not checked
+and never did, and two used "DS record" without explaining it. Sonnet is now the reviewer. Both mistakes are fixed
+where they start. The code check rejects any mention of checks that were not checked, since the report already
+lists them, and the DNSSEC check's own fix now explains a DS record in plain words, which also helps the owner
+reading the report itself.
+
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku
@@ -184,6 +191,7 @@ calls with 27,804 in and 6,175 out.
 
 ## Cost
 
-Prices checked 2026-11-03 (per million tokens): Sonnet 5.5 $2 in and $10 out, Haiku 5.5 $0.10 in and $0.50 out.
+Prices checked 2026-11-04 (per million tokens): Opus 5.5 $4 in and $20 out, Sonnet 5.5 $2 in and $10 out, Haiku
+5.5 $0.10 in and $0.50 out. With Sonnet writing and reviewing, a draft costs about 7 to 8 cents.
 `agents.PRICES` holds them for the estimate printed in each review email. The bill in the Console is the real
 number, and any thinking the models do is billed as output.

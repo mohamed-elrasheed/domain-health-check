@@ -33,8 +33,9 @@ def check_dnssec(domain: str) -> list[CheckResult]:
     if not records:
         return [CheckResult(
             DOMAIN, "DNSSEC", Status.WARN, "DNSSEC is not switched on for this domain.", EXPLANATION,
-            "Ask your DNS provider to enable DNSSEC signing, then add the DS record they give you at your "
-            "registrar (many providers, such as Cloudflare, do both in a few clicks).",
+            "Ask your DNS provider to enable DNSSEC signing, then add the DS record they give you (a short record "
+            "that links the signature to your domain) at your registrar, the company your domain is registered with. "
+            "Many providers, such as Cloudflare, do both in a few clicks.",
         )]
     details = []
     for record in records:
