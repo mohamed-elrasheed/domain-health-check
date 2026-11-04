@@ -92,6 +92,7 @@ def test_weights_cover_exactly_the_checks_that_exist():
     """A renamed check would otherwise drop out of the score, or leave a stale weight behind."""
     from domain_health_check.checks import rdap
     from domain_health_check.checks.site import (
+        ai_access,
         content,
         delivery,
         favicon,
@@ -106,8 +107,8 @@ def test_weights_cover_exactly_the_checks_that_exist():
             delivery.VIEWPORT, delivery.PAGE_WEIGHT, delivery.REDIRECTS, indexing.SEARCH_BLOCKING,
             indexing.CANONICAL, indexing.SITEMAP, sharing.SOCIAL_PREVIEW, structured_data.NAME,
             links.SAME_SITE, links.OTHER_SITES, mixed_content.NAME, favicon.NAME, reach.TAP_TO_CALL,
-            reach.CONTACT_FORM}
-    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 19
+            reach.CONTACT_FORM, ai_access.AI_ACCESS}
+    assert {n for n in scoring.WEIGHTS if n in site} == site and len(site) == 20
     security = {"SSL certificate", "TLS version", "HSTS (always use HTTPS)", "Content Security Policy",
                 "X-Content-Type-Options", rdap.NAME, "Nameservers", "DNSSEC", "Mail servers (MX)",
                 "SPF (approved senders)", "DKIM (email signatures)", "DMARC (anti-spoofing policy)"}

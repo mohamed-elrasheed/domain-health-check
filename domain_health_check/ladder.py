@@ -15,8 +15,8 @@ LADDER = [
     # 2. Google cannot understand the site.
     ["Main heading", "Meta description", "Page title", "Image alt text", "Heading order", "Canonical tag",
      "Sitemap and robots", "Structured data matches the page", "Social preview"],
-    # 3. Customers cannot find the business locally.
-    ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews"],
+    # 3. Customers cannot find the business locally, on Google or in AI search answers.
+    ["Google Business Profile", "Profile completeness", "Profile website link", "Reviews", "AI search access"],
     # 4. The site is slow enough that people leave.
     ["Real-world loading speed", "Mobile speed", "Page weight", "Mobile viewport", "Redirect chain", "Accessibility",
      "Broken links", "Mixed content"],

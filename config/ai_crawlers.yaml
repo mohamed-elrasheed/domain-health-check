@@ -1,0 +1,55 @@
+# The robots that AI tools send to read websites, and what each one is for.
+#
+# Read by domain_health_check/checks/site/ai_access.py. The check reads the robots.txt file the report has
+# already fetched and asks, for each robot listed here, whether it may read the home page. It never makes a
+# request of its own.
+#
+# role:
+#   search    the robot that lets the tool show the website in its answers. Blocking it can keep the site out
+#             of that tool's answers, so the check reports it.
+#   training  the robot that collects pages for training AI models. Blocking it does not affect search, and
+#             owners often block it on purpose, so the check lists it in the technical details and never
+#             counts it against the site.
+#
+# Every robot is {token, company, role} plus either a source (the company's own documentation, quoted) or the
+# reason it is disabled. Nothing from memory ships: the loader refuses an entry with neither, or with both.
+# A robot the company says may ignore robots.txt is disabled, because robots.txt cannot block it.
+# Sources checked 2026-11-03.
+
+crawlers:
+  - token: OAI-SearchBot
+    company: OpenAI
+    role: search
+    source: "https://developers.openai.com/api/docs/bots : \"OAI-SearchBot is for search.\" and \"Please use OAI-SearchBot in robots.txt for managing Search opt outs and automatic crawl.\""
+  - token: Claude-SearchBot
+    company: Anthropic
+    role: search
+    source: "https://support.claude.com/en/articles/8896518 : Claude-SearchBot crawls web content to improve search results; blocking it may reduce visibility in user search results. \"Anthropic's Bots respect \"do not crawl\" signals by honoring industry standard directives in robots.txt.\""
+  - token: Claude-User
+    company: Anthropic
+    role: search
+    source: "https://support.claude.com/en/articles/8896518 : Claude-User fetches pages when someone asks Claude a question; blocking it may reduce visibility in user-directed web search."
+  - token: PerplexityBot
+    company: Perplexity
+    role: search
+    source: "https://docs.perplexity.ai/guides/bots : PerplexityBot surfaces and links websites in Perplexity search results and is not used to crawl content for AI foundation models."
+  - token: GPTBot
+    company: OpenAI
+    role: training
+    source: "https://developers.openai.com/api/docs/bots : \"Disallowing GPTBot indicates a site's content should not be used in training generative AI foundation models.\""
+  - token: ClaudeBot
+    company: Anthropic
+    role: training
+    source: "https://support.claude.com/en/articles/8896518 : ClaudeBot collects public web content that may be used to train Anthropic's models; the article's example blocks it with \"User-agent: ClaudeBot\" and \"Disallow: /\"."
+  - token: ChatGPT-User
+    company: OpenAI
+    role: search
+    disabled: "https://developers.openai.com/api/docs/bots : \"Because these actions are initiated by a user, robots.txt rules may not apply.\""
+  - token: Perplexity-User
+    company: Perplexity
+    role: search
+    disabled: "https://docs.perplexity.ai/guides/bots : \"this fetcher generally ignores robots.txt rules.\""
+  - token: OAI-AdsBot
+    company: OpenAI
+    role: search
+    disabled: "only visits pages submitted as ads; not about being found in answers"

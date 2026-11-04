@@ -135,7 +135,7 @@ one of the checks, and streaming makes the byte cap for page weight straightforw
 | Half | Checks | Status |
 |---|---|---|
 | Domain health | SSL/TLS, HSTS, CSP, X-Content-Type-Options, domain expiry via RDAP, nameserver redundancy, DNSSEC, MX, SPF, DKIM, DMARC | built |
-| Site health | title, meta description, headings, canonical, Open Graph tags, image alt text, JSON-LD, robots/sitemap, viewport, redirect chain, page weight, broken links, mixed content, favicon | built |
+| Site health | title, meta description, headings, canonical, Open Graph tags, image alt text, JSON-LD, robots/sitemap, viewport, redirect chain, page weight, broken links, mixed content, favicon, AI search access (robots.txt and AI search robots) | built |
 
 Site health needs no browser: `httpx` + `selectolax` on the one fetched page covers all of it. Speed and
 mobile scoring need Lighthouse or Playwright and are a separate, heavier step — do not pull them in early.

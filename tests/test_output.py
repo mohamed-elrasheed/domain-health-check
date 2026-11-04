@@ -78,8 +78,8 @@ def test_runner_runs_every_check_with_fake_data(fake_dns, monkeypatch, mizan_pag
     report = runner.run_checks(DomainConfig("mizangroupllc.com", ["google"]), NOW)
     names = [r.name for r in report.results]
     assert names[0] == "SSL certificate" and names[-1] == "Contact form"
-    # TLS gives 2 results, headers 3, the link check 2 (this site, other sites) and the 17 other site checks 1 each
-    assert len(names) == 31
+    # TLS gives 2 results, headers 3, the link check 2 (this site, other sites) and the 18 other site checks 1 each
+    assert len(names) == 32
     assert fetched == ["mizangroupllc.com"]  # one page fetch per report
     # No check should have crashed into the runner's "couldn't be completed" fallback.
     assert not any("could not be completed" in r.summary for r in report.results)
