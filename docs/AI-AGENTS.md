@@ -132,6 +132,14 @@ price in words, a warning made urgent, and a guess about something that was not 
 past the code check, so the eval measures the AI reviewer. It also reviews the untouched draft as a control, since
 a reviewer that fails everything would catch everything too. Results are saved as `eval-<model>.json`.
 
+```
+python scripts/eval_editor.py reports/<domain>/<date>/edited.txt --times 5
+```
+
+The editor gets the same treatment from the other side. Save a message a careful person would send unchanged and
+run the editor on it: if it fails, the editor is too strict, and its reasons say where. A copy with a known flaw
+should fail every time. The file stays under `reports/`, because it names a business.
+
 ## What the first real run taught
 
 The first run on mizangroupllc.com (November 4, 2026) failed all three reviews, and the template went out, which is

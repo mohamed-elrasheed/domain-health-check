@@ -353,7 +353,8 @@ def test_pricing_points_at_the_digital_division():
 def test_alt_text_fix_has_no_invented_example():
     from domain_health_check.checks.site import content
     result = content.evaluate_alt_text([("https://example.com/a.jpg", None)] * 3)
-    assert "such as" not in result.fix and "logo" in result.fix and "technical details" in result.fix
+    assert "such as" not in result.fix and "technical details" in result.fix
+    assert "logo" not in result.fix  # no logo or linked image here, so the fix does not start with them
 
 
 def test_costing_customers_only_counts_findings_that_are_materially_wrong():

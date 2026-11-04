@@ -27,7 +27,7 @@ ALT_TEXT_PASS_SHARE = 0.9
 WORDPRESS_DESCRIPTION_FIX = (
     "In WordPress, the meta description comes from an SEO plugin (an add-on that controls how your pages appear in "
     "search results), not from WordPress itself, so look for it in that plugin's settings for your home page. If "
-    "your site has no SEO plugin, ask whoever built or manages your website to add one; adding it is part of a "
+    "your site has no SEO plugin, you can add one from the Plugins page in WordPress; adding one is also part of a "
     "tune-up on our price list."
 )
 LISTED = 10  # how many offending items the details list before summarizing the rest
@@ -384,19 +384,24 @@ def evaluate_alt_text(images: list[tuple], rendered: bool = False, editor: str =
         linked = sum(1 for row in must if row[2] == "link")
         parts = ([counted_as(logos, "logo image", "logo images")] if logos else []) + (
             [counted_as(linked, "linked image", "linked images")] if linked else [])
-        lead = "Of these, " if len(lacking) == total and missing and weak else ""
-        fact += f" {lead}{' and '.join(parts)} {'needs' if len(must) == 1 else 'need'} a real description."
-    elif len(lacking) == 1:
+        if not (len(lacking) == total and missing and weak):
+            # When every image lacks one, the summary stays one fact, and the fix names where to start instead.
+            fact += f" {' and '.join(parts)} {'needs' if len(must) == 1 else 'need'} a real description."
+        begin = ([counted_as(logos, "logo image", "logo images")] if logos else []) + (
+            [counted_as(linked, "image inside a link", "images inside links")] if linked else [])
+        start = ", starting with the " + " and the ".join(begin)
+    else:
+        start = ""
+    if not must and len(lacking) == 1:
         fact += " It is not inside a link and is not a logo."
-    elif lacking:
+    elif not must and lacking:
         fact += " None of them is inside a link or is a logo."
     measure = (total - problems) / total
     if must or measure < ALT_TEXT_PASS_SHARE:
         return result(
             Status.WARN, fact,
             f"{where(editor)}, add a short description to each image the technical details list as needing one "
-            "or as not described, starting with logo images and images inside a link. An image that is only "
-            "decoration can be left blank.",
+            f"or as not described{start}. An image that is only decoration can be left blank.",
             details, measure=measure)
     return result(Status.PASS, fact if lacking else f"{total} of {total} {noun} on your home page "
                   f"{'has' if total == 1 else 'have'} a description.", details=details)
