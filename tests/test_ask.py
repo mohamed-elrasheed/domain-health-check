@@ -58,7 +58,7 @@ class FakeClient:
         return reply
 
 
-ANSWER = "DNSSEC is off. Ask your DNS provider to enable DNSSEC signing.\nSources: DNSSEC"
+ANSWER = "DNSSEC is off. Ask your DNS provider to enable DNSSEC signing.\nSources: DNSSEC (full)"
 
 
 # ---------- the loop
@@ -82,7 +82,7 @@ def test_several_tools_in_one_round_all_get_results(folder):
     results = client.calls[1]["messages"][-1]["content"]
     assert [r["tool_use_id"] for r in results] == ["t0", "t1"]
     assert "Email and domain settings" in results[1]["content"]
-    assert answer.looked_up == ["DNSSEC"]
+    assert answer.looked_up == ["DNSSEC"] and answer.listed == ["DNSSEC", "Page title", "Contact form"]
 
 
 def test_the_loop_stops_at_the_step_cap(folder):
@@ -105,13 +105,36 @@ def test_a_model_that_stops_early_is_an_error(folder):
 # ---------- the source check
 
 @pytest.mark.parametrize("reply, problem", [
-    ("DNSSEC is off.\nSources: DNSSEC", 'Cites "DNSSEC" without having looked it up.'),
-    ("It is fine.\nSources: Online checkout", 'Cites "Online checkout", which is not a check in this report.'),
+    ("DNSSEC is off.\nSources: DNSSEC (list)", 'Cites "DNSSEC" without having looked it up.'),
+    ("DNSSEC is off.\nSources: DNSSEC (full)", 'Cites "DNSSEC" in full without having opened it.'),
+    ("It is fine.\nSources: Online checkout (full)", 'Cites "Online checkout", which is not a check in this report.'),
+    ("DNSSEC is off.\nSources: DNSSEC", 'Cites "DNSSEC" without saying (list) or (full).'),
     ("DNSSEC is off.", 'The answer has no "Sources:" line.'),
+    ("It costs $150.\nSources: none", 'Gives the price "$150" without having read it from the price list.'),
 ])
 def test_every_cited_source_must_be_real_and_looked_up(folder, reply, problem):
     answer = ask.ask(folder, "Why?", FakeClient(text(reply)))
     assert answer.status == "answered" and problem in answer.problems
+
+
+def test_a_check_seen_only_in_the_list_can_be_cited_for_its_status_but_not_in_full(folder):
+    # The first real eval flagged correct answers: list_checks had shown every name and status, but only a
+    # full lookup counted. The list shows status and summary only, so it grounds a (list) source and no more.
+    listed = ask.ask(folder, "Which checks warn?", FakeClient(
+        tools(("list_checks", {})), text("DNSSEC is the one warning.\nSources: DNSSEC (list)")))
+    assert listed.problems == [] and listed.looked_up == []
+    claimed = ask.ask(folder, "What is the fix for DNSSEC?", FakeClient(
+        tools(("list_checks", {})), text("Enable signing.\nSources: DNSSEC (full)")))
+    assert claimed.problems == ['Cites "DNSSEC" in full without having opened it.']
+
+
+def test_a_price_counts_only_when_it_came_from_the_price_list(folder):
+    from domain_health_check import pricelist
+    line = str(pricelist.load().rungs["email"].prices[0])
+    price = ask.PRICE.search(line).group(0)
+    answer = ask.ask(folder, "What would DNSSEC cost?", FakeClient(
+        tools(("get_prices", {"name": "DNSSEC"})), text(f"{line}.\nSources: DNSSEC (full)")))
+    assert answer.problems == [] and any(price in p for p in answer.prices_read)
 
 
 def test_sources_none_is_allowed_when_the_report_does_not_say(folder):
@@ -131,12 +154,12 @@ def test_the_tools_are_read_only_and_none_reaches_the_network_or_a_path():
 
 def test_an_unknown_tool_or_check_comes_back_as_an_error_the_model_can_read(folder):
     assert "error" in folder.call("fetch_url", {"url": "https://example.com"})[0]
-    result, looked_up = folder.call("get_check", {"name": "Online checkout"})
-    assert "error" in result and looked_up is None
+    result, listed, opened = folder.call("get_check", {"name": "Online checkout"})
+    assert "error" in result and listed == [] and opened == []
 
 
 def test_check_names_match_without_case(folder):
-    assert folder.call("get_check", {"name": "dnssec"})[1] == "DNSSEC"
+    assert folder.call("get_check", {"name": "dnssec"})[2] == ["DNSSEC"]
 
 
 def test_unchecked_checks_say_so(folder):
