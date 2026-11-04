@@ -391,8 +391,8 @@ score or the chart.
 3. A code check rejects any draft with a dash used as punctuation, an exclamation mark, a price, a hype word, a
    status label such as WARN, praise or ranking the report does not state, a number or capitals not in the report,
    a check that does not exist, a passing check listed as a problem, or a top finding left out.
-4. The review agent (Claude Haiku 5.5) checks every claim against the facts, three separate times. All three must
-   pass.
+4. The review agent (Claude Sonnet 5.5, in calls separate from the draft) checks every claim against the facts,
+   three separate times. All three must pass.
 5. Anything that fails, errors or is switched off sends the template instead, and the email says why.
 
 `domain-health-check report <domain> --ai` tries it by hand on a domain with a recorded submission. `AI_DRAFTS=on`
