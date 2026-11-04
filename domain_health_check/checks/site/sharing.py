@@ -26,8 +26,8 @@ EXPLANATION = (
 WORDPRESS_FIX = (
     "In WordPress, the link preview title, description and image come from an SEO plugin (an add-on that controls "
     "how your pages appear in search results and when shared), not from WordPress itself, so look for them in that "
-    "plugin's settings for your home page. If your site has no SEO plugin, ask whoever built or manages your "
-    "website to add one; adding it is part of a tune-up on our price list."
+    "plugin's settings for your home page. If your site has no SEO plugin, you can add one from the "
+    "Plugins page in WordPress; adding one is also part of a tune-up on our price list."
 )
 
 

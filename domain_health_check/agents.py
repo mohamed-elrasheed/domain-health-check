@@ -75,14 +75,16 @@ Write so anyone can understand it, whatever their technical level. Use short sen
 you must use a technical term, explain it in the same sentence or the one right after it.
 
 bottom_line: two or three sentences. How the website is doing overall, what matters most, and whether anything
-is broken today. Base the overall judgment on the report's reading, in plain words. Do not add praise or a
+is broken today. Base the overall judgment on the report's reading, in your own plain words: do not quote it.
+Do not mention the rest of the report here; we add a line about it. Do not add praise or a
 judgment of your own, such as "very good" or "excellent", and do not say which finding visitors will notice most
 or rank findings in any way the data does not.
 
 missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
 attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
-FAIL means something is broken today. A WARN means it could be better. Say once, in the bottom line, that the
-findings could be better and whether anything is broken; do not repeat that on each item. Mark an item "broken
+FAIL means something is broken today. A WARN means it could be better. Say once, in the bottom line, whether
+anything is broken; do not repeat that on each item, and do not describe the findings in vague terms such as
+"the findings could be better". Mark an item "broken
 today" only when its status is FAIL. Never present a WARN as urgent. Describe each finding in the words its
 summary and explanation use. Do not group findings under a label of your own, such as "browser settings", and do
 not narrow or widen what a term covers. Keep each item to its summary and the one or two sentences of its
@@ -342,6 +344,9 @@ def draft(facts: dict, client, *, model: str = DRAFT_MODEL) -> tuple[Draft, Usag
 # ---------- the code check: every rule a program can check exactly
 
 HYPE = ("critical", "urgent", "urgently", "alarming", "huge", "amazing")
+# The report's own heading says some findings "could be costing you customers". Beside "nothing is broken" that
+# reads as pressure in a short message, so the message never repeats it; the attached report keeps its context.
+PRESSURE = ("costing you",)
 RECHECK = re.compile(r"\bre-?check|\bcheck (?:it |(?:your|the) \w+ )?again\b|\b(?:look|run) (?:it |them |"
                      r"(?:the|these) checks )?again\b", re.I)
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
@@ -410,6 +415,9 @@ def code_check(d: Draft, facts: dict) -> list[str]:
         for word in HYPE:
             if re.search(rf"\b{word}\b", line, re.I):
                 problems.append(f'The word "{word}": "{line}"')
+        for phrase in PRESSURE:
+            if phrase in line.lower():
+                problems.append(f'"{phrase}" reads as pressure in a short message: "{line}"')
         for label in STATUS_LABEL.findall(line):
             problems.append(f'The status label "{label}" instead of plain words: "{line}"')
         for phrase in UNSTATED:

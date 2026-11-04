@@ -139,6 +139,7 @@ def bad(**changes) -> agents.Draft:
     ("PageSpeed Insights is Google's free tool that tests how fast a page loads.", "costs nothing"),
     ("It costs nothing to try.", "costs nothing"),
     ("You can use it at no cost.", "costs nothing"),
+    ("Here is what is costing you customers.", "pressure"),
 ])
 def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
     problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))

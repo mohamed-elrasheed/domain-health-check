@@ -8,6 +8,22 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### A fresh report fixed the old copy and showed what was left (PR #25)
+- **Problem:** with the new wording in a fresh report, the first draft and five redrafts still passed the editor 0
+  of 6, though every draft passed the code check and all three reviews. The old flags were gone ("tune-up"
+  unexplained, "could be better" on every item). New ones were left.
+- **Cause:** three were real and came from our own text. The image finding said "none of the 30 images has a
+  useful description" and then "of these, 3 logo images and 2 linked images need a real description", which reads
+  as if only 5 matter. The WordPress step was labeled "You can do this yourself" but handed the no-plugin case to
+  someone else. And the writer quoted the report's heading, "Here is what is costing you customers", beside
+  "nothing is broken". The rest were judgment calls about length and definitions, made again on every run.
+- **What we did:** the image summary stays one fact, and the fix says where to start with the counts ("starting
+  with the 3 logo images and the 2 images inside links"). The WordPress step says how to add a plugin, so the
+  label holds. The writer does not quote the report's heading or describe the findings in vague terms, and the
+  code check rejects "costing you". `scripts/eval_editor.py` runs the editor on a message a person has already
+  judged, so we can tell whether the remaining failures are the writer's or the editor's before changing either.
+- **What it fixed:** to be measured on a fresh report and the editor eval.
+
 ### A redraft cannot test a change to the report's own wording (PR #24)
 - **Problem:** after PR #23, five more redrafts passed 0 of 5 and still showed the old wording: "this job belongs
   with a tune-up" and the two-group image counts.

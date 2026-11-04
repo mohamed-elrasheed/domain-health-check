@@ -335,5 +335,13 @@ def test_when_no_image_has_a_useful_description_it_reads_as_one_fact():
     result = evaluate_alt_text([("/a.jpg", None, None), ("/b.jpg", None, None), ("/IMG_1.jpg", "IMG_1.jpg", None),
                                 ("/logo.png", "logo", "logo")])
     assert result.summary == ("None of the 4 images on your home page has a useful description: 2 have none, and 2 "
-                              "have only a file name or the word 'logo'. Of these, 1 logo image needs a real "
-                              "description.")
+                              "have only a file name or the word 'logo'.")
+    # The editor read "Of these, 1 logo image needs a real description" as contradicting "none": where to start
+    # belongs in the fix, with the count.
+    assert "starting with the 1 logo image." in result.fix
+
+
+def test_the_alt_text_fix_names_how_many_logo_and_linked_images_to_start_with():
+    from domain_health_check.checks.site.content import evaluate_alt_text
+    rows = [("/logo.png", None, "logo")] * 3 + [("/card.jpg", None, "link")] * 2 + [("/a.jpg", None, None)]
+    assert "starting with the 3 logo images and the 2 images inside links." in evaluate_alt_text(rows).fix
