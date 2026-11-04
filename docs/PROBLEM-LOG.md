@@ -18,7 +18,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** the PDF keeps the line. The writer leaves out any mention of our price list or paid work, and
   the code check rejects "price list" and "tune-up". Two fixes that send the owner to the same place become one
   step. The main heading explanation no longer says "search engines" twice.
-- **What it fixed:** to be measured on the next redraft.
+- **What it fixed:** the next redraft passed **4 of 5** through the code check, all three reviews and the editor. The one failure was a real catch: it explained the meta description twice. In production that draft would have sent the template.
 
 ### Told not to quote a phrase, the writer said it in other words (PR #26)
 - **Problem:** after PR #25 told the writer not to quote the report's heading ("Here is what is costing you
@@ -29,7 +29,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** the writer no longer sees the phrase. The reading in its facts says "could be better" instead;
   the PDF heading is unchanged. A model reliably repeats what is in its input, so the fix is to keep the phrase out
   of the input, not to add a rule against it. The code rule stays as the backstop.
-- **What it fixed:** to be measured on the next redraft.
+- **What it fixed:** 0 of 5 drafts said it on the next redraft. The failures moved on to the price-list line (PR #27).
 
 ### A fresh report fixed the old copy and showed what was left (PR #25)
 - **Problem:** with the new wording in a fresh report, the first draft and five redrafts still passed the editor 0
@@ -45,7 +45,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   label holds. The writer does not quote the report's heading or describe the findings in vague terms, and the
   code check rejects "costing you". `scripts/eval_editor.py` runs the editor on a message a person has already
   judged, so we can tell whether the remaining failures are the writer's or the editor's before changing either.
-- **What it fixed:** to be measured on a fresh report and the editor eval.
+- **What it fixed:** the editor passed a hand-written message on the same report 5 of 5, so it is fair and the remaining work was the writer's. The image and WordPress flags stopped.
 
 ### A redraft cannot test a change to the report's own wording (PR #24)
 - **Problem:** after PR #23, five more redrafts passed 0 of 5 and still showed the old wording: "this job belongs
@@ -57,7 +57,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   so every message that used both said it twice, and "a few gaps can be fine" sat beside "none of the images".
 - **What we did:** the explanation no longer repeats the point the fix makes. The writer keeps each finding to
   its summary and the one or two sentences that say why it matters. A copy change is measured on a fresh report.
-- **What it fixed:** to be measured on the fresh report.
+- **What it fixed:** the decorative-image point stopped repeating once a fresh report carried the new copy.
 
 ### The editor's first real test: 0 of 5, and most causes were in our own copy (PR #23)
 - **Problem:** five redrafts of a client's message, now limited to three findings, passed 0 of 5. Two failed a
@@ -74,7 +74,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   its step, and points to the attached report for technical details. A new code rule rejects the same sentence
   in two items.
 - **Also fixed:** two earlier entries named client sites, which this file must never do. Both now say "a client".
-- **What it fixed:** to be measured on the next redraft. The editor did its job on its first real test: every
+- **What it fixed:** "could be better" now appears once instead of on every item. The copy fixes showed up on the next fresh report, after a redraft of saved facts turned out not to test them (PR #24). The editor did its job on its first real test: every
   reason it gave was something a person would change before sending.
 
 ### A draft that passed every check was still too long to send (PR #20)

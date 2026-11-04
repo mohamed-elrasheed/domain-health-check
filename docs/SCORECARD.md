@@ -1,8 +1,8 @@
 # Scorecard
 
-Every number here comes from a real run on mizangroupllc.com, our own site, between November 3 and 4, 2026, or
-from the test suite. One site and one set of facts is a small sample, and the false claims in the eval were
-planted by us. The other consented sites are being run next, and their results will be added here.
+Numbers come from real runs between November 3 and 4, 2026: mizangroupllc.com, our own site, and a consented
+outside business's site (not named here; its owner agreed in writing). The rest come from the test suite. The
+false claims in the eval were planted by us. The remaining consented site is being run next.
 
 ## The report
 
@@ -23,6 +23,19 @@ planted by us. The other consented sites are being run next, and their results w
 | Caught by the code check alone | 1 of 10 (nine were worded to get past it, so the eval measures the AI review) |
 | False alarm on the untouched draft | none |
 | Cost per draft (one writer call, three review calls) | about 7 cents |
+| Cost per draft with the editor (five calls) | about 9 cents |
+
+## The editor, on an outside business's report
+
+The editor reads the whole message as a busy owner would, after the three reviews, and must pass it too.
+
+| Measure | Result |
+|---|---|
+| Drafts passing all five gates, first rounds | 0 of 16 |
+| Editor on a message a person judged ready to send | 5 of 5 passed, so the editor is fair |
+| Drafts passing all five gates, after fixing the causes (PRs #23 to #27) | 4 of 5 |
+| The one failure | a real catch: the meta description explained twice. Production sends the template |
+| What the fixes were | mostly our own report copy, plus keeping one phrase out of the writer's input |
 | Cost of the full eval | about 40 cents |
 
 ## Findings agent (`ask.py`)
@@ -37,7 +50,7 @@ planted by us. The other consented sites are being run next, and their results w
 
 | Measure | Result |
 |---|---|
-| Tests | 1,251, network blocked, Python 3.11 and 3.13 in CI |
+| Tests | 1,273, network blocked, Python 3.11 and 3.13 in CI |
 | Published vulnerabilities found by pip-audit and fixed | 62 across 5 packages |
 | Secret scan | gitleaks on the full history, on every pull request |
 | Problems documented with cause, fix and evidence | see [PROBLEM-LOG.md](PROBLEM-LOG.md) |
