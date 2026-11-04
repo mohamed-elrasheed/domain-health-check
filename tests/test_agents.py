@@ -476,3 +476,17 @@ def test_a_fail_outside_the_top_findings_can_never_be_left_out():
     assert f["lead_with"] == ["Mail servers (MX)"]
     empty = agents.Draft("Something on your site is broken today.", [], [])
     assert any("Mail servers (MX)" in p and "must lead with" in p for p in agents.code_check(empty, f))
+
+
+def test_a_clean_site_still_leads_with_the_reports_first_findings():
+    # A site with nothing broken and nothing costing customers got a message saying only "see the report", and the
+    # editor failed it 5 of 5 for giving no next step. It now leads with the report's own first findings.
+    clean = DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "SSL certificate", Status.PASS, "Valid.", "Why."),
+        CheckResult(EMAIL, "DMARC (anti-spoofing policy)", Status.WARN, "Monitoring only.", "Why.", "Ask."),
+        CheckResult(WEBSITE, "DNSSEC", Status.WARN, "Not on.", "Why.", "Ask."),
+    ])
+    f = agents.facts(clean)
+    assert f["top_findings"] == [] and len(f["lead_with"]) == 2 and f["more_to_look_at"] == 0
+    saved = {**f, "lead_with": []}
+    assert agents.upgrade_facts(saved)["lead_with"] == f["lead_with"]

@@ -8,6 +8,16 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### A clean site's message had nothing to say (PR #33)
+- **Problem:** with the verdicts and the "needs action" line gone, the clean site's message read only "nothing is
+  broken; see the report". Every draft passed the code check and all three reviews, and the editor failed 5 of 5:
+  it never said what matters or gave a step.
+- **Cause:** the message led only with findings the report ranks as costing customers. Email protection and
+  security settings never rank there, so a site whose only findings are those led with nothing.
+- **What we did:** when nothing ranks that high, code leads with the report's own first three confirmed findings,
+  in the report's order. The model still never chooses what to lead with.
+- **What it fixed:** to be measured on the next redraft.
+
 ### An independent audit found a FAIL that could vanish, from a rule we added that day (PR #31)
 - **Problem:** an independent audit of the whole workflow found that the code check enforced only the report's
   top findings, not everything the message must lead with, which also includes anything broken today. A draft
