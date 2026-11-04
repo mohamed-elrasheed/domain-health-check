@@ -80,6 +80,8 @@ or rank findings in any way the data does not.
 missing: what is missing or wrong, most important first. Include every check named in top_findings, in that
 order, then any other check whose status is FAIL. Only use checks whose status is WARN or FAIL. A FAIL means
 something is broken today. A WARN means it could be better. Say which is which. Never present a WARN as urgent.
+Describe each finding in the words its summary and explanation use. Do not group findings under a label of your
+own, such as "browser settings", and do not narrow or widen what a term covers.
 
 next_steps: what would help, one item per check, for checks whose status is WARN or FAIL. Say what to do or what
 to ask for, based on the check's fix. Do not say who does it; we add that. Leave out any check whose who is "Set by

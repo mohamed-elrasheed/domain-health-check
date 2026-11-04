@@ -337,3 +337,23 @@ def test_the_writer_and_the_reviewer_hold_the_same_rule_for_explaining_a_term():
     rule = "the same sentence or the one right after it"
     assert rule in " ".join(agents.DRAFT_SYSTEM.split())
     assert rule in " ".join(agents.REVIEW_SYSTEM.split())
+
+
+def test_redraft_times_reports_the_pass_rate_and_keeps_the_first_passing_draft(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "redraft", Path(__file__).parent.parent / "scripts" / "redraft.py")
+    redraft = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(redraft)
+
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
+    client = FakeClient(GOOD, PASS, FAIL, PASS, GOOD, PASS, PASS, PASS, GOOD, PASS, PASS, FAIL)
+    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (client, None))
+    assert redraft.main([str(log), "--times", "3"]) == 0
+    assert "Passed 1 of 3." in capsys.readouterr().out
+    saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
+    assert saved["times"] == 3 and saved["passed"] == 1 and len(saved["attempts"]) == 3
+    assert saved["status"] == "passed" and saved["draft"] is not None  # the eval plants claims in this one
+    assert [a["status"] for a in saved["attempts"]] == ["failed", "passed", "failed"]

@@ -106,6 +106,15 @@ It runs the draft, the code check and the three reviews on the facts in that log
 `ai-redraft.json`. The website is never contacted, so testing a prompt does not spend the report's one-visitor
 footprint, and it takes seconds instead of a full run.
 
+One result is a sample of one. To measure how often drafts pass, make ten (about 30 cents):
+
+```
+python scripts/redraft.py reports/mizangroupllc.com/<date>/ai.json --times 10
+```
+
+The saved file keeps every attempt. Its top-level draft is the first one that passed, which is the one to plant
+claims in with the eval below.
+
 ## Measuring it
 
 ```
@@ -151,6 +160,14 @@ reviews again. Every claim was supported. The failing review read "explain a ter
 while the draft explained each term in the sentence right after it, which reads naturally. Both prompts now allow
 the same sentence or the one right after it, and a test keeps the two prompts on the same rule. The review also
 caught "DS record" left unexplained, which was a real miss and stays a failure.
+
+The sixth try passed two of three reviews once more, on a different nitpick: the draft grouped two checks as
+"browser security settings" and said DNSSEC signs "address records", narrower than the data's "DNS records". Each
+try now fails one review on a new detail, which says the drafts are close and the models vary from run to run. Two
+changes follow. The draft prompt says to describe each finding in its own summary and explanation's words, with no
+labels of its own, which tightens the writer instead of loosening the reviewer. And `redraft.py --times 10` now
+measures the pass rate over ten drafts, because one pass or fail is a sample of one. Production still never
+retries: a failed draft sends the template.
 
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
