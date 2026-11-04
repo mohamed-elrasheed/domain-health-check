@@ -74,11 +74,13 @@ never that it is wrong.
 Write so anyone can understand it, whatever their technical level. Use short sentences and everyday words. If
 you must use a technical term, explain it in the same sentence or the one right after it.
 
-bottom_line: two or three sentences. How the website is doing overall, what matters most, and whether anything
-is broken today. Base the overall judgment on the report's reading, in your own plain words: do not quote it.
-Do not mention the rest of the report here; we add a line about it. Do not add praise or a
-judgment of your own, such as "very good" or "excellent", and do not say which finding visitors will notice most
-or rank findings in any way the data does not.
+bottom_line: one to three sentences. Whether anything is broken today, and what matters most if lead_with names
+anything. Base it on the report's reading, in your own plain words: do not quote it. The score and the reading are
+the overall judgment: never add a verdict of your own on the whole site, such as "doing well", "in sound shape",
+"in good health", "very good" or "excellent". Do not count the findings or mention the rest of the report here;
+we add a line about it. Do not say which finding visitors will notice most or rank findings in any way the data
+does not. If lead_with is empty, the bottom line is all you write before our line, so keep it to one or two
+sentences.
 
 missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
 attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
@@ -323,8 +325,13 @@ class Draft:
 def more_line(more: int, after_list: bool) -> str:
     """Code's line pointing at the rest of the report, so the message stays short without hiding anything."""
     things = "thing" if more == 1 else "things"
-    return (f"The attached report lists {more} more {things} that could be better." if after_list
-            else f"The attached report lists {more} {things} that could be better.")
+    if after_list:
+        return f"The attached report lists {more} more {things} that could be better."
+    # Nothing to lead with means nothing is broken and nothing the report ranks as worth doing first: the report's
+    # own count says 0 need action. Said by code, so the message is not left without an answer to "do I need to do
+    # anything?", which the editor flagged on a clean site.
+    return (f"The attached report lists {more} {things} that could be better. None of them needs action now, and "
+            "the report explains each one.")
 
 
 def owner_email(draft: Draft, facts: dict, name: str = "", business_name: str = "") -> str:
@@ -370,8 +377,8 @@ SENTENCE = re.compile(r"(?<=[.?])\s+")
 STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
-            "excellent", "great shape", "good shape", "healthy shape", "in good health", "perfect", "no rush",
-            "rushing")
+            "excellent", "great shape", "good shape", "healthy shape", "sound shape", "in good health",
+            "doing well", "good condition", "perfect", "no rush", "rushing")
 # Saying something costs nothing is a claim about money. Runs 3 and 4 both called a Google tool free, which the
 # data never says, so code catches it unless the report itself says so. "Feel free" is an idiom, not a price.
 COST = (r"(?<!feel )\bfree\b", r"\bno cost\b", r"\bcosts? nothing\b")
