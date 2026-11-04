@@ -85,7 +85,8 @@ FAIL means something is broken today. A WARN means it could be better. Say once,
 findings could be better and whether anything is broken; do not repeat that on each item. Mark an item "broken
 today" only when its status is FAIL. Never present a WARN as urgent. Describe each finding in the words its
 summary and explanation use. Do not group findings under a label of your own, such as "browser settings", and do
-not narrow or widen what a term covers.
+not narrow or widen what a term covers. Keep each item to its summary and the one or two sentences of its
+explanation that say why it matters; the whole message should read in about a minute on a phone.
 
 next_steps: what would help, for the checks you listed in missing and no others. Say what to do or what to ask
 for, based on the check's fix. If two checks call for the same step, write it once, under the first check. Do not
