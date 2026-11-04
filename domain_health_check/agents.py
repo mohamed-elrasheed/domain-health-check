@@ -478,7 +478,7 @@ def run(report: DomainReport, client=None, *, output_dir: Path | None = None, re
     return outcome
 
 
-def _run(the_facts: dict, client, runs: int) -> Outcome:
+def _run(the_facts: dict, client, runs: int, review_model: str = REVIEW_MODEL) -> Outcome:
     try:
         d, usage = draft(the_facts, client)
     except Exception as exc:  # noqa: BLE001 - every failure fails closed
@@ -491,7 +491,7 @@ def _run(the_facts: dict, client, runs: int) -> Outcome:
                           f"{'s' if len(outcome.problems) != 1 else ''}, so no review was run.")
         return outcome
 
-    outcome.reviews, usages = review(the_facts, d.text(the_facts), client, runs=runs)
+    outcome.reviews, usages = review(the_facts, d.text(the_facts), client, model=review_model, runs=runs)
     outcome.usage += usages
     passed = sum(r.passed for r in outcome.reviews)
     if passed == runs:

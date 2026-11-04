@@ -169,6 +169,14 @@ labels of its own, which tightens the writer instead of loosening the reviewer. 
 measures the pass rate over ten drafts, because one pass or fail is a sample of one. Production still never
 retries: a failed draft sends the template.
 
+Ten drafts from the same facts then passed one time in ten, at about 28 cents for all ten. The failures were mostly
+the reviewer's, not the writer's. Four of the ten flagged "Slow pages lose visitors, and speed is a small factor in
+Google rankings", which is the check's own explanation word for word. One flagged Cloudflare as a competitor,
+though the check's fix names it. Several reasons said a sentence was acceptable and then failed it anyway. A few
+catches were real: a draft said the unchecked items were listed "where they matter" when it listed none, and one
+called a Content Security Policy "a list". The finding is that Haiku is not steady enough for this judgment, so
+`redraft.py --review-model` now measures another reviewer on the same facts before the default changes.
+
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku

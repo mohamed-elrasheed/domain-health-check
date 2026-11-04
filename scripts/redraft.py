@@ -2,6 +2,7 @@
 
     python scripts/redraft.py reports/mizangroupllc.com/2026-11-04/ai.json
     python scripts/redraft.py reports/mizangroupllc.com/2026-11-04/ai.json --times 10
+    python scripts/redraft.py reports/mizangroupllc.com/2026-11-04/ai.json --times 5 --review-model claude-sonnet-5-5
 
 Takes the facts saved in an ai.json run log and runs the draft agent, the code check and the reviews on them, so a
 change to a prompt can be tried in seconds and costs only the model calls. The website is never contacted, so the
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("log", type=Path, help="an ai.json run log")
     parser.add_argument("--times", type=int, default=1, help="how many drafts to make, to measure the pass rate")
+    parser.add_argument("--review-model", default=agents.REVIEW_MODEL, help="the model that reviews each draft")
     args = parser.parse_args(argv)
 
     facts = json.loads(args.log.read_text(encoding="utf-8"))["facts"]
@@ -49,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     outcomes = []
     for n in range(1, args.times + 1):
-        outcome = agents._run(facts, client, agents.REVIEW_RUNS)
+        outcome = agents._run(facts, client, agents.REVIEW_RUNS, review_model=args.review_model)
         outcomes.append(outcome)
         if args.times > 1:
             print(f"Draft {n} of {args.times}:")
@@ -66,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Passed {passed} of {args.times}. About ${cost:.4f} in all.")
     out = args.log.with_name("ai-redraft.json")
     out.write_text(json.dumps({
-        **_record(chosen), "facts": facts, "times": args.times, "passed": passed,
+        **_record(chosen), "facts": facts, "review_model": args.review_model, "times": args.times, "passed": passed,
         "total_cost_usd_estimate": round(cost, 6), "attempts": [_record(o) for o in outcomes],
     }, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Saved {out}")
