@@ -44,9 +44,9 @@ DKIM_EXPLANATION = (
     "against a key published in your DNS to confirm the message really came from you and was not altered."
 )
 DMARC_EXPLANATION = (
-    "DMARC tells other mail systems what to do with emails that claim to be from you but fail the SPF and "
-    "DKIM checks: deliver, send to spam, or reject. Without an enforcing policy, scammers can send emails "
-    "that appear to come from your domain."
+    "DMARC tells other mail systems what to do with emails that claim to be from you but fail its checks (SPF, "
+    "the list of servers allowed to send your email, and DKIM, a signature on each message): deliver, send to "
+    "spam, or reject. Without an enforcing policy, scammers can send emails that appear to come from your domain."
 )
 
 
@@ -166,8 +166,9 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
     if policy == "none":
         return result(
             Status.WARN, "DMARC is in monitoring-only mode (p=none): forged emails are still delivered.",
-            "Once the DMARC reports show all your genuine email passing, ask whoever manages your domain to tighten "
-            "the policy so forged email goes to spam, and later is refused.",
+            "Ask whoever manages your domain to check the DMARC reports (summaries that mail systems send to the "
+            "address in your DMARC record) and, once they show all your genuine email passing, to tighten the "
+            "policy so forged email goes to spam, and later is refused.",
             "Change p=none to p=quarantine, then later to p=reject.",
         )
     if policy == "quarantine":

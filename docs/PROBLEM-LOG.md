@@ -16,7 +16,9 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   security settings never rank there, so a site whose only findings are those led with nothing.
 - **What we did:** when nothing ranks that high, code leads with the report's own first three confirmed findings,
   in the report's order. The model still never chooses what to lead with.
-- **What it fixed:** to be measured on the next redraft.
+- **What it fixed:** the next redraft passed 1 of 5, up from 0 of 5, and the messages now lead with real findings.
+  The remaining flags were mostly in the DMARC check's own copy: DKIM named but never explained, and a fix that
+  starts from "the DMARC reports" without saying what they are or who reads them. PR #34 fixes both at the source.
 
 ### An independent audit found a FAIL that could vanish, from a rule we added that day (PR #31)
 - **Problem:** an independent audit of the whole workflow found that the code check enforced only the report's
