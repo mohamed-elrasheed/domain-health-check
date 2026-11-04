@@ -1,0 +1,9 @@
+# Opens a pull request when a GitHub Action this repo uses has a new release.
+# Python packages are watched by the pip-audit job in ci.yml instead, because their pins live in two
+# places (pyproject.toml and requirements.lock) that have to move together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

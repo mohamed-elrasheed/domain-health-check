@@ -197,7 +197,7 @@ Runs only when `PLACES_API_KEY` is set and the business name is known (`--busine
 
 ## Setup
 
-Requires Python 3.10+ (developed on 3.14). Runtime dependencies: `dnspython`, `httpx`, `PyYAML`, `selectolax` and `weasyprint`.
+Requires Python 3.11+ (developed on 3.14). Python 3.10 reached end of life on October 1, 2026, and the patched Pillow and dnspython need 3.11. Runtime dependencies: `dnspython`, `httpx`, `PyYAML`, `selectolax` and `weasyprint`.
 
 ```powershell
 git clone https://github.com/mohamed-elrasheed/domain-health-check.git
@@ -491,8 +491,20 @@ A test also checks that `domains.example.yaml` only contains reserved example do
 
 The browser and PDF tests need Chromium (`playwright install chromium`) and Pango. Without them those tests
 skip on a developer's machine. CI (`.github/workflows/ci.yml`) runs `ruff check .` and then `pytest` on Python
-3.10 and 3.13 with both installed and `DHC_NO_SKIPS=1`, which turns any skip into a failure, so the browser
+3.11 and 3.13 with both installed and `DHC_NO_SKIPS=1`, which turns any skip into a failure, so the browser
 tests always run there.
+
+Two more checks guard what goes into the repository, both established open-source tools rather than our own code:
+
+- **[pip-audit](https://github.com/pypa/pip-audit)**, from the Python Packaging Authority, checks every pinned
+  package in `requirements.lock` against the public vulnerability databases, on every pull request and every
+  Monday. Its first run found 62 published vulnerabilities across five pins, which is why the floor moved to
+  Python 3.11.
+- **[gitleaks](https://github.com/gitleaks/gitleaks)** (`.github/workflows/gitleaks.yml`) reads the full history
+  for anything shaped like a key or password, so a pull request that adds one fails before it can be merged.
+  Keys belong in `.env`, which git ignores.
+
+Dependabot (`.github/dependabot.yml`) opens a pull request when one of the GitHub Actions above has a new release.
 
 ## Project layout
 

@@ -234,8 +234,9 @@ The owner's message can be drafted by Claude and gated before Mo sees it. See `d
 
 ## Repo standards
 
-Python 3.10+, MIT. `pip install -e ".[dev]"`. pytest with sockets blocked at the fixture level. Add ruff
-and a GitHub Actions workflow running both.
+Python 3.11+ (3.10 is end of life), MIT. `pip install -e ".[dev]"`. pytest with sockets blocked at the fixture level. Add ruff
+and a GitHub Actions workflow running both. CI also runs pip-audit on `requirements.lock` and gitleaks on the
+history. Do not silence either: upgrade the pin, or remove the secret and rotate it.
 
 This repo is public and doubles as a portfolio piece, so the check structure, the tests and CI are part of
 the deliverable, not overhead.

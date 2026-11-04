@@ -1,0 +1,26 @@
+name: Secret scan
+
+# gitleaks reads every commit for anything shaped like a key or password. A pull request that adds one fails here,
+# before it can be merged. Free for a personal repository, so no license key is set.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # the whole history, not just the last commit
+
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"  # report in the check, never post on the PR
