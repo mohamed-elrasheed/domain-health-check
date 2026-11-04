@@ -400,6 +400,23 @@ in `.env` turns it on for the hourly intake, once the privacy policy says report
 run is kept as `ai.json` beside `report.json`, and `scripts/eval_review.py` measures how many planted false claims
 the review catches. How it works and why: [docs/AI-AGENTS.md](docs/AI-AGENTS.md).
 
+### The findings agent
+
+The draft workflow above runs the same fixed steps every time, because a business owner reads its output. The
+findings agent is the opposite case: Mo asks it a question about a finished report, and Claude decides which
+lookups to make and when it has enough to answer.
+
+```
+domain-health-check ask reports/mizangroupllc.com/2026-11-04 "Why is DNSSEC off, and who can fix it?"
+```
+
+It has five read-only tools over that one saved report folder (the overview, the list of checks, one check in
+full, who can fix it with the published price lines, and a search of the request log). It has no network tool, no
+file path to choose and nothing that writes, so it cannot touch a website or send anything. It stops after eight
+rounds of lookups. Its answer ends with the checks it used, and code confirms each one is a real check it actually
+looked up. Every question is appended to `ask.jsonl` in the report folder. `scripts/eval_ask.py` asks it questions
+whose answers code already knows from the report and grades them with code.
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report
@@ -522,6 +539,7 @@ domain_health_check/
   pdf.py            PDF report (WeasyPrint), from the same report object
   mailer.py         emails a finished report to the reviewer, never to the site owner
   agents.py         optional AI draft and review of the owner's message, with a template fallback
+  ask.py            the findings agent: answers Mo's questions from one saved report, read-only tools
   assets/           logo and Plus Jakarta Sans (SIL Open Font License)
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper
