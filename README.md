@@ -457,6 +457,33 @@ policy, scammers can send emails that appear to come from your domain.
 tighten the policy to p=quarantine and finally p=reject.
 ```
 
+## AI draft and review (optional, off by default)
+
+The report itself is code: every check, the score and the chart. AI only writes the short note that goes with it,
+and only when `AI_DRAFTS=on`. The workflow is fixed, not autonomous:
+
+```
+checks (code) -> facts (code) -> draft (claude-sonnet-5-5) -> voice lint (code) -> review x3 (claude-haiku-5-5) -> reviewer
+```
+
+- The models see the domain and the findings from `report.json`, never the requester's name, email or phone, the
+  technical details or the request log. The greeting and sign off are added in code.
+- The voice lint is a regex pass that runs before any review is paid for: dashes, exclamation marks, ellipses,
+  contractions, "I", prices, re-check promises, banned words, and any number or all-caps word that is not in the
+  record.
+- Three independent reviews must all pass. A reviewer that passes the draft but quotes a problem counts as a fail.
+- Any failure or error falls back to the template draft, and the review email says why. There is no retry loop.
+- Every outcome, with the draft, each review and the token counts, is saved as `ai-draft.json` beside `report.json`.
+
+Run it on a saved report:
+
+```
+pip install -e ".[ai]"
+AI_DRAFTS=on python -m domain_health_check.agents reports/<domain>/<date>/report.json
+```
+
+Nothing is sent to anyone but the reviewer, with or without AI.
+
 ## Running the tests
 
 ```powershell
@@ -487,6 +514,7 @@ domain_health_check/
   report.py         Markdown report, and keeping only the latest per domain
   pdf.py            PDF report (WeasyPrint), from the same report object
   mailer.py         emails a finished report to the reviewer, never to the site owner
+  agents.py         optional AI draft (Sonnet) and review (Haiku x3) of the note to the owner, off unless AI_DRAFTS=on
   assets/           logo and Plus Jakarta Sans (SIL Open Font License)
   terminal.py       coloured terminal summary
   dns_utils.py      thin dnspython wrapper

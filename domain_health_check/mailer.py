@@ -192,10 +192,33 @@ def draft_to_business(report: DomainReport, name: str = "", business_name: str =
     return "\n".join(lines)
 
 
+def ai_note(report: DomainReport, body: str, name: str = "", business_name: str = "") -> str:
+    """The AI draft with the same greeting, opening and sign off as the template: the model never sees who asked."""
+    return "\n".join([greeting(name, business_name), "", f"Thank you for asking us to look at {report.domain}. Your "
+                      "report is attached.", "", body, "", "Mizan Digital Services",
+                      f"{layout.contact()['phone']} · {layout.contact()['email']}"])
+
+
+def _draft_section(report: DomainReport, name: str, business_name: str, ai) -> list[str]:
+    """The draft block of the review email. ai is an agents.Outcome, or None when AI drafts are off."""
+    template = draft_to_business(report, name, business_name)
+    if ai is None:
+        return ["Draft message to the business (not sent):", "-" * 40, template, "-" * 40]
+    if ai.passed:
+        return ["Draft message to the business, written by AI and passed the code check and all three reviews "
+                "(not sent):", "-" * 40, ai_note(report, ai.body, name, business_name), "-" * 40,
+                f"Models: {ai.models['draft']} drafted, {ai.models['review']} reviewed. Tokens: {ai.tokens()}.", "",
+                "Template draft for comparison:", "-" * 40, template, "-" * 40]
+    return ["The AI draft did not pass, so this is the template.", "Why:", *(f"- {r}" for r in ai.reasons),
+            "Flagged:", *(f"- {line}" for line in ai.flagged or ["nothing quoted"]), "",
+            "Draft message to the business (not sent):", "-" * 40, template, "-" * 40]
+
+
 def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, exit_code: int,
-                   submitted: str, name: str = "", business_name: str = "") -> EmailMessage:
+                   submitted: str, name: str = "", business_name: str = "", ai=None) -> EmailMessage:
     """The reviewer's copy of one automated run: the PDF, the exit code, anything incomplete, and a draft to the
-    business that is never sent by this tool."""
+    business that is never sent by this tool. With AI drafts on, the draft that passed review, or the template
+    and the reasons it did not."""
     score, band = layout.headline(report)
     msg = EmailMessage()
     msg["From"] = cfg.username
@@ -209,8 +232,7 @@ def review_message(cfg: MailerConfig, report: DomainReport, pdf: Path | None, ex
              f"Requested: {submitted}", "",
              "The PDF is attached." if pdf else "No PDF could be written; the Markdown report is on disk.",
              "Nothing has been sent to the business. Read the report before anything goes to them.", "",
-             "Draft message to the business (not sent):", "-" * 40, draft_to_business(report, name, business_name),
-             "-" * 40]
+             *_draft_section(report, name, business_name, ai)]
     msg.set_content("\n".join(lines))
     if pdf:
         msg.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf",

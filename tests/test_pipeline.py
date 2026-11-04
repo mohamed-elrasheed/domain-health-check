@@ -403,3 +403,29 @@ def test_the_pipeline_passes_the_submitted_name_to_the_draft(places):
     [msg] = FakeSMTP.sent
     body = msg.get_body(("plain",)).get_content()
     assert "Draft message to the business (not sent):\n" + "-" * 40 + "\nHello Mohamed,\n" in body
+
+
+# ---------- the AI draft step, behind AI_DRAFTS
+
+def test_with_ai_drafts_off_nothing_is_imported_or_sent_to_anthropic(places, monkeypatch):
+    monkeypatch.delenv("AI_DRAFTS", raising=False)
+    pipeline.process([submission()], CFG, **places["kwargs"])
+    [msg] = FakeSMTP.sent
+    text = msg.get_body(("plain",)).get_content()
+    assert "Draft message to the business (not sent):" in text and "AI draft" not in text
+    assert not list((places["tmp"] / "reports").rglob("ai-draft.json"))
+
+
+def test_with_ai_drafts_on_a_failure_still_reaches_only_the_reviewer_with_the_template(places, monkeypatch):
+    """No key and no network here, so the agent call fails. The run must not: the reviewer gets the template and
+    the reason, and the outcome is saved for the log."""
+    from domain_health_check import agents
+    monkeypatch.setenv("AI_DRAFTS", "on")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(agents, "ai_draft", lambda rec, client=None: agents.Outcome(False, reasons=["no key"]))
+    outcome = pipeline.process([submission()], CFG, **places["kwargs"])
+    [msg] = FakeSMTP.sent
+    assert outcome.emailed == 1 and msg["To"] == mailer.REVIEWER
+    assert "The AI draft did not pass, so this is the template." in msg.get_body(("plain",)).get_content()
+    [saved] = (places["tmp"] / "reports").rglob("ai-draft.json")
+    assert json.loads(saved.read_text(encoding="utf-8"))["reasons"] == ["no key"]

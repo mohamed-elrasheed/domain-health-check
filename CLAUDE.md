@@ -73,6 +73,7 @@ domain_health_check/
 ├── report.py       # DomainReport -> markdown
 ├── pdf.py          # DomainReport -> PDF (WeasyPrint)
 ├── mailer.py       # sends a finished report to Mo, never to the site owner (REVIEWER is hard-coded)
+├── agents.py       # optional AI draft + 3 reviews of the note to the owner; off unless AI_DRAFTS=on
 ├── intake.py       # reads new /digital form submissions through the Webflow API
 ├── pipeline.py     # intake -> consent -> report -> email Mo the review; never the business
 ├── terminal.py     # DomainReport -> console

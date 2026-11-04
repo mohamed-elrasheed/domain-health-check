@@ -14,6 +14,7 @@ Rules, in the order they apply:
 
 from __future__ import annotations
 
+import os
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -22,7 +23,8 @@ from pathlib import Path
 from . import consent, intake, mailer
 from .config import ConfigError, DomainConfig, normalize_domain
 from .pdf import write_pdf
-from .report import write_record, write_report
+from .report import record as report_record
+from .report import report_dir, write_record, write_report
 from .runner import run_checks
 
 LOG = Path("logs") / "intake.log"
@@ -109,9 +111,22 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     exit_code = 2 if pdf is None else (0 if report.complete else 3)
     outcome.processed.append(domain)
     outcome.exit_codes[domain] = exit_code
-    send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name))
+    ai = _ai_draft(report, output)
+    send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name, ai))
     outcome.emailed += 1
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
+
+
+def _ai_draft(report, output: Path):
+    """The AI draft and review, only when AI_DRAFTS=on. None when off, so the review email is unchanged. The
+    outcome is saved beside report.json; it never raises, and a failure means the template is used."""
+    if os.environ.get("AI_DRAFTS", "").strip().lower() != "on":
+        return None
+    from domain_health_check import agents  # needs the [ai] extra, imported only when the gate is on
+    outcome = agents.ai_draft(report_record(report))
+    agents.save(outcome, report_dir(report, output))
+    log(f"{report.domain}: AI draft {'passed' if outcome.passed else 'did not pass'}, tokens {outcome.tokens()}")
+    return outcome
 
 
 def _tell(send, message) -> None:
