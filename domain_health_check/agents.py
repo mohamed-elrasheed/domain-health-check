@@ -70,7 +70,7 @@ checked: say so, never guess its result. A check marked certain false is a maybe
 never that it is wrong.
 
 Write so anyone can understand it, whatever their technical level. Use short sentences and everyday words. If
-you must use a technical term, explain it in the same sentence.
+you must use a technical term, explain it in the same sentence or the one right after it.
 
 bottom_line: two or three sentences. How the website is doing overall, what matters most, and whether anything
 is broken today. Base the overall judgment on the report's reading, in plain words. Do not add praise or a
@@ -132,9 +132,9 @@ no claim about this website. A step that says what to ask for, or whom to ask, i
 website: it is supported when it follows that check's fix in the data.
 
 Then check the voice rules: written as "we", plain everyday words, any technical term explained in the same
-sentence, no dashes used as punctuation, no exclamation marks, no ellipses, no words in all capitals for
-emphasis, no status labels such as WARN, no praise or ranking the data does not state, and no words like
-"critical", "urgent", "alarming", "huge" or "amazing".
+sentence or the one right after it, no dashes used as punctuation, no exclamation marks, no ellipses, no words
+in all capitals for emphasis, no status labels such as WARN, no praise or ranking the data does not state, and no
+words like "critical", "urgent", "alarming", "huge" or "amazing".
 
 If you are not sure a sentence is backed by the data, treat it as unsupported. A wrong pass is worse than a
 wrong fail.

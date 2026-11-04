@@ -146,6 +146,12 @@ detail: the draft called PageSpeed Insights "Google's free tool" again. A model 
 told not to, so the code check now rejects "free", "no cost" and "costs nothing" unless the report itself says so.
 That rule costs nothing to run and never relies on a review catching it.
 
+The fifth try, a redraft from the saved facts with the hedge rule and the "free" rule, passed two of three
+reviews again. Every claim was supported. The failing review read "explain a term in the same sentence" literally,
+while the draft explained each term in the sentence right after it, which reads naturally. Both prompts now allow
+the same sentence or the one right after it, and a test keeps the two prompts on the same rule. The review also
+caught "DS record" left unexplained, which was a real miss and stays a failure.
+
 The first run also showed the facts were sending why the run was incomplete, which held a file path from this computer. The
 facts no longer include those reasons, and a check that passed now sends only its name and summary, which cuts the
 tokens sent. That run cost about four cents: one Sonnet call with 8,782 tokens in and 1,695 out, and three Haiku

@@ -330,3 +330,10 @@ def test_redraft_reuses_the_saved_facts_and_never_runs_the_report(tmp_path, monk
     saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
     assert saved["status"] == "passed" and saved["facts"]["domain"] == "example.com"
     assert log.read_text(encoding="utf-8") == before  # the original run log is left alone
+
+
+def test_the_writer_and_the_reviewer_hold_the_same_rule_for_explaining_a_term():
+    # Run 5 failed one review because the reviewer read "same sentence" more strictly than the writer did.
+    rule = "the same sentence or the one right after it"
+    assert rule in " ".join(agents.DRAFT_SYSTEM.split())
+    assert rule in " ".join(agents.REVIEW_SYSTEM.split())
