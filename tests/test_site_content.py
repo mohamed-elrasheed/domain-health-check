@@ -326,3 +326,14 @@ def test_heading_order_pass_sentence_with_a_main_heading():
     result = content.evaluate_heading_order([1, 2, 3, 2])
     assert result.status is Status.PASS
     assert result.summary == "Your 4 headings are in order, with no levels skipped."
+
+
+def test_when_no_image_has_a_useful_description_it_reads_as_one_fact():
+    # A real report said "10 of 30 have no description, and 20 are described only by a file name", which read as
+    # two groups when it meant every image. Said as one fact now.
+    from domain_health_check.checks.site.content import evaluate_alt_text
+    result = evaluate_alt_text([("/a.jpg", None, None), ("/b.jpg", None, None), ("/IMG_1.jpg", "IMG_1.jpg", None),
+                                ("/logo.png", "logo", "logo")])
+    assert result.summary == ("None of the 4 images on your home page has a useful description: 2 have none, and 2 "
+                              "have only a file name or the word 'logo'. Of these, 1 logo image needs a real "
+                              "description.")

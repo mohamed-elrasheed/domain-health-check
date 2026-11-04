@@ -8,8 +8,26 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The editor's first real test: 0 of 5, and most causes were in our own copy (PR #23)
+- **Problem:** five redrafts of a client's message, now limited to three findings, passed 0 of 5. Two failed a
+  review on "SEO plugin" left unexplained. Three passed every review and failed the editor, each for things a
+  person would also change before sending.
+- **Cause:** most of it came from the report's own wording, not the model. The WordPress fixes said "this job
+  belongs with a tune-up" with no explanation, beside a "You can do this yourself" label. The image finding gave
+  two counts that read as two groups when together they meant every image. Fixes pointed to "the technical
+  details", which are in the attached report, not the message. And the writer was told to say "could be better"
+  for each item, so it said it on every one.
+- **What we did:** fixed the copy at the source, so the PDF reads better too: "SEO plugin" is explained, the
+  tune-up line says what it is, and the image finding says "None of the N images has a useful description" when
+  that is the case. The writer says "could be better" once, in the short version, does not repeat a finding in
+  its step, and points to the attached report for technical details. A new code rule rejects the same sentence
+  in two items.
+- **Also fixed:** two earlier entries named client sites, which this file must never do. Both now say "a client".
+- **What it fixed:** to be measured on the next redraft. The editor did its job on its first real test: every
+  reason it gave was something a person would change before sending.
+
 ### A draft that passed every check was still too long to send (PR #20)
-- **Problem:** the Fantastic Floors draft passed the code check and all three reviews, then listed all 13 warnings
+- **Problem:** a client's draft passed the code check and all three reviews, then listed all 13 warnings
   under "What we would look at first" and gave the same PageSpeed step twice, once for speed and once for
   accessibility, because both checks share a fix. Every sentence was true, so nothing caught it.
 - **Cause:** the writer was allowed to list every warning, and no rule looked for repeats. The reviewers judge
@@ -31,7 +49,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What it fixed:** an email outage is now loud instead of silent.
 
 ### A run hung and never said why (PR #20)
-- **Problem:** a run started the wrathforge.net report and never logged a result. The process was still running
+- **Problem:** a run started a report and never logged a result. The process was still running
   13 minutes later and had to be ended by hand.
 - **What we did:** every intake run has a time limit (20 minutes by default). Past it, the run writes where every
   thread was stuck to `logs/intake-hang.log`, raises an alert, and exits with code 4.

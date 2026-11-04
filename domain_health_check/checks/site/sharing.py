@@ -24,9 +24,10 @@ EXPLANATION = (
 
 # WordPress has no link preview fields of its own: they come from an SEO plugin, which the site may not have.
 WORDPRESS_FIX = (
-    "In WordPress, the link preview title, description and image come from an SEO plugin, not from WordPress "
-    "itself, so look for them in that plugin's settings for your home page. If your site has no SEO plugin "
-    "installed, this job belongs with a tune-up."
+    "In WordPress, the link preview title, description and image come from an SEO plugin (an add-on that controls "
+    "how your pages appear in search results and when shared), not from WordPress itself, so look for them in that "
+    "plugin's settings for your home page. If your site has no SEO plugin, ask whoever built or manages your "
+    "website to add one; adding it is part of a tune-up on our price list."
 )
 
 
