@@ -410,8 +410,7 @@ def test_the_same_step_twice_is_caught():
 
 def test_the_count_line_reads_right_with_and_without_a_list():
     assert agents.more_line(1, True) == "The attached report lists 1 more thing that could be better."
-    assert agents.more_line(4, False) == ("The attached report lists 4 things that could be better. None of them "
-                                          "needs action now, and the report explains each one.")
+    assert agents.more_line(4, False) == "The attached report lists 4 things that could be better."
 
 
 # ---------- the editor: judges the whole message, after the reviews have checked every fact
@@ -463,3 +462,17 @@ def test_the_writer_never_sees_costing_you_customers():
         "Nothing on your site is broken. Two things could be better.")
     saved = {**agents.facts(report()), "reading": "Nothing on your site is broken. Here is what is costing you customers."}
     assert "costing" not in agents.upgrade_facts(saved)["reading"]
+
+
+def test_a_fail_outside_the_top_findings_can_never_be_left_out():
+    # Found by an independent audit: code_check enforced only top_findings, so a draft listing nothing hid a FAIL,
+    # and the closing line then said nothing needed action.
+    broken = report()
+    broken.results.append(CheckResult(EMAIL, "Mail servers (MX)", Status.FAIL, "No mail servers are listed.", "Why.",
+                                      "Ask for them."))
+    f = {**agents.facts(broken), "top_findings": []}
+    f["lead_with"], f["more_to_look_at"] = agents._lead_with(
+        [{"name": c["name"], "ran": c["status"] != "NOT CHECKED", "status": c["status"]} for c in f["checks"]], [])
+    assert f["lead_with"] == ["Mail servers (MX)"]
+    empty = agents.Draft("Something on your site is broken today.", [], [])
+    assert any("Mail servers (MX)" in p and "must lead with" in p for p in agents.code_check(empty, f))
