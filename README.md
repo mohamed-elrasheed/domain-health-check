@@ -113,6 +113,7 @@ left out of the score rather than passed.
 | **Image alt text** | 90% or more of `<img>` have a real description | below 90% | |
 | **Social preview** | `og:title`, `og:description`, `og:image` | any missing | |
 | **Sitemap and robots** | both found, sitemap valid, listed in robots.txt | any of those not true | |
+| **AI search access** | robots.txt lets the AI search robots read the home page, or there is no robots.txt | robots.txt blocks one or more of them | |
 | **Page weight** | HTML under 150 KB and first byte under 5 seconds | either over | |
 | **Redirect chain** | two redirects or fewer | more than two | |
 | **Broken links** | every link to another page on the site that we verified works | one ends in an error, a timeout or more than 3 redirects | |
@@ -132,6 +133,11 @@ left out of the score rather than passed.
 - **Broken links** and **Links to other sites** are the one place the report requests anything beyond the page:
   each link on the consented page, once, under the cap in CLAUDE.md (at most 80, HEAD and GET only when HEAD is
   refused, 3 redirects, no response bodies). That is `linkcheck.py`, which sweep can never reach.
+- **AI search access** asks, for each AI search robot in `config/ai_crawlers.yaml` (OpenAI's OAI-SearchBot,
+  Anthropic's Claude-SearchBot and Claude-User, PerplexityBot), whether robots.txt keeps it away from the home page.
+  It reads the robots.txt file the report already fetched and makes no request. Every robot cites its company's
+  own documentation. Training robots (GPTBot, ClaudeBot) are listed in the details but never counted: blocking
+  them does not affect search and is often deliberate. Robots their makers say may ignore robots.txt are left out.
 - **Mixed content** reads the resource list of the page as the browser loaded it, so files a script adds count.
 - **Favicon** resolves the icon the way a browser does, in at most two requests. It can also flag a website
   builder's standard icon, but only from entries in `config/platforms.yaml` that cite a source. None is listed

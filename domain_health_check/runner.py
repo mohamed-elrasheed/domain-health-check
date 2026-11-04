@@ -9,6 +9,7 @@ from typing import Callable
 from . import dns_utils, external, fetcher, linkcheck, platform, requestlog
 from .checks import business_profile, dns_records, dnssec, email_auth, http_headers, pagespeed, rdap, site, tls
 from .checks.site import (
+    ai_access,
     content,
     delivery,
     favicon,
@@ -64,6 +65,7 @@ def _checks_for(
         (SITE, "Image alt text", on_rendered_page(content.check_alt_text)),
         (SITE, "Social preview", on_page(sharing.check_social_preview)),
         (SITE, "Sitemap and robots", on_page(indexing.check_sitemap_and_robots)),
+        (SITE, "AI search access", on_page(ai_access.check_ai_access)),
         (SITE, "Page weight", on_page(delivery.check_page_weight)),
         (SITE, "Redirect chain", on_page(delivery.check_redirects)),
         (SITE, "Broken links", on_page(links.check_links)),

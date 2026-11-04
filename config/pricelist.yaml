@@ -105,6 +105,7 @@ checks:
   Image alt text: self
   Social preview: self
   Sitemap and robots: tuneup
+  AI search access: self
   Page weight: tuneup
   Redirect chain: tuneup
   Broken links: self
