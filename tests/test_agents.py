@@ -440,7 +440,7 @@ def test_facts_saved_before_lead_with_get_the_same_lead_and_count_as_today():
     saved = {k: v for k, v in today.items() if k not in ("lead_with", "more_to_look_at")}
     upgraded = agents.upgrade_facts(saved)
     assert upgraded["lead_with"] == today["lead_with"] and upgraded["more_to_look_at"] == today["more_to_look_at"]
-    assert agents.upgrade_facts(today) is today
+    assert agents.upgrade_facts(today) == today
 
 
 def test_the_same_sentence_on_every_item_is_caught():
@@ -448,3 +448,13 @@ def test_the_same_sentence_on_every_item_is_caught():
               for i in GOOD["missing"]]
     problems = agents.code_check(bad(missing=padded), agents.facts(report()))
     assert any('appears in 2 items: "this could be better, but it is not broken."' in p for p in problems)
+
+
+def test_the_writer_never_sees_costing_you_customers():
+    # Told not to quote the report's heading, the writer said it in other words in 6 of 6 drafts. It never sees it.
+    assert agents.calm("Nothing on your site is broken. Here is what is costing you customers.") == (
+        "Nothing on your site is broken. Some things could be better.")
+    assert agents.calm("Nothing on your site is broken. Two things could be costing you customers.") == (
+        "Nothing on your site is broken. Two things could be better.")
+    saved = {**agents.facts(report()), "reading": "Nothing on your site is broken. Here is what is costing you customers."}
+    assert "costing" not in agents.upgrade_facts(saved)["reading"]
