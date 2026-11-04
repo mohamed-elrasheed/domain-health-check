@@ -41,8 +41,8 @@ DESCRIPTION_EXPLANATION = (
     "one or two sentences helps people decide to click."
 )
 MAIN_HEADING_EXPLANATION = (
-    "The main heading, the largest headline on the page, tells visitors and search engines what the page is "
-    "about. Search engines give it extra weight."
+    "The main heading, the largest headline on the page, tells visitors what the page is about, and search "
+    "engines weigh it more than other text."
 )
 HEADING_ORDER_EXPLANATION = (
     "Search engines read your headings as an outline to understand how your content is organized, and people "

@@ -91,7 +91,8 @@ not narrow or widen what a term covers. Keep each item to its summary and the on
 explanation that say why it matters; the whole message should read in about a minute on a phone.
 
 next_steps: what would help, for the checks you listed in missing and no others. Say what to do or what to ask
-for, based on the check's fix. If two checks call for the same step, write it once, under the first check. Do not
+for, based on the check's fix. If two checks call for the same step, or their fixes send the owner to the same
+place (such as the same plugin's settings), write one step that covers both, under the first check. Do not
 repeat in a step what the finding above it already said. A fix that points to "the technical details" means the
 technical details in the attached report: say so. Do not say who does it; we add that. Leave out any check whose
 who is "Set by your website platform": the owner cannot change it. Prefer plain descriptions to technical names,
@@ -117,8 +118,10 @@ to fill space.
 Tone: calm, honest and helpful. Write as "we", never "I". No sales pressure, no fake urgency, no flattery.
 
 Never use: dashes as punctuation, exclamation marks, ellipses, words in all capitals for emphasis, or words like
-"critical", "urgent", "alarming", "huge" or "amazing". Never quote prices; the report already lists them. Never
-promise to check the site again. Never mention competitors.
+"critical", "urgent", "alarming", "huge" or "amazing". Never quote prices; the report already lists them. Leave
+out any mention of our price list, a tune-up or other paid work, even where a fix names it: this message only
+helps, and the attached report covers what we offer. Never promise to check the site again. Never mention
+competitors.
 """
 
 REVIEW_SYSTEM = """\
@@ -440,6 +443,8 @@ def code_check(d: Draft, facts: dict) -> list[str]:
                 problems.append(f'Says something costs nothing, which the report does not state: "{line}"')
         if re.search(r"\$\s?\d", line):
             problems.append(f'A price: "{line}"')
+        if re.search(r"\b(?:price list|tune-up)\b", line, re.I):
+            problems.append(f'Points to our paid work, which reads as a sales push: "{line}"')
         if re.search(r"\bnot (?:been )?checked\b", line, re.I):
             problems.append(f'Mentions checks that were not checked, which the report already lists: "{line}"')
         if RECHECK.search(line):
