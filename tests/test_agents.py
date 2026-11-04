@@ -135,6 +135,8 @@ def bad(**changes) -> agents.Draft:
     ("The one visitors are most likely to notice is speed.", '"most likely"'),
     ("Your website is in very good shape.", '"very good"'),
     ("The site is in healthy shape overall.", '"healthy shape"'),
+    ("The site is doing well overall.", '"doing well"'),
+    ("The overall picture is of a site in sound shape.", '"sound shape"'),
     ("None of them needs rushing.", '"rushing"'),
     ("Some checks were not checked, and we say which below.", "not checked"),
     ("PageSpeed Insights is Google's free tool that tests how fast a page loads.", "costs nothing"),
@@ -408,7 +410,8 @@ def test_the_same_step_twice_is_caught():
 
 def test_the_count_line_reads_right_with_and_without_a_list():
     assert agents.more_line(1, True) == "The attached report lists 1 more thing that could be better."
-    assert agents.more_line(4, False) == "The attached report lists 4 things that could be better."
+    assert agents.more_line(4, False) == ("The attached report lists 4 things that could be better. None of them "
+                                          "needs action now, and the report explains each one.")
 
 
 # ---------- the editor: judges the whole message, after the reviews have checked every fact

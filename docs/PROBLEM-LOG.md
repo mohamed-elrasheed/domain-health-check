@@ -8,6 +8,20 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### A clean site invited the writer to sum it up (PR #30)
+- **Problem:** the last consented site has nothing broken and nothing the report ranks as worth doing first, so the
+  message had only its short version. Redrafted 5 times, it passed 1 of 5. Three drafts filled the space with a
+  verdict of their own ("doing well overall", "in sound shape"), and all three reviews failed each one. The fifth
+  passed the reviews, and the editor failed it for not saying whether the owner needs to do anything, and for
+  giving the count twice.
+- **Cause:** the prompt asked for "how the website is doing overall", which invites a verdict, and the score and
+  reading already are one. Adding each new phrase to the code check (PR #29) would never end.
+- **What we did:** the prompt no longer asks how the site is doing; the score and the reading are the judgment,
+  and the writer adds none, nor a count. When there is nothing to lead with, code's closing line says what the
+  report's own count says: "None of them needs action now, and the report explains each one." The code check also
+  rejects "doing well", "sound shape" and "good condition" as a backstop.
+- **What it fixed:** to be measured on the next redraft.
+
 ### The fourth site: praise caught by the reviews, now caught by code (PR #29)
 - **Problem:** the last consented site ran clean (26 pass, 6 warn, 0 fail). The draft said "the site is in healthy
   shape overall", which the report never says. All three reviews failed it, so the review email carried the
