@@ -250,6 +250,13 @@ may see technical details, the request log and prices, which the owner's message
   maintenance cost with no payoff.
 - Commit a real `domains.yaml`, or the `reports/` output. `domains.example.yaml` is the one that ships.
 
+## Documenting problems
+
+Every real problem gets an entry in `docs/PROBLEM-LOG.md`, in the same pull request that fixes it: the problem,
+its cause, what we changed, and what the change fixed, with the evidence (pass rates, counts, cost). A problem
+counts when it produced a wrong result, a false alarm, a security risk or a wasted run. Newest first. Never name
+another business's domain or describe its findings there.
+
 ## Repo standards
 
 Python 3.11+ (3.10 is end of life), MIT. `pip install -e ".[dev]"`. pytest with sockets blocked at the fixture level. Add ruff

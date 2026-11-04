@@ -417,6 +417,9 @@ rounds of lookups. Its answer ends with the checks it used and how deeply it rea
 at that depth, and that every price it quotes came from the price list. Every question is appended to `ask.jsonl` in the report folder. `scripts/eval_ask.py` asks it questions
 whose answers code already knows from the report and grades them with code.
 
+Every problem the project has hit, what caused it, what we changed and what that fixed, with the numbers, is in
+[docs/PROBLEM-LOG.md](docs/PROBLEM-LOG.md).
+
 ### PDF output
 
 Every run renders the same report as a branded PDF with WeasyPrint. Both formats are built from the same report
