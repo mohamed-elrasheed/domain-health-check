@@ -247,6 +247,16 @@ def facts(report: DomainReport) -> dict:
     }
 
 
+def upgrade_facts(saved: dict) -> dict:
+    """Facts saved in an ai.json from before lead_with existed, given the same lead and count facts() makes now,
+    from the saved checks alone. Lets scripts/redraft.py test today's rules without visiting the website again."""
+    if "lead_with" in saved:
+        return saved
+    rows = [{"name": c["name"], "ran": c["status"] != "NOT CHECKED", "status": c["status"]} for c in saved["checks"]]
+    lead, more = _lead_with(rows, list(saved["top_findings"]))
+    return {**saved, "lead_with": lead, "more_to_look_at": more}
+
+
 def _lead_with(results: list[dict], top: list[str]) -> tuple[list[str], int]:
     """What the message leads with, decided by code: the report's top findings (at most three), then anything
     broken today. Everything else that could be better stays in the attached report, and code adds one line saying
