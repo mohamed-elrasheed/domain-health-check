@@ -8,6 +8,18 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### A pointer to our price list read as a sales push (PR #27)
+- **Problem:** with "costing you customers" gone (PR #26 worked: 0 of 5 drafts said it), every draft passed the
+  code check and all three reviews, and the editor failed 4 of 5 on one line carried over from a check's fix:
+  "Adding one is also part of a tune-up on our price list." Three also split the meta description and link
+  preview into two steps that both said to look in the SEO plugin's settings.
+- **Cause:** the WordPress fixes name the tune-up on purpose, for the owner reading the PDF beside our price list.
+  In a short helpful email it is the one line that sells. The writer copied it because the fix said it.
+- **What we did:** the PDF keeps the line. The writer leaves out any mention of our price list or paid work, and
+  the code check rejects "price list" and "tune-up". Two fixes that send the owner to the same place become one
+  step. The main heading explanation no longer says "search engines" twice.
+- **What it fixed:** to be measured on the next redraft.
+
 ### Told not to quote a phrase, the writer said it in other words (PR #26)
 - **Problem:** after PR #25 told the writer not to quote the report's heading ("Here is what is costing you
   customers"), 6 of 6 drafts still said the findings were "costing you customers" in their own words. The new code

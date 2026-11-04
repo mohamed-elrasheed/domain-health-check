@@ -140,6 +140,7 @@ def bad(**changes) -> agents.Draft:
     ("It costs nothing to try.", "costs nothing"),
     ("You can use it at no cost.", "costs nothing"),
     ("Here is what is costing you customers.", "pressure"),
+    ("Adding one is also part of a tune-up on our price list.", "sales push"),
 ])
 def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem):
     problems = agents.code_check(bad(bottom_line=sentence), agents.facts(report()))
