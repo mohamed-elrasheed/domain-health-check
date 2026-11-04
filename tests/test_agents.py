@@ -43,7 +43,8 @@ GOOD = {
         {"check": "Meta description", "text": "Add a one or two sentence description in your site settings."},
     ],
 }
-PASS = {"passed": True, "reason": "Every claim matches the data.", "unsupported_claims": [], "voice_problems": []}
+PASS = {"passed": True, "reason": "Every claim matches the data.", "unsupported_claims": [], "voice_problems": [],
+        "problems": []}  # "problems" is the editor's field; one PASS serves the reviews and the editor
 FAIL = {"passed": False, "reason": "One claim is not in the data.",
         "unsupported_claims": ["Your site loads in nine seconds."], "voice_problems": []}
 
@@ -194,16 +195,17 @@ def test_code_writes_the_greeting_the_opening_and_the_signature_and_none_of_it_i
 # ---------- the workflow
 
 def test_a_good_draft_that_passes_three_reviews_passes(tmp_path):
-    client = FakeClient(GOOD, PASS, PASS, PASS)
+    client = FakeClient(GOOD, PASS, PASS, PASS, PASS)
     outcome = agents.run(report(), client, output_dir=tmp_path)
-    assert outcome.passed and outcome.reason == "Passed the code check and 3 of 3 reviews."
-    draft_call, *review_calls = client.calls
+    assert outcome.passed and outcome.reason == "Passed the code check, 3 of 3 reviews and the editor."
+    draft_call, *review_calls, editor_call = client.calls
     assert draft_call["model"] == agents.DRAFT_MODEL
     assert [c["model"] for c in review_calls] == [agents.REVIEW_MODEL] * 3
+    assert editor_call["model"] == agents.EDITOR_MODEL and editor_call["system"] == agents.EDITOR_SYSTEM
     for call in client.calls:  # structured outputs, never a forced tool call
         assert call["output_config"]["format"]["type"] == "json_schema" and "tool_choice" not in call
     assert "example.com" in draft_call["messages"][0]["content"]
-    assert outcome.cost == pytest.approx(4 * 0.004)  # Sonnet writes and reviews: 1,000 in and 200 out per call
+    assert outcome.cost == pytest.approx(5 * 0.004)  # Sonnet writes, reviews and edits: 1,000 in, 200 out a call
 
 
 def test_one_failed_review_of_three_fails_the_draft():
@@ -261,11 +263,11 @@ def test_the_run_log_keeps_everything_the_eval_needs(tmp_path):
 # ---------- the review email
 
 def test_a_passed_draft_replaces_the_template_in_the_review_email():
-    outcome = agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS))
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, PASS))
     msg = mailer.review_message(CFG, report(), None, 0, "test", "Test Person", "Example LLC", outcome)
     body = msg.get_content()
     assert msg["To"] == mailer.REVIEWER
-    assert "written by AI; Passed the code check and 3 of 3 reviews." in body
+    assert "written by AI; Passed the code check, 3 of 3 reviews and the editor." in body
     assert "Hello Test," in body and GOOD["bottom_line"] in body
     assert "AI cost: about $" in body
 
@@ -288,7 +290,7 @@ def test_the_eval_plants_ten_claims_and_measures_each_layer(tmp_path, monkeypatc
     eval_review = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(eval_review)
 
-    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, PASS), output_dir=tmp_path)
     log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
     # A reviewer that passes everything: whatever is caught here, the code check caught.
     replies = [PASS] * 33
@@ -324,7 +326,7 @@ def test_redraft_reuses_the_saved_facts_and_never_runs_the_report(tmp_path, monk
     agents.run(report(), FakeClient(GOOD, PASS, PASS, FAIL), output_dir=tmp_path)
     log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
     before = log.read_text(encoding="utf-8")
-    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (FakeClient(GOOD, PASS, PASS, PASS), None))
+    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (FakeClient(GOOD, PASS, PASS, PASS, PASS), None))
     assert redraft.main([str(log)]) == 0
     out = capsys.readouterr().out
     assert "AI draft: passed." in out and "Thank you for asking us to look at example.com." in out
@@ -348,9 +350,9 @@ def test_redraft_times_reports_the_pass_rate_and_keeps_the_first_passing_draft(t
     redraft = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(redraft)
 
-    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, PASS), output_dir=tmp_path)
     log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
-    client = FakeClient(GOOD, PASS, FAIL, PASS, GOOD, PASS, PASS, PASS, GOOD, PASS, PASS, FAIL)
+    client = FakeClient(GOOD, PASS, FAIL, PASS, GOOD, PASS, PASS, PASS, PASS, GOOD, PASS, PASS, FAIL)
     monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (client, None))
     assert redraft.main([str(log), "--times", "3"]) == 0
     assert "Passed 1 of 3." in capsys.readouterr().out
@@ -368,12 +370,12 @@ def test_redraft_can_measure_a_different_review_model(tmp_path, monkeypatch):
     redraft = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(redraft)
 
-    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS), output_dir=tmp_path)
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, PASS), output_dir=tmp_path)
     log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
-    client = FakeClient(GOOD, PASS, PASS, PASS)
+    client = FakeClient(GOOD, PASS, PASS, PASS, PASS)
     monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (client, None))
     assert redraft.main([str(log), "--review-model", agents.DRAFT_MODEL]) == 0
-    assert [c["model"] for c in client.calls] == [agents.DRAFT_MODEL] * 4
+    assert [c["model"] for c in client.calls] == [agents.DRAFT_MODEL] * 4 + [agents.EDITOR_MODEL]
     saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
     assert saved["review_model"] == agents.DRAFT_MODEL
 
@@ -405,3 +407,29 @@ def test_the_same_step_twice_is_caught():
 def test_the_count_line_reads_right_with_and_without_a_list():
     assert agents.more_line(1, True) == "The attached report lists 1 more thing that could be better."
     assert agents.more_line(4, False) == "The attached report lists 4 things that could be better."
+
+
+# ---------- the editor: judges the whole message, after the reviews have checked every fact
+
+EDIT_FAIL = {"passed": False, "reason": "Rule 2: the same point is made twice.", "problems": ["Says twice to add a heading."]}
+
+
+def test_the_editor_runs_only_after_every_review_passes_and_its_no_sends_the_template():
+    client = FakeClient(GOOD, PASS, PASS, PASS, EDIT_FAIL)
+    outcome = agents.run(report(), client)
+    assert outcome.status == "failed" and "not the editor: Rule 2" in outcome.reason
+    assert "Says twice to add a heading." in outcome.flagged()
+    skipped = FakeClient(GOOD, PASS, FAIL, PASS)
+    assert agents.run(report(), skipped).editor is None and len(skipped.calls) == 4
+
+
+def test_the_editor_sees_the_message_but_never_the_report_data():
+    client = FakeClient(GOOD, PASS, PASS, PASS, PASS)
+    agents.run(report(), client)
+    prompt = client.calls[-1]["messages"][0]["content"]
+    assert "The short version:" in prompt and '"checks"' not in prompt and '"score"' not in prompt
+
+
+def test_an_editor_that_cannot_run_fails_closed():
+    outcome = agents.run(report(), FakeClient(GOOD, PASS, PASS, PASS, RuntimeError("overloaded")))
+    assert outcome.status == "failed" and "The editor could not run" in outcome.reason

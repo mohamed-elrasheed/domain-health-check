@@ -31,7 +31,8 @@ def _record(outcome) -> dict:
     return {
         "status": outcome.status, "reason": outcome.reason,
         "draft": asdict(outcome.draft) if outcome.draft else None, "problems": outcome.problems,
-        "reviews": [asdict(r) for r in outcome.reviews], "usage": [asdict(u) for u in outcome.usage],
+        "reviews": [asdict(r) for r in outcome.reviews],
+        "editor": asdict(outcome.editor) if outcome.editor else None, "usage": [asdict(u) for u in outcome.usage],
         "cost_usd_estimate": round(outcome.cost, 6),
     }
 

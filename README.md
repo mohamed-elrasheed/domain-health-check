@@ -426,7 +426,9 @@ score or the chart.
    a check that does not exist, a passing check listed as a problem, or a top finding left out.
 4. The review agent (Claude Sonnet 5.5, in calls separate from the draft) checks every claim against the facts,
    three separate times. All three must pass.
-5. Anything that fails, errors or is switched off sends the template instead, and the email says why.
+5. The editor (Claude Sonnet 5.5) then reads the whole message as a busy owner would, without the report data, and
+   passes it only if it leads with the answer, is short, never repeats a point and gives steps the owner can act on.
+6. Anything that fails, errors or is switched off sends the template instead, and the email says why.
 
 `domain-health-check report <domain> --ai` tries it by hand on a domain with a recorded submission. `AI_DRAFTS=on`
 in `.env` turns it on for the hourly intake, once the privacy policy says report data goes to an AI service. Every

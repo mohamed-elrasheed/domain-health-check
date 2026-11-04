@@ -27,7 +27,10 @@ form submission (consent)
  3. Review x3     Sonnet   every claim against the facts, three separate calls ── any fails? template goes out
       │
       ▼
- 4. Mo            person   reads the review email, sends the draft or does not
+ 4. Editor        Sonnet   the whole message, as a busy owner reads it, without the facts ── fails? template goes out
+      │
+      ▼
+ 5. Mo            person   reads the review email, sends the draft or does not
 ```
 
 This is a fixed workflow, not an autonomous agent. The steps never change, so no model decides what happens next.
@@ -42,6 +45,7 @@ That makes it cheaper, testable, and easy to audit.
 | Code decides what code can decide | Which findings lead (the report's own ranking), who can fix each one (the price list), the greeting, the opening line and the signature. The models only write sentences about facts they were given. |
 | Sonnet writes, Sonnet reviews in separate calls | Haiku reviewed first, at a twentieth of the price, and passed 1 good draft in 10, mostly on false alarms. Sonnet passed 2 in 5 and every flag it raised was a real mistake. Each review is a fresh call that never sees the draft call, so the writer still never grades its own work. Opus is next if Sonnet ever is not enough. |
 | A code check before the review | Dashes, exclamation marks, prices, hype words, status labels, praise or ranking the report does not state, numbers or capitals not in the report, check names that do not exist, a passing check listed as a problem, a top finding left out. A program checks these exactly and for free, so a draft that breaks one never pays for a review. |
+| An editor after the reviews | The reviews ask whether each sentence is true. A real draft passed all three and still listed 13 warnings and repeated a step. The editor asks a different question: is this message good to send to a busy owner? It sees only the message, not the report data, because truth is already checked and it judges what the reader sees. |
 | Three reviews, all must pass | One review can miss something. Three independent ones must agree. A wrong pass is worse than a wrong fail. |
 | Structured outputs | The API holds each reply to a JSON schema, so code can read `passed` instead of guessing from prose. Forced tool calls return an error on Sonnet 5.5, so they are not used. |
 | Fail closed | No key, the switch off, an API error, a spending limit, a model that stops early or refuses, or one failed review: the template goes out and Mo is told why. `run()` never raises. |

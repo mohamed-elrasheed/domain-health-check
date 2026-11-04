@@ -217,6 +217,8 @@ The owner's message can be drafted by Claude and gated before Mo sees it. See `d
 - **Fail closed.** Any error, refusal, early stop, spend limit, code-check problem or failed review sends the
   template. `agents.run()` never raises. Never add a retry loop.
 - **The review never rewrites.** It judges. All `REVIEW_RUNS` must pass.
+- **The editor judges the whole message, after the reviews.** It sees only the message, never the report data, and
+  it never rewrites either. A failed or broken edit sends the template.
 - **Off by default.** The hourly intake needs `AI_DRAFTS=on`; a key alone is not enough.
 - Tests use a fake client (the network is blocked). Real quality is measured by `scripts/eval_review.py`.
 

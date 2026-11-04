@@ -18,7 +18,8 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   anything broken today. Code adds one line saying how many more the attached report lists. The code check rejects
   any other check and any step said twice.
 - **What it fixed:** the message stays a priority list, and the full detail stays in the PDF. Judging the whole
-  message for clarity is the editor review's job (next pull request).
+  message for clarity is now the editor's job (PR #21): a fifth model call, after the three reviews, that reads
+  the whole message as a busy owner would and must pass.
 
 ### The review email failed, and so did the email reporting it (PR #20)
 - **Problem:** the scheduled run could not send the review (`SMTPServerDisconnected`), and the failure email went

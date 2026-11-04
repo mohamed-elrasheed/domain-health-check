@@ -412,12 +412,12 @@ def test_the_pipeline_puts_a_passed_ai_draft_in_the_review_email(places, monkeyp
     def fake_run(report, output_dir=None):
         seen.append((report.domain, output_dir))
         d = agents.Draft("Nothing on your website is broken today.", [], [])
-        return agents.Outcome("passed", "Passed the code check and 3 of 3 reviews.", draft=d)
+        return agents.Outcome("passed", "Passed the code check, 3 of 3 reviews and the editor.", draft=d)
     monkeypatch.setattr(pipeline.agents, "run", fake_run)
     pipeline.process([submission()], CFG, **places["kwargs"])
     assert seen == [("mizangroupllc.com", places["kwargs"]["output"])]
     [msg] = FakeSMTP.sent
     body = msg.get_body(("plain",)).get_content()
-    assert "written by AI; Passed the code check and 3 of 3 reviews." in body
+    assert "written by AI; Passed the code check, 3 of 3 reviews and the editor." in body
     assert "The short version: Nothing on your website is broken today." in body
     assert "mizangroupllc.com: AI draft passed." in pipeline.LOG.read_text(encoding="utf-8")
