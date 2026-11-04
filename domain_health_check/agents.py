@@ -76,12 +76,12 @@ you must use a technical term, explain it in the same sentence or the one right 
 
 bottom_line: one to three sentences. Whether anything is broken today, and what matters most if lead_with names
 anything. Base it on the report's reading, in your own plain words: do not quote it. The score and the reading are
-the overall judgment: never add a verdict of your own on the whole site, such as "doing well", "in sound shape",
-"in good health", "very good" or "excellent". Do not count the findings or mention the rest of the report here;
-we add a line about it. Do not say which finding visitors will notice most or rank findings in any way the data
-does not. If lead_with is empty, the bottom line is all you write before our line: say in one or two sentences
-that nothing is broken today and that the attached report explains each thing that could be better and how to
-fix it. Do not say whether any of them needs action; the report does not decide that for the owner.
+the overall judgment: never add a verdict of your own on the whole site, such as "doing well", "in sound shape", "in
+good health", "very good" or "excellent". Do not count the findings ("three things could be better") or mention the
+rest of the report here; we add a line about it. Do not say which finding visitors will notice most or rank findings
+in any way the data does not. If lead_with is empty, the bottom line is all you write before our line: say in one or
+two sentences that nothing is broken today and that the attached report explains each thing that could be better and
+how to fix it. Do not say whether any of them needs action; the report does not decide that for the owner.
 
 missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
 attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
