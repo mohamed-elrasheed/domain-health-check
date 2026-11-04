@@ -300,3 +300,23 @@ def test_a_step_for_something_the_website_platform_sets_is_caught():
     problems = agents.code_check(draft_from(GOOD), f)
     assert problems == ['What would help asks the owner to change "Meta description", which their website platform '
                         "sets."]
+
+
+def test_redraft_reuses_the_saved_facts_and_never_runs_the_report(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "redraft", Path(__file__).parent.parent / "scripts" / "redraft.py")
+    redraft = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(redraft)
+
+    agents.run(report(), FakeClient(GOOD, PASS, PASS, FAIL), output_dir=tmp_path)
+    log = tmp_path / "example.com" / "2026-11-03" / "ai.json"
+    before = log.read_text(encoding="utf-8")
+    monkeypatch.setattr(agents, "make_client", lambda require_switch=True: (FakeClient(GOOD, PASS, PASS, PASS), None))
+    assert redraft.main([str(log)]) == 0
+    out = capsys.readouterr().out
+    assert "AI draft: passed." in out and "Thank you for asking us to look at example.com." in out
+    saved = json.loads(log.with_name("ai-redraft.json").read_text(encoding="utf-8"))
+    assert saved["status"] == "passed" and saved["facts"]["domain"] == "example.com"
+    assert log.read_text(encoding="utf-8") == before  # the original run log is left alone
