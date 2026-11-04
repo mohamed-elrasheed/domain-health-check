@@ -22,7 +22,7 @@ jobs:
       # tests that prove the report shows what a visitor sees and that the PDF holds every finding.
       DHC_NO_SKIPS: "1"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
@@ -52,7 +52,7 @@ jobs:
     # vulnerability databases. A known vulnerability in requirements.lock fails the build.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
