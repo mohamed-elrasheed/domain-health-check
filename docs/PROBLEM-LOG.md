@@ -8,6 +8,16 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The DMARC finding said its point twice in every message (PR #35)
+- **Problem:** a fresh report with PR #34's copy, then five redrafts: 0 of 5. Every draft passed the code check,
+  and four passed all three reviews. The editor failed all of them for the same pair: the summary "forged emails
+  are still delivered" and the explanation's "scammers can send emails that appear to come from your domain".
+- **Cause:** the check's own copy put the consequence in both the summary and the shared explanation.
+- **What we did:** the explanation now says only what DMARC is and does. The consequence lives in each case's
+  summary; the no-record summary gained it in PR #36, after it was found missing from #35.
+- **What it fixed:** the next fresh report's draft passed every gate, and 4 of 5 redrafts did too: 5 of 6 in all,
+  up from 0 of 5. The one failure was a real catch: a step that named no one to ask.
+
 ### A clean site's message had nothing to say (PR #33)
 - **Problem:** with the verdicts and the "needs action" line gone, the clean site's message read only "nothing is
   broken; see the report". Every draft passed the code check and all three reviews, and the editor failed 5 of 5:

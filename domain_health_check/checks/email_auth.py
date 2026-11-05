@@ -148,7 +148,8 @@ def evaluate_dmarc(txt_records: list[str]) -> CheckResult:
                  "v=DMARC1; p=none; rua=mailto:dmarc@<your domain>. Review the reports for a few weeks, then tighten "
                  "the policy to p=quarantine and finally p=reject.")
     if not dmarc:
-        return result(Status.WARN, "No DMARC record was found.", start_fix, start_how)
+        return result(Status.WARN, "No DMARC record was found, so nothing tells other mail systems to stop forged "
+                      "emails that claim to be from you.", start_fix, start_how)
     if len(dmarc) > 1:
         return result(
             Status.WARN, f"There are {len(dmarc)} DMARC records; only one is allowed, so receivers ignore them.",
