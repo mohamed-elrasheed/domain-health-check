@@ -324,8 +324,7 @@ def test_a_step_for_something_the_website_platform_sets_is_caught():
         if c["name"] == "Meta description":
             c["who"] = agents.WHO["platform"]
     problems = agents.code_check(draft_from(GOOD), f)
-    assert problems == ['What would help asks the owner to change "Meta description", which their website platform '
-                        "sets."]
+    assert problems == ['A step asks the owner to change "Meta description", which their website platform sets.']
 
 
 def test_redraft_reuses_the_saved_facts_and_never_runs_the_report(tmp_path, monkeypatch, capsys):
@@ -545,3 +544,18 @@ def test_the_same_check_listed_twice_in_different_words_is_caught():
     first = GOOD["missing"][0]
     twice = bad(missing=GOOD["missing"] + [{"check": first["check"], "text": "Said again in other words."}])
     assert any("more than once" in p for p in agents.code_check(twice, agents.facts(report())))
+
+
+def test_each_finding_and_its_step_are_one_bullet():
+    # Two lists named every finding twice, and the editor failed most drafts for it (November 5).
+    d, f = draft_from(GOOD), agents.facts(report())
+    text = d.text(f)
+    assert "What would help:" not in text
+    first = next(line for line in text.splitlines() if line.startswith("- "))
+    assert " What to do: " in first and first.endswith(".)")
+
+
+def test_a_finding_without_a_step_is_caught():
+    d = bad(next_steps=GOOD["next_steps"][1:])
+    missing_step = GOOD["next_steps"][0]["check"]
+    assert any(f'"{missing_step}" has no step' in p for p in agents.code_check(d, agents.facts(report())))

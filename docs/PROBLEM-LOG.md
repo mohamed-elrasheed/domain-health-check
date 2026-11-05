@@ -8,6 +8,17 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### Two lists made every message say each finding twice (PR #41)
+- **Problem:** measured over 15 drafts, the first outside site passed every gate about 60% of the time, and nearly
+  every failure was the editor's: the steps repeated what the findings had just explained, or a finding had no
+  step of its own. Prompt rules ("do not repeat the finding in the step") never fully held.
+- **Cause:** the layout. The message listed the findings, then listed the steps, so every finding was named twice,
+  and a step shared by two findings left the second one without a step.
+- **What we did:** one list. Each bullet is the finding, why it matters, then "What to do:" and its step, with
+  code's who-can-do-it label. The writer gives every finding its own step, starting with the action; a step that
+  uses the same place as the one before says so in a few words. The code check rejects a finding with no step.
+- **What it fixed:** to be measured on 10 redrafts of the same saved facts against the 60% baseline.
+
 ### The code check's gaps and false alarms, and website text reaching the models (PR #40)
 - **Problem:** both audits listed small code-check gaps: "--" passed the dash rule; "right away" and "as soon as
   possible" passed the timing rule; "we will check it next month" passed the re-check rule; the same check listed
