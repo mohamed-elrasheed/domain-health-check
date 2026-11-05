@@ -36,6 +36,8 @@ The editor reads the whole message as a busy owner would, after the three review
 | Drafts passing all five gates, after fixing the causes (PRs #23 to #27) | 4 of 5 |
 | The one failure | a real catch: the meta description explained twice. Production sends the template |
 | What the fixes were | mostly our own report copy, plus keeping one phrase out of the writer's input |
+| A second consented outside site, nothing broken, after PRs #29 to #35 | 5 of 6 through every gate, up from 0 of 5 |
+| What that took | leading with the report's own first findings when nothing ranks as costing customers, and fixing the DMARC check's copy |
 | Cost of the full eval | about 40 cents |
 
 ## Findings agent (`ask.py`)
