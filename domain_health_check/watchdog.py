@@ -29,7 +29,11 @@ ALERT_FILE = Path("logs") / "ALERT.txt"
 HANG_FILE = Path("logs") / "intake-hang.log"
 TOPIC_ENV = "NTFY_TOPIC"
 LIMIT_ENV = "INTAKE_TIME_LIMIT_MINUTES"
-DEFAULT_LIMIT_MINUTES = 20  # a full report took about one to two minutes on Nov 4; 20 leaves room for several
+# Up to three reports a pass (pipeline.MAX_RUNS_PER_HOUR), each a few minutes plus an AI step capped near
+# 8 minutes (agents.AI_BUDGET_SECONDS and the per-call timeout). 45 covers that worst case and still ends before the
+# next hourly run starts. 20 was shorter than the worst case, so a slow run could be killed with a submission
+# half done (found by both audits).
+DEFAULT_LIMIT_MINUTES = 45
 NTFY = "https://ntfy.sh"
 HANG_EXIT = 4
 TRANSPORT: httpx.BaseTransport | None = None  # replaced in tests, so they never open a socket

@@ -464,3 +464,39 @@ def test_a_run_that_failed_before_writing_its_report_still_counts_as_recent(plac
     monkeypatch.setattr(pipeline, "run_checks", lambda c: report_for(c.name))
     again = pipeline.process([submission(id="b")], CFG, **places["kwargs"])
     assert again.processed == [] and any("within" in s for s in again.skipped)
+
+
+def test_a_damaged_seen_file_stops_intake_instead_of_rerunning_everything(tmp_path):
+    # Found by the audit: a damaged file crashed every hourly run. Read as empty, it would re-run every submission
+    # the form ever received, so it stops with a clear error instead.
+    path = tmp_path / "seen.json"
+    path.write_text('["sub-1", "sub-', encoding="utf-8")
+    with pytest.raises(intake.IntakeError, match="damaged"):
+        intake.seen(path)
+
+
+def test_the_seen_file_is_swapped_in_whole_and_keeps_a_backup(tmp_path):
+    path = tmp_path / "seen.json"
+    intake.mark_seen("a", path)
+    intake.mark_seen("b", path)
+    assert intake.seen(path) == {"a", "b"}
+    assert json.loads((tmp_path / "seen.json.bak").read_text(encoding="utf-8")) == ["a"]
+    assert not (tmp_path / "seen.json.tmp").exists()
+
+
+def test_a_crash_inside_intake_emails_the_reviewer_and_raises_an_alert(places, monkeypatch, tmp_path, capsys):
+    from domain_health_check import cli, watchdog
+    saved = tmp_path / "submissions.json"
+    saved.write_text(json.dumps({"formSubmissions": [SUBMISSION]}), encoding="utf-8")
+    alerts = []
+    monkeypatch.setattr(watchdog, "alert", lambda kind, **k: alerts.append(kind))
+    monkeypatch.setattr(cli, "SMTP_FACTORY", FakeSMTP)
+    monkeypatch.setattr(intake, "SEEN", places["kwargs"]["seen_path"])
+    places["kwargs"]["seen_path"].parent.mkdir(parents=True, exist_ok=True)
+    places["kwargs"]["seen_path"].write_text("not json", encoding="utf-8")
+    monkeypatch.setenv("SMTP_USERNAME", "mo@mizangroupllc.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "app-password")
+    assert cli.main(["intake", "--submissions-file", str(saved), "-o", str(places["kwargs"]["output"])]) == 2
+    assert alerts == ["the intake run crashed"]
+    [msg] = FakeSMTP.sent
+    assert "damaged" in msg.get_body().get_content()

@@ -24,7 +24,8 @@ Two kinds of AI, used where each fits:
   after eight rounds, and code checks every source it cites.
 
 Where to look: [the scorecard](docs/SCORECARD.md), [how the AI parts work and why](docs/AI-AGENTS.md), and
-[every problem we hit, what we changed and what it fixed](docs/PROBLEM-LOG.md).
+[every problem we hit, what we changed and what it fixed](docs/PROBLEM-LOG.md), and
+[what the audits found that is not fixed yet](docs/KNOWN-ISSUES.md).
 
 ## What it is
 
@@ -386,7 +387,7 @@ message addressed to anyone else.
 - When that email itself cannot be sent, the failure is never silent: it is appended to `logs/ALERT.txt`, and with
   `NTFY_TOPIC` set in `.env` it also arrives as a phone notification through [ntfy](https://ntfy.sh) (open source,
   no account). The notification names only the kind of failure, never a domain or anything a person submitted.
-- A run that passes `INTAKE_TIME_LIMIT_MINUTES` (default 20) is stopped with exit code 4, after writing where
+- A run that passes `INTAKE_TIME_LIMIT_MINUTES` (default 45) is stopped with exit code 4, after writing where
   every thread was stuck to `logs/intake-hang.log` and raising the same alert.
 - `WEBFLOW_API_TOKEN` in `.env` is a Webflow token with read access to forms only. It is never printed or logged.
 - `--submissions-file PATH` reads a saved API response instead of Webflow, for testing.
