@@ -421,3 +421,46 @@ def test_the_pipeline_puts_a_passed_ai_draft_in_the_review_email(places, monkeyp
     assert "written by AI; Passed the code check, 3 of 3 reviews and the editor." in body
     assert "The short version: Nothing on your website is broken today." in body
     assert "mizangroupllc.com: AI draft passed." in pipeline.LOG.read_text(encoding="utf-8")
+
+
+def test_a_domain_reported_recently_is_not_run_again_and_the_reviewer_is_told(places):
+    # Found by an independent audit: anyone can submit the form, so the same site could be reported every hour.
+    recent = places["kwargs"]["output"] / "mizangroupllc.com" / date.today().isoformat()
+    recent.mkdir(parents=True)
+    outcome = pipeline.process([submission()], CFG, **places["kwargs"])
+    assert outcome.processed == [] and places["ran"] == []
+    [msg] = FakeSMTP.sent
+    assert msg["Subject"].startswith("REPEAT REQUEST · mizangroupllc.com")
+
+
+def test_an_old_report_does_not_block_a_new_one(places):
+    (places["kwargs"]["output"] / "mizangroupllc.com" / "2026-01-01-first").mkdir(parents=True)
+    assert pipeline.process([submission()], CFG, **places["kwargs"]).processed == ["mizangroupllc.com"]
+
+
+def test_a_burst_is_capped_per_pass_and_the_rest_wait_unseen(places, monkeypatch):
+    monkeypatch.setattr(pipeline, "MAX_RUNS_PER_HOUR", 2)
+    burst = [submission(id=f"sub-{n}", website=f"https://site{n}.example/") for n in range(4)]
+    first = pipeline.process(burst, CFG, **places["kwargs"])
+    assert len(places["ran"]) == 2 and sum("deferred" in s for s in first.skipped) == 2
+    pipeline.process(burst, CFG, **places["kwargs"])
+    assert len(places["ran"]) == 4  # the deferred two ran on the next pass, nothing ran twice
+
+
+def test_skipped_submissions_do_not_use_up_the_hourly_cap(places, monkeypatch):
+    # Found by the second audit: five submissions with no website used to fill the cap and defer a real one.
+    monkeypatch.setattr(pipeline, "MAX_RUNS_PER_HOUR", 1)
+    junk = [submission(id=f"j{n}", website="") for n in range(5)]
+    outcome = pipeline.process(junk + [submission(id="real")], CFG, **places["kwargs"])
+    assert outcome.processed == ["mizangroupllc.com"]
+
+
+def test_a_run_that_failed_before_writing_its_report_still_counts_as_recent(places, monkeypatch):
+    # The run log is written before a run starts; a run that crashed left no folder but did visit the site.
+    def boom(config):
+        raise RuntimeError("the run failed")
+    monkeypatch.setattr(pipeline, "run_checks", boom)
+    pipeline.process([submission(id="a")], CFG, **places["kwargs"])
+    monkeypatch.setattr(pipeline, "run_checks", lambda c: report_for(c.name))
+    again = pipeline.process([submission(id="b")], CFG, **places["kwargs"])
+    assert again.processed == [] and any("within" in s for s in again.skipped)

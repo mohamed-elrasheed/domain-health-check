@@ -11,6 +11,10 @@ Rules, in the order they apply:
   * A submission is marked seen before anything else happens to it, so a crash midway can never process it twice.
   * A domain on the lead list is skipped and logged: the lead list is consent-free by definition.
   * A submission with no website gets a notice to the reviewer, since there is nothing to run.
+  * A domain reported in the last REPEAT_DAYS gets no second report: the reviewer gets a notice instead. Anyone can
+    submit the form, so without this a bot could make us send the same site's server the same requests every hour.
+  * At most MAX_RUNS_PER_HOUR reports run in one pass. The rest are left unseen and run on the next pass, so a
+    burst of submissions is spread out and cannot outrun the watchdog's time limit.
   * Any failure, in reading the form or in one run, emails the reviewer the error. Never silence.
 """
 
@@ -18,7 +22,7 @@ from __future__ import annotations
 
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from . import agents, consent, intake, mailer, watchdog
@@ -28,6 +32,8 @@ from .report import write_record, write_report
 from .runner import run_checks
 
 LOG = Path("logs") / "intake.log"
+REPEAT_DAYS = 14
+MAX_RUNS_PER_HOUR = 3
 
 
 @dataclass
@@ -55,17 +61,25 @@ def process(submissions: list[intake.FormSubmission], cfg: mailer.MailerConfig, 
     outcome = Outcome()
     seen_path = seen_path or intake.SEEN  # read at call time, so it can be redirected
     done = intake.seen(seen_path)
+    started = 0
     for item in submissions:
         if item.id in done:
+            continue
+        if started >= MAX_RUNS_PER_HOUR:  # left unseen: the next pass picks it up
+            outcome.skipped.append(f"submission {item.id}: deferred to the next pass")
+            log(f"deferred submission {item.id}: {MAX_RUNS_PER_HOUR} already handled this pass")
             continue
         intake.mark_seen(item.id, seen_path)  # first, so it can never run twice
         done.add(item.id)
         if item.unknown_fields:
             log(f"submission {item.id}: fields the config does not map: {', '.join(item.unknown_fields)}")
         try:
-            _one(item, cfg, send, outcome, output=output, submissions_path=submissions_path, leads_path=leads_path,
-                 run_log=run_log)
+            # Only a submission that reaches a report counts against the cap: skipped ones (no website, lead list,
+            # repeat) cost nothing, and counting them let a pile of junk submissions starve real ones.
+            started += _one(item, cfg, send, outcome, output=output, submissions_path=submissions_path,
+                            leads_path=leads_path, run_log=run_log)
         except Exception as exc:  # never silence: the reviewer gets the error
+            started += 1  # it may have reached the website before failing
             what = f"report for {item.domain or 'a submission'} (submission {item.id})"
             error = "".join(traceback.format_exception_only(type(exc), exc)).strip()
             outcome.failed.append(f"{what}: {error}")
@@ -75,7 +89,8 @@ def process(submissions: list[intake.FormSubmission], cfg: mailer.MailerConfig, 
 
 
 def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: Outcome, *, output: Path,
-         submissions_path: Path, leads_path: Path, run_log: Path) -> None:
+         submissions_path: Path, leads_path: Path, run_log: Path) -> bool:
+    """Handle one submission. True when it ran a report, False when it was skipped."""
     requested = (f"{item.business_name or '(no business name)'}, {item.city or '(no city)'}, "
                  f"{item.phone or '(no phone)'}, from {item.email or '(no email)'} on {item.submitted.isoformat()} "
                  "through the form on /digital")
@@ -85,7 +100,7 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
         _tell(send, mailer.notice_message(cfg, f"NEW REQUEST WITHOUT A WEBSITE · {item.business_name or item.email}",
                                           f"A request came in through the form on /digital with no website, so "
                                           f"there is no report to run.\n\n{requested}\n"))
-        return
+        return False
     try:
         domain = normalize_domain(item.domain)
     except ConfigError as exc:
@@ -94,7 +109,16 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     if listed:
         outcome.skipped.append(f"{domain}: on the lead list (as {listed})")
         log(f"skipped {domain} (submission {item.id}): on the lead list as {listed}")
-        return
+        return False
+    last = last_run(output, domain, run_log)
+    if last and (datetime.now(timezone.utc).date() - last) < timedelta(days=REPEAT_DAYS):  # folders are UTC
+        outcome.skipped.append(f"{domain}: reported on {last.isoformat()}, within {REPEAT_DAYS} days")
+        log(f"skipped {domain} (submission {item.id}): already reported on {last.isoformat()}")
+        _tell(send, mailer.notice_message(cfg, f"REPEAT REQUEST · {domain}",
+                                          f"A new request for {domain} came in, and we reported on it on "
+                                          f"{last.isoformat()}, within {REPEAT_DAYS} days, so no second report ran. "
+                                          f"If you want a new one, start it by hand.\n\n{requested}\n"))
+        return False
     record = consent.validate(domain, item.email, item.submitted, "form", item.business_name, item.city, item.phone,
                               item.id)
     consent.record_submission(submissions_path, record)
@@ -117,6 +141,28 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name, ai))
     outcome.emailed += 1
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
+    return True
+
+
+def last_run(output: Path, domain: str, run_log: Path | None = None) -> date | None:
+    """The newest date this domain was reported: from its report folders (reports/<domain>/<date>, with or without
+    a suffix such as -first) and from the run log, which is written before a run starts. The folder alone missed a
+    run that failed before writing its report, so that domain could be run again the next hour."""
+    found = []
+    for folder in (output / domain).glob("*") if (output / domain).is_dir() else []:
+        try:
+            found.append(date.fromisoformat(folder.name[:10]))
+        except ValueError:
+            continue
+    if run_log and run_log.is_file():
+        for line in run_log.read_text(encoding="utf-8", errors="replace").splitlines():
+            parts = line.split("\t")
+            if len(parts) > 3 and parts[2] == "report" and parts[3] == domain:
+                try:
+                    found.append(datetime.fromisoformat(parts[0]).astimezone(timezone.utc).date())
+                except ValueError:
+                    continue
+    return max(found, default=None)
 
 
 def _tell(send, message) -> None:
