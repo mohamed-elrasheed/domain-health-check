@@ -18,7 +18,9 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** a warning on the platform rung never leads; a FAIL still always does. It stays in the attached
   report, which says the platform sets it. On our own site the message now leads with the mobile speed and DNSSEC
   warnings, both of which the owner can ask someone to fix.
-- **What it fixed:** measured on a fresh report of our own site.
+- **What it fixed:** on a fresh report of our own site the message led with mobile speed and DNSSEC, and 5 of 5
+  redrafts on the same facts passed every gate (29 cents in all). The live run before them failed one review, which
+  caught the writer calling two lead items "the first item": the gate doing its job, not this change.
 
 ### The speed step read as homework for the owner (PR #42)
 - **Problem:** on the second outside site, the live run and 1 of 5 redrafts on the same facts failed the editor
