@@ -19,7 +19,9 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   now send only their name and status. The timestamp is left out of what counts as grounded. `agents.run` now
   catches everything by construction.
 - **What it fixed:** the code check alone now catches 3 of the 10 planted false claims, up from 1, before any
-  model call is paid for. Pass rates on the two outside sites to be re-measured with this change.
+  model call is paid for. Pass rates held: on the same saved facts this branch passed 2 of 5 and main 3 of 5 on
+  the first outside site (variation, with the same failure reasons on both), and 5 of 5 on the second. Measuring 15
+  drafts instead of 5 also corrected the scorecard: the first site passes about 60%, not the 80% one run showed.
 
 ### Three ways the hourly run could fail quietly or lose a request (PR #39)
 - **Problem:** both audits found them. A damaged `logs/intake-seen.json` crashed every hourly run, and the crash
