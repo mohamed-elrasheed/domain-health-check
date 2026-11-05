@@ -279,9 +279,13 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   site each time, plus paid Google and Anthropic calls. CLAUDE.md requires deduping and rate limiting.
 - **What we did:** a domain reported in the last 14 days gets no second report; the reviewer gets a "REPEAT
   REQUEST" notice and can run one by hand. At most 3 reports run per hourly pass; the rest stay unseen and run on
-  the next pass, which also keeps a burst inside the watchdog's 20-minute limit.
-- **What it fixed:** tests show a recent domain is never run, an old one still is, and a burst of four runs as
-  two, then two, with nothing run twice.
+  the next pass, so a burst spreads over hours instead of one long run.
+- **Found by a second audit before merging:** skipped submissions (no website, a repeat) counted against the cap,
+  so a pile of junk could starve a real request for hours; and the guard looked only for a report folder, which a
+  run that failed partway never wrote. Now only submissions that reach a report count, and the guard also reads
+  the run log, which is written before a run starts. The 14-day window uses UTC dates, like the folders.
+- **What it fixed:** tests show a recent domain is never run, an old one still is, a burst of four runs as two
+  then two, junk does not use up the cap, and a crashed run still counts as recent.
 
 ### A submitted page could make the report contact our own network (PR #32)
 - **Problem:** an independent audit (November 4) found that nothing stopped the report from following a link,

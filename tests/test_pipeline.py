@@ -445,3 +445,22 @@ def test_a_burst_is_capped_per_pass_and_the_rest_wait_unseen(places, monkeypatch
     assert len(places["ran"]) == 2 and sum("deferred" in s for s in first.skipped) == 2
     pipeline.process(burst, CFG, **places["kwargs"])
     assert len(places["ran"]) == 4  # the deferred two ran on the next pass, nothing ran twice
+
+
+def test_skipped_submissions_do_not_use_up_the_hourly_cap(places, monkeypatch):
+    # Found by the second audit: five submissions with no website used to fill the cap and defer a real one.
+    monkeypatch.setattr(pipeline, "MAX_RUNS_PER_HOUR", 1)
+    junk = [submission(id=f"j{n}", website="") for n in range(5)]
+    outcome = pipeline.process(junk + [submission(id="real")], CFG, **places["kwargs"])
+    assert outcome.processed == ["mizangroupllc.com"]
+
+
+def test_a_run_that_failed_before_writing_its_report_still_counts_as_recent(places, monkeypatch):
+    # The run log is written before a run starts; a run that crashed left no folder but did visit the site.
+    def boom(config):
+        raise RuntimeError("the run failed")
+    monkeypatch.setattr(pipeline, "run_checks", boom)
+    pipeline.process([submission(id="a")], CFG, **places["kwargs"])
+    monkeypatch.setattr(pipeline, "run_checks", lambda c: report_for(c.name))
+    again = pipeline.process([submission(id="b")], CFG, **places["kwargs"])
+    assert again.processed == [] and any("within" in s for s in again.skipped)
