@@ -38,7 +38,8 @@ The editor reads the whole message as a busy owner would, after the three review
 | What the fixes were | mostly our own report copy, plus keeping one phrase out of the writer's input |
 | A second consented outside site, nothing broken, after PRs #29 to #35 | 5 of 6 through every gate, up from 0 of 5 |
 | Re-measured November 5, 15 more drafts each (main and PR #40) | first outside site: 9 of 15 (60%); second: 15 of 17 |
-| What still fails | the editor, mostly for steps that repeat what the findings already explained; a failed draft sends the template |
+| After one list: each finding and its step in one bullet (PR #41) | first outside site: 9 of 10, up from 9 of 15 |
+| What still fails | now and then the editor finds the explanations too long for a phone; a failed draft sends the template |
 | What that took | leading with the report's own first findings when nothing ranks as costing customers, and fixing the DMARC check's copy |
 | Cost of the full eval | about 40 cents |
 

@@ -29,7 +29,7 @@ import json
 import os
 import re
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from . import layout
@@ -95,10 +95,12 @@ summary and explanation use. Do not group findings under a label of your own, su
 not narrow or widen what a term covers. Keep each item to its summary and the one or two sentences of its
 explanation that say why it matters; the whole message should read in about a minute on a phone.
 
-next_steps: what would help, for the checks you listed in missing and no others. Say what to do or what to ask
-for, based on the check's fix. If two checks call for the same step, or their fixes send the owner to the same
-place (such as the same plugin's settings), write one step that covers both, under the first check. Do not
-repeat in a step what the finding above it already said. A fix that points to "the technical details" means the
+next_steps: one step for each check in missing, in the same order, and no others. We print each step right
+after its finding, in the same bullet, after "What to do:", so a step must never name the finding again or say
+why it matters: start with the action. Say what to do or what to ask for, based on the check's fix. When a step
+uses the same place as the step before it (such as the same plugin's settings), say so in a few words, such as
+"In the same plugin settings, add a title, description and image for link previews." instead of explaining the
+place again. A fix that points to "the technical details" means the
 technical details in the attached report: say so. Do not say who does it; we add that. Leave out any check whose
 who is "Set by your website platform": the owner cannot change it. Prefer plain descriptions to technical names,
 such as "whoever manages your domain" rather than "DNS provider". When the owner has to ask for something by name,
@@ -145,12 +147,12 @@ Check every sentence in the draft, one at a time. For each sentence, ask:
    rather than as found?
 4. Does it avoid prices, competitors, and any promise to check the site again?
 
-Our code writes some lines, and they are not claims to check: the headings "The short version:", "What we would
-look at first:" and "What would help:", the line saying how many more things the attached report lists, and the
-label in parentheses at the end of each step, which says who can do it. A short plain explanation of a technical
-term is supported when it is accurate general knowledge and adds no claim about this website. A step that says
-what to ask for, or whom to ask, is advice, not a claim about the website: it is supported when it follows that
-check's fix in the data.
+Our code writes some lines, and they are not claims to check: the headings "The short version:" and "What we would
+look at first:", the words "What to do:" before each step, the line saying how many more things the attached report
+lists, and the label in parentheses at the end of each step, which says who can do it. A short plain explanation of
+a technical term is supported when it is accurate general knowledge and adds no claim about this website. A step
+that says what to ask for, or whom to ask, is advice, not a claim about the website: it is supported when it follows
+that check's fix in the data.
 
 Then check the voice rules: written as "we", plain everyday words, any technical term explained in the same
 sentence or the one right after it, no dashes used as punctuation, no exclamation marks, no ellipses, no words
@@ -325,18 +327,37 @@ class Draft:
         """The words the agents wrote, laid out the way the owner reads them, with who can do each step added by
         code from the price list. No greeting, opening or signature: those are code's, and are not checked."""
         who = {c["name"]: c.get("who") for c in facts["checks"]}
+        steps = {i.check: i for i in unrepeated(self.next_steps)}
         parts = [f"The short version: {self.bottom_line.strip()}"]
         if self.missing:
-            parts += ["", "What we would look at first:", *[f"- {i.text.strip()}" for i in self.missing]]
+            # One bullet per finding: what we found and why, then what to do. Two lists (findings, then steps)
+            # named every finding twice, and the editor failed most drafts for it (November 5).
+            parts += ["", "What we would look at first:"]
+            for i in self.missing:
+                line = f"- {i.text.strip()}"
+                step = steps.get(i.check)
+                if step:
+                    label = who.get(step.check)
+                    line += f" What to do: {step.text.strip()}" + (f" ({label}.)" if label else "")
+                parts.append(line)
         more = facts.get("more_to_look_at", 0)
         if more:
             parts += ["", more_line(more, bool(self.missing))]
-        if self.next_steps:
-            parts += ["", "What would help:"]
-            for i in self.next_steps:
-                label = who.get(i.check)
-                parts.append(f"- {i.text.strip()}" + (f" ({label}.)" if label else ""))
         return "\n".join(parts)
+
+
+def unrepeated(steps: list[Item]) -> list[Item]:
+    """The steps with any sentence an earlier step already said taken out. Two WordPress fixes end with the same
+    "if your site has no SEO plugin" sentence; with one step per finding, the writer copied it into both, 10 drafts
+    out of 10 (November 5). Dropping an exact repeat is a job code can do exactly, so code does it."""
+    said: set[str] = set()
+    kept = []
+    for step in steps:
+        parts = [x for x in SENTENCE.split(step.text.strip()) if x]
+        fresh = [x for x in parts if " ".join(x.lower().split()) not in said]
+        said.update(" ".join(x.lower().split()) for x in parts)
+        kept.append(replace(step, text=" ".join(fresh)) if fresh else step)
+    return kept
 
 
 def more_line(more: int, after_list: bool) -> str:
@@ -417,22 +438,26 @@ def code_check(d: Draft, facts: dict) -> list[str]:
 
     if not d.bottom_line.strip():
         problems.append("The draft has no bottom line.")
-    for section, items in (("What we would look at first", d.missing), ("What would help", d.next_steps)):
+    for section, items in (("What we would look at first", d.missing), ("A step", d.next_steps)):
         for item in items:
             found = by_name.get(item.check)
             if found is None:
                 problems.append(f'{section} names a check the report does not have: "{item.check}".')
             elif found["status"] not in ("WARN", "FAIL"):
                 problems.append(f'{section} lists "{item.check}", but the report says {found["status"]}.')
-            elif section == "What would help" and found.get("who") == WHO["platform"]:
-                problems.append(f'What would help asks the owner to change "{item.check}", which their website '
+            elif section == "A step" and found.get("who") == WHO["platform"]:
+                problems.append(f'A step asks the owner to change "{item.check}", which their website '
                                 "platform sets.")
     listed = [i.check for i in d.missing]
     lead = facts.get("lead_with", facts["top_findings"])
     for name in lead:  # the top findings and anything broken today: a FAIL must never go unmentioned
         if name not in listed:
             problems.append(f'What we would look at first leaves out "{name}", which the message must lead with.')
-    for section, items in (("What we would look at first", d.missing), ("What would help", d.next_steps)):
+    stepped = {i.check for i in d.next_steps}
+    for name in listed:  # one bullet per finding now carries its own step (November 5)
+        if name in by_name and name not in stepped and by_name[name].get("who") != WHO["platform"]:
+            problems.append(f'"{name}" has no step, so its bullet would end without saying what to do.')
+    for section, items in (("What we would look at first", d.missing), ("A step", d.next_steps)):
         for item in items:
             if item.check in by_name and item.check not in lead:
                 problems.append(f'{section} lists "{item.check}", which the message does not lead with; the '
@@ -446,7 +471,7 @@ def code_check(d: Draft, facts: dict) -> list[str]:
     # The same sentence in more than one item is padding (Nov 4: "This could be better, but it is not broken." on
     # every finding after the short version had already said it).
     seen: dict[str, int] = {}
-    for item in d.missing + d.next_steps:
+    for item in d.missing + unrepeated(d.next_steps):  # what the owner reads, after code drops repeated steps
         for sentence in {" ".join(x.lower().split()) for x in SENTENCE.split(item.text) if len(x.split()) >= 4}:
             seen[sentence] = seen.get(sentence, 0) + 1
     for sentence, n in sorted(seen.items()):
