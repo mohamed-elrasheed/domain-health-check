@@ -11,6 +11,10 @@ Rules, in the order they apply:
   * A submission is marked seen before anything else happens to it, so a crash midway can never process it twice.
   * A domain on the lead list is skipped and logged: the lead list is consent-free by definition.
   * A submission with no website gets a notice to the reviewer, since there is nothing to run.
+  * A domain reported in the last REPEAT_DAYS gets no second report: the reviewer gets a notice instead. Anyone can
+    submit the form, so without this a bot could make us send the same site's server the same requests every hour.
+  * At most MAX_RUNS_PER_HOUR reports run in one pass. The rest are left unseen and run on the next pass, so a
+    burst of submissions is spread out and cannot outrun the watchdog's time limit.
   * Any failure, in reading the form or in one run, emails the reviewer the error. Never silence.
 """
 
@@ -18,7 +22,7 @@ from __future__ import annotations
 
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from . import agents, consent, intake, mailer, watchdog
@@ -28,6 +32,8 @@ from .report import write_record, write_report
 from .runner import run_checks
 
 LOG = Path("logs") / "intake.log"
+REPEAT_DAYS = 14
+MAX_RUNS_PER_HOUR = 3
 
 
 @dataclass
@@ -55,9 +61,15 @@ def process(submissions: list[intake.FormSubmission], cfg: mailer.MailerConfig, 
     outcome = Outcome()
     seen_path = seen_path or intake.SEEN  # read at call time, so it can be redirected
     done = intake.seen(seen_path)
+    started = 0
     for item in submissions:
         if item.id in done:
             continue
+        if started >= MAX_RUNS_PER_HOUR:  # left unseen: the next pass picks it up
+            outcome.skipped.append(f"submission {item.id}: deferred to the next pass")
+            log(f"deferred submission {item.id}: {MAX_RUNS_PER_HOUR} already handled this pass")
+            continue
+        started += 1
         intake.mark_seen(item.id, seen_path)  # first, so it can never run twice
         done.add(item.id)
         if item.unknown_fields:
@@ -95,6 +107,15 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
         outcome.skipped.append(f"{domain}: on the lead list (as {listed})")
         log(f"skipped {domain} (submission {item.id}): on the lead list as {listed}")
         return
+    last = last_run(output, domain)
+    if last and (date.today() - last) < timedelta(days=REPEAT_DAYS):
+        outcome.skipped.append(f"{domain}: reported on {last.isoformat()}, within {REPEAT_DAYS} days")
+        log(f"skipped {domain} (submission {item.id}): already reported on {last.isoformat()}")
+        _tell(send, mailer.notice_message(cfg, f"REPEAT REQUEST · {domain}",
+                                          f"A new request for {domain} came in, and we reported on it on "
+                                          f"{last.isoformat()}, within {REPEAT_DAYS} days, so no second report ran. "
+                                          f"If you want a new one, start it by hand.\n\n{requested}\n"))
+        return
     record = consent.validate(domain, item.email, item.submitted, "form", item.business_name, item.city, item.phone,
                               item.id)
     consent.record_submission(submissions_path, record)
@@ -117,6 +138,18 @@ def _one(item: intake.FormSubmission, cfg: mailer.MailerConfig, send, outcome: O
     send(mailer.review_message(cfg, report, pdf, exit_code, requested, item.name, item.business_name, ai))
     outcome.emailed += 1
     log(f"emailed the review of {domain} to {mailer.REVIEWER}, exit code {exit_code}")
+
+
+def last_run(output: Path, domain: str) -> date | None:
+    """The date of the newest report folder for this domain (reports/<domain>/<date>, with or without a suffix
+    such as -first), or None."""
+    found = []
+    for folder in (output / domain).glob("*") if (output / domain).is_dir() else []:
+        try:
+            found.append(date.fromisoformat(folder.name[:10]))
+        except ValueError:
+            continue
+    return max(found, default=None)
 
 
 def _tell(send, message) -> None:

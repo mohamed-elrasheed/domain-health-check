@@ -421,3 +421,27 @@ def test_the_pipeline_puts_a_passed_ai_draft_in_the_review_email(places, monkeyp
     assert "written by AI; Passed the code check, 3 of 3 reviews and the editor." in body
     assert "The short version: Nothing on your website is broken today." in body
     assert "mizangroupllc.com: AI draft passed." in pipeline.LOG.read_text(encoding="utf-8")
+
+
+def test_a_domain_reported_recently_is_not_run_again_and_the_reviewer_is_told(places):
+    # Found by an independent audit: anyone can submit the form, so the same site could be reported every hour.
+    recent = places["kwargs"]["output"] / "mizangroupllc.com" / date.today().isoformat()
+    recent.mkdir(parents=True)
+    outcome = pipeline.process([submission()], CFG, **places["kwargs"])
+    assert outcome.processed == [] and places["ran"] == []
+    [msg] = FakeSMTP.sent
+    assert msg["Subject"].startswith("REPEAT REQUEST · mizangroupllc.com")
+
+
+def test_an_old_report_does_not_block_a_new_one(places):
+    (places["kwargs"]["output"] / "mizangroupllc.com" / "2026-01-01-first").mkdir(parents=True)
+    assert pipeline.process([submission()], CFG, **places["kwargs"]).processed == ["mizangroupllc.com"]
+
+
+def test_a_burst_is_capped_per_pass_and_the_rest_wait_unseen(places, monkeypatch):
+    monkeypatch.setattr(pipeline, "MAX_RUNS_PER_HOUR", 2)
+    burst = [submission(id=f"sub-{n}", website=f"https://site{n}.example/") for n in range(4)]
+    first = pipeline.process(burst, CFG, **places["kwargs"])
+    assert len(places["ran"]) == 2 and sum("deferred" in s for s in first.skipped) == 2
+    pipeline.process(burst, CFG, **places["kwargs"])
+    assert len(places["ran"]) == 4  # the deferred two ran on the next pass, nothing ran twice
