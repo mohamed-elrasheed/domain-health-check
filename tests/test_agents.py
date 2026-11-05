@@ -559,3 +559,12 @@ def test_a_finding_without_a_step_is_caught():
     d = bad(next_steps=GOOD["next_steps"][1:])
     missing_step = GOOD["next_steps"][0]["check"]
     assert any(f'"{missing_step}" has no step' in p for p in agents.code_check(d, agents.facts(report())))
+
+
+def test_a_sentence_an_earlier_step_said_is_dropped_by_code():
+    # Two WordPress fixes end with the same sentence; one step per finding copied it into both, 10 drafts of 10.
+    same = "If your site has no SEO plugin, you can add one from the Plugins page in WordPress."
+    steps = [agents.Item("Meta description", f"Look in your SEO plugin's settings. {same}"),
+             agents.Item("Social preview", f"In the same settings, add an image. {same}")]
+    kept = agents.unrepeated(steps)
+    assert kept[0].text.endswith(same) and kept[1].text == "In the same settings, add an image."

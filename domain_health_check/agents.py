@@ -29,7 +29,7 @@ import json
 import os
 import re
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from . import layout
@@ -327,7 +327,7 @@ class Draft:
         """The words the agents wrote, laid out the way the owner reads them, with who can do each step added by
         code from the price list. No greeting, opening or signature: those are code's, and are not checked."""
         who = {c["name"]: c.get("who") for c in facts["checks"]}
-        steps = {i.check: i for i in self.next_steps}
+        steps = {i.check: i for i in unrepeated(self.next_steps)}
         parts = [f"The short version: {self.bottom_line.strip()}"]
         if self.missing:
             # One bullet per finding: what we found and why, then what to do. Two lists (findings, then steps)
@@ -344,6 +344,20 @@ class Draft:
         if more:
             parts += ["", more_line(more, bool(self.missing))]
         return "\n".join(parts)
+
+
+def unrepeated(steps: list[Item]) -> list[Item]:
+    """The steps with any sentence an earlier step already said taken out. Two WordPress fixes end with the same
+    "if your site has no SEO plugin" sentence; with one step per finding, the writer copied it into both, 10 drafts
+    out of 10 (November 5). Dropping an exact repeat is a job code can do exactly, so code does it."""
+    said: set[str] = set()
+    kept = []
+    for step in steps:
+        parts = [x for x in SENTENCE.split(step.text.strip()) if x]
+        fresh = [x for x in parts if " ".join(x.lower().split()) not in said]
+        said.update(" ".join(x.lower().split()) for x in parts)
+        kept.append(replace(step, text=" ".join(fresh)) if fresh else step)
+    return kept
 
 
 def more_line(more: int, after_list: bool) -> str:
@@ -457,7 +471,7 @@ def code_check(d: Draft, facts: dict) -> list[str]:
     # The same sentence in more than one item is padding (Nov 4: "This could be better, but it is not broken." on
     # every finding after the short version had already said it).
     seen: dict[str, int] = {}
-    for item in d.missing + d.next_steps:
+    for item in d.missing + unrepeated(d.next_steps):  # what the owner reads, after code drops repeated steps
         for sentence in {" ".join(x.lower().split()) for x in SENTENCE.split(item.text) if len(x.split()) >= 4}:
             seen[sentence] = seen.get(sentence, 0) + 1
     for sentence, n in sorted(seen.items()):

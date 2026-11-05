@@ -17,7 +17,11 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** one list. Each bullet is the finding, why it matters, then "What to do:" and its step, with
   code's who-can-do-it label. The writer gives every finding its own step, starting with the action; a step that
   uses the same place as the one before says so in a few words. The code check rejects a finding with no step.
-- **What it fixed:** to be measured on 10 redrafts of the same saved facts against the 60% baseline.
+- **First measurement: 0 of 10, all for one cause.** Two WordPress fixes end with the same "if your site has no
+  SEO plugin" sentence, and with one step per finding the writer copied it into both; the code check rejected all
+  10 before any review (18 cents in all). Code now drops a sentence a later step repeats word for word, since that
+  is a job code can do exactly.
+- **What it fixed:** to be measured on 10 more redrafts against the 60% baseline.
 
 ### The code check's gaps and false alarms, and website text reaching the models (PR #40)
 - **Problem:** both audits listed small code-check gaps: "--" passed the dash rule; "right away" and "as soon as
