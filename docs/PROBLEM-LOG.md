@@ -21,7 +21,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
   SEO plugin" sentence, and with one step per finding the writer copied it into both; the code check rejected all
   10 before any review (18 cents in all). Code now drops a sentence a later step repeats word for word, since that
   is a job code can do exactly.
-- **What it fixed:** to be measured on 10 more redrafts against the 60% baseline.
+- **What it fixed:** 9 of 10 redrafts on the same saved facts passed every gate, up from about 60% (9 of 15) with two lists. The one failure was the editor judging the explanations too long for a phone.
 
 ### The code check's gaps and false alarms, and website text reaching the models (PR #40)
 - **Problem:** both audits listed small code-check gaps: "--" passed the dash rule; "right away" and "as soon as
