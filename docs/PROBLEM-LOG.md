@@ -17,7 +17,9 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** the step now asks "whoever built or manages your website" for the result, a faster home page on
   phones, and says the PageSpeed report shows them what is slowing it down. Same wording style as the email steps,
   which the editor never flagged.
-- **What it fixed:** measured on a fresh report, since a redraft replays the old copy (see SCORECARD.md).
+- **What it fixed:** the fresh report with the new step passed the code check, 3 of 3 reviews and the editor on
+  its first run (about 6 cents), with the new step word for word. One run, so it shows the objection is gone, not
+  a new pass rate.
 
 ### Two lists made every message say each finding twice (PR #41)
 - **Problem:** measured over 15 drafts, the first outside site passed every gate about 60% of the time, and nearly
