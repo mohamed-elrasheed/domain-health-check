@@ -17,7 +17,7 @@ import socket
 import ssl
 from datetime import datetime, timezone
 
-from .. import requestlog
+from .. import netguard, requestlog
 from ..models import WEBSITE, CheckResult, Status
 
 WARN_DAYS = 30
@@ -58,6 +58,8 @@ def fetch_tls_info(domain: str) -> tuple[dict, str | None]:
     create_default_context() checks the certificate chain AND that the
     certificate matches the hostname, raising SSLCertVerificationError if not.
     """
+    if not netguard.public(domain):  # the one connection that does not go through httpx, so it checks here
+        raise ConnectionRefusedError(f"refused: {domain} points to a private network address, which we never contact")
     context = ssl.create_default_context()
     entry = requestlog.record("tls", "CONNECT", f"{domain}:443")
     try:

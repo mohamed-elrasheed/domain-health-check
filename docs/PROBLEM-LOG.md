@@ -273,6 +273,19 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Security and supply chain
 
+### A second audit: a redirect to someone else's site, and the TLS check's own connection (PR #38)
+- **Problem:** a second independent audit (November 5, on a different model, told what the first had found) found
+  two holes. A submitted domain whose home page redirects to another website got that other site checked in
+  full: rendered with a screenshot, its links verified, its contact page loaded, and sent to Google's speed test.
+  A throwaway domain pointed at a competitor would get us a report on a site whose owner never asked. And the
+  TLS check opens its own connection, outside PR #32's guard, so a domain pointing at a private address would
+  have had its certificate read.
+- **What we did:** when the home page lands on a different website, nothing more is fetched, rendered, verified
+  or sent to Google, and the report says why. A move within the same site (www, https, a subdomain) is fine. The
+  TLS check refuses private addresses before it connects.
+- **What it fixed:** tests prove the off-site stop, the same-site moves still allowed, and that the TLS check
+  never opens a socket to a private address.
+
 ### A submitted page could make the report contact our own network (PR #32)
 - **Problem:** an independent audit (November 4) found that nothing stopped the report from following a link,
   redirect or script to a private address. Anyone can submit a domain, so a page linking to `http://192.168.1.1/`,

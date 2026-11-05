@@ -98,7 +98,7 @@ def _run_checks(domain: DomainConfig, now: datetime) -> DomainReport:
     if _domain_exists(domain.name) is False:
         return _unregistered(domain.name, now)
     incomplete: list[str] = []
-    page = _fetch_page(domain.name)
+    page = _left_the_site(_fetch_page(domain.name))
     if isinstance(page, FetchError):
         incomplete.append(f"The home page could not be loaded, so the site health checks did not run: {page.reason}")
     page, render_failure = _render_in_browser(page)
@@ -217,6 +217,21 @@ def _nearby(ext: ExternalContext) -> dict | None:
     if not ext.nearby or not ext.place:
         return None
     return {**ext.nearby, "own_reviews": ext.place.get("userRatingCount") or 0, "own_rating": ext.place.get("rating")}
+
+
+def _left_the_site(page):
+    """Consent covers the submitted website only. If its home page redirects to a different website, nothing more
+    is fetched, rendered, verified or sent to Google: a throwaway domain pointed at someone else's site would
+    otherwise get us a full report, screenshot included, on a site whose owner never asked. A move within the same
+    site (www, https, a subdomain of it) is fine. Found by the second audit, November 5, 2026."""
+    if not isinstance(page, PageContext):
+        return page
+    start = (fetcher.urlsplit(page.requested_url).hostname or "").removeprefix("www.")
+    end = (fetcher.urlsplit(page.final_url).hostname or "").removeprefix("www.")
+    if not end or end == start or end.endswith("." + start):
+        return page
+    return FetchError(page.requested_url, f"the home page sends visitors to a different website ({end}), and we "
+                                          "only check the website that was submitted")
 
 
 def _fetch_external(domain: DomainConfig | str, page: PageContext | FetchError) -> ExternalContext:
