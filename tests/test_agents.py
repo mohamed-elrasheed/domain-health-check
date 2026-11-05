@@ -490,3 +490,24 @@ def test_a_clean_site_still_leads_with_the_reports_first_findings():
     assert f["top_findings"] == [] and len(f["lead_with"]) == 2 and f["more_to_look_at"] == 0
     saved = {**f, "lead_with": []}
     assert agents.upgrade_facts(saved)["lead_with"] == f["lead_with"]
+
+
+def test_a_billed_call_that_fails_still_counts_in_the_cost(monkeypatch):
+    # Found by the second audit: a max_tokens stop dropped its usage, so the email said no AI calls were made.
+    def stopped(*a, **k):
+        raise agents.CallFailed("the model stopped early (max_tokens)", agents.Usage(agents.DRAFT_MODEL, 7000, 8000))
+    monkeypatch.setattr(agents, "_call", stopped)
+    outcome = agents._run(agents.facts(report()), object(), 3)
+    assert outcome.status == "error" and outcome.cost > 0
+
+
+def test_the_ai_step_stops_when_it_passes_its_time_budget(monkeypatch):
+    # A stalled API must never hold the hourly run past the watchdog, which would kill it and lose the submission.
+    f = agents.facts(report())
+    good = agents.Draft("Nothing on your site is broken today.", [], [])
+    monkeypatch.setattr(agents, "draft", lambda facts, client: (good, agents.Usage(agents.DRAFT_MODEL, 1, 1)))
+    monkeypatch.setattr(agents, "code_check", lambda d, facts: [])
+    monkeypatch.setattr(agents, "_over_budget", lambda started: True)
+    monkeypatch.setattr(agents, "review", lambda *a, **k: pytest.fail("reviews ran past the budget"))
+    outcome = agents._run(f, object(), 3)
+    assert outcome.status == "error" and "budget" in outcome.reason

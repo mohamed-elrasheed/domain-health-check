@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -502,6 +503,7 @@ def review(facts: dict, text: str, client, *, model: str = REVIEW_MODEL, runs: i
                                   [str(s) for s in data["unsupported_claims"]],
                                   [str(s) for s in data["voice_problems"]]))
         except Exception as exc:  # noqa: BLE001 - every failure fails closed
+            usages += _billed(exc)
             reviews.append(Review(False, f"This review could not run: {_describe(exc)}"))
     return reviews, usages
 
@@ -515,7 +517,7 @@ def edit(text: str, client, *, model: str = EDITOR_MODEL) -> tuple[Review, list[
         return Review(data["passed"] is True, str(data["reason"]), voice_problems=[str(s) for s in data["problems"]]), \
             [usage]
     except Exception as exc:  # noqa: BLE001 - every failure fails closed
-        return Review(False, f"The editor could not run: {_describe(exc)}"), []
+        return Review(False, f"The editor could not run: {_describe(exc)}"), _billed(exc)
 
 
 # ---------- one model call
@@ -542,12 +544,28 @@ def _call(client, model: str, system: str, prompt: str, schema: dict, max_tokens
     )
     usage = Usage(model, response.usage.input_tokens, response.usage.output_tokens)
     if response.stop_reason not in ("end_turn", "stop_sequence"):
-        raise RuntimeError(f"the model stopped early ({response.stop_reason})")
+        raise CallFailed(f"the model stopped early ({response.stop_reason})", usage)
     text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
-    data = json.loads(text)
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        raise CallFailed(f"the reply was not JSON ({exc})", usage) from None
     if not isinstance(data, dict):
-        raise ValueError("the reply was not a JSON object")
+        raise CallFailed("the reply was not a JSON object", usage)
     return data, usage
+
+
+class CallFailed(RuntimeError):
+    """A call that was made and billed, then failed our checks. It carries its token counts, so the cost line
+    never says no AI calls were made after a paid one (found by the second audit)."""
+
+    def __init__(self, message: str, usage: Usage):
+        super().__init__(message)
+        self.usage = usage
+
+
+def _billed(exc: Exception) -> list[Usage]:
+    return [exc.usage] if isinstance(exc, CallFailed) else []
 
 
 def _describe(exc: Exception) -> str:
@@ -609,7 +627,9 @@ def make_client(require_switch: bool = True):
         return None, 'AI drafts are off (the ai extra is not installed: pip install -e ".[ai]").'
     # Two retries, for dropped connections and overloaded servers only. A spend limit or a bad request is never
     # retried by the SDK, and nothing here loops.
-    return anthropic.Anthropic(max_retries=2, timeout=120), None
+    # One retry and 60 seconds a call: five calls then take at most about 10 minutes even when every one stalls,
+    # which keeps three reports and their drafts inside the intake time limit. The budget below stops sooner.
+    return anthropic.Anthropic(max_retries=1, timeout=60), None
 
 
 def run(report: DomainReport, client=None, *, output_dir: Path | None = None, require_switch: bool = True,
@@ -631,11 +651,25 @@ def run(report: DomainReport, client=None, *, output_dir: Path | None = None, re
     return outcome
 
 
+AI_BUDGET_SECONDS = 360  # past this, the next step is skipped and the template goes out
+
+
+def _over_budget(started: float) -> bool:
+    """A stalled API must never hold the hourly run past the watchdog's limit, which kills the process and loses the
+    submission it was on (found by the audits). The budget is checked between steps; each call is also capped."""
+    return time.monotonic() - started > AI_BUDGET_SECONDS
+
+
+def _budget_reason(where: str) -> str:
+    return f"Stopped {where}: the AI step passed its {AI_BUDGET_SECONDS // 60} minute budget."
+
+
 def _run(the_facts: dict, client, runs: int, review_model: str = REVIEW_MODEL) -> Outcome:
+    started = time.monotonic()
     try:
         d, usage = draft(the_facts, client)
     except Exception as exc:  # noqa: BLE001 - every failure fails closed
-        return Outcome("error", f"The draft could not be written: {_describe(exc)}")
+        return Outcome("error", f"The draft could not be written: {_describe(exc)}", usage=_billed(exc))
     outcome = Outcome("failed", "", draft=d, usage=[usage])
 
     outcome.problems = code_check(d, the_facts)
@@ -644,6 +678,10 @@ def _run(the_facts: dict, client, runs: int, review_model: str = REVIEW_MODEL) -
                           f"{'s' if len(outcome.problems) != 1 else ''}, so no review was run.")
         return outcome
 
+    if _over_budget(started):
+        outcome.status = "error"
+        outcome.reason = _budget_reason("after the code check")
+        return outcome
     outcome.reviews, usages = review(the_facts, d.text(the_facts), client, model=review_model, runs=runs)
     outcome.usage += usages
     passed = sum(r.passed for r in outcome.reviews)
@@ -652,6 +690,10 @@ def _run(the_facts: dict, client, runs: int, review_model: str = REVIEW_MODEL) -
             r.reason for r in outcome.reviews if not r.passed)
         return outcome
 
+    if _over_budget(started):
+        outcome.status = "error"
+        outcome.reason = _budget_reason("before the editor")
+        return outcome
     outcome.editor, usages = edit(d.text(the_facts), client)
     outcome.usage += usages
     if outcome.editor.passed:

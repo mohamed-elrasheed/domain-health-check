@@ -8,6 +8,21 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### Three ways the hourly run could fail quietly or lose a request (PR #39)
+- **Problem:** both audits found them. A damaged `logs/intake-seen.json` crashed every hourly run, and the crash
+  reached only stderr. The AI step had no total limit: five calls at 120 seconds with two retries each could take
+  half an hour, past the 20-minute watchdog, which kills the process with a submission already marked seen and
+  never reported. And a paid call that stopped early dropped its token counts, so the email could say no AI calls
+  were made.
+- **What we did:** the seen file is written to a temporary file and swapped in, with the previous version kept
+  as a backup; a damaged one stops intake with a clear error instead of reading as empty (empty would re-run every
+  submission ever received). A crash inside intake now emails the reviewer and raises an alert. The AI step has a
+  6-minute budget checked between steps, and each call is capped at 60 seconds with one retry. The watchdog's
+  default rose to 45 minutes to cover the worst case of three reports and still end before the next hour. A failed
+  but billed call keeps its token counts.
+- **What it fixed:** tests prove each of these. Mo: if `INTAKE_TIME_LIMIT_MINUTES` is set in `.env`, raise it to 45
+  or clear it.
+
 ### The DMARC finding said its point twice in every message (PR #35)
 - **Problem:** a fresh report with PR #34's copy, then five redrafts: 0 of 5. Every draft passed the code check,
   and four passed all three reviews. The editor failed all of them for the same pair: the summary "forged emails

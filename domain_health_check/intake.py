@@ -185,19 +185,33 @@ def _raise_for(response: httpx.Response, doing: str) -> None:
 # ---------- which submissions are new
 
 def seen(path: Path | None = None) -> set[str]:
+    """The submission ids already handled. A file that cannot be read stops intake with an error rather than
+    counting as empty: empty would re-run every submission the form has ever received."""
     path = path or SEEN
     try:
-        return set(json.loads(path.read_text(encoding="utf-8")))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return set()
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise IntakeError(f"{path} is damaged and cannot be read ({type(exc).__name__}), so no submission was "
+                          "processed. Restore it from the backup beside it, or fix it by hand.") from None
+    if not isinstance(data, list):
+        raise IntakeError(f"{path} does not hold a list of submission ids, so no submission was processed.")
+    return {str(x) for x in data}
 
 
 def mark_seen(submission_id: str, path: Path | None = None) -> None:
-    """Recorded before the report runs, so a crash midway can never send the same request round twice."""
+    """Recorded before the report runs, so a crash midway can never send the same request round twice. Written to
+    a temporary file and swapped in, so a crash or power cut mid-write can never leave a half-written file; the
+    previous version is kept as a .bak beside it."""
     path = path or SEEN
     done = seen(path) | {submission_id}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(sorted(done), indent=2), encoding="utf-8")
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(sorted(done), indent=2), encoding="utf-8")
+    if path.exists():
+        path.replace(path.with_suffix(path.suffix + ".bak"))
+    temp.replace(path)
 
 
 def from_file(path: Path) -> list[FormSubmission]:

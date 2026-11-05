@@ -286,8 +286,16 @@ def _run_intake(args, counts: dict[str, int]) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         pipeline.intake_failed(mail, str(exc), smtp_factory=SMTP_FACTORY)
         return 2
-    outcome = pipeline.process(found, mail, output=args.output, submissions_path=SUBMISSIONS, leads_path=LEADS_FILE,
-                               run_log=RUN_LOG, smtp_factory=SMTP_FACTORY)
+    try:
+        outcome = pipeline.process(found, mail, output=args.output, submissions_path=SUBMISSIONS,
+                                   leads_path=LEADS_FILE, run_log=RUN_LOG, smtp_factory=SMTP_FACTORY)
+    except Exception as exc:  # a crash here used to reach only stderr, every hour, unseen
+        counts["failures"] += 1
+        error = f"{type(exc).__name__}: {exc}"
+        print(f"Error: {error}", file=sys.stderr)
+        pipeline.intake_failed(mail, error, smtp_factory=SMTP_FACTORY)  # logs, emails, alerts if email fails
+        watchdog.alert("the intake run crashed")
+        return 2
     counts["new"] = len(outcome.processed) + len(outcome.skipped) + len(outcome.failed)
     counts["emailed"] = outcome.emailed
     counts["failures"] += len(outcome.failed)
