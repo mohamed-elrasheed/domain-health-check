@@ -500,6 +500,18 @@ def test_a_clean_site_still_leads_with_the_reports_first_findings():
     assert agents.upgrade_facts(saved)["lead_with"] == f["lead_with"]
 
 
+
+def test_a_warning_the_website_platform_sets_never_leads():
+    # Our own Webflow site led with Content Security Policy and nosniff, which Webflow sets; the bullets had no
+    # step because the owner cannot act, and the editor failed the message. They stay in the attached report.
+    site = DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "Content Security Policy", Status.WARN, "Not set.", "Why.", "Ask."),
+        CheckResult(WEBSITE, "X-Content-Type-Options", Status.WARN, "Not on.", "Why.", "Ask."),
+        CheckResult(WEBSITE, "DNSSEC", Status.WARN, "Not on.", "Why.", "Ask."),
+    ], platform="Webflow")
+    f = agents.facts(site)
+    assert f["lead_with"] == ["DNSSEC"] and f["more_to_look_at"] == 2
+
 def test_a_billed_call_that_fails_still_counts_in_the_cost(monkeypatch):
     # Found by the second audit: a max_tokens stop dropped its usage, so the email said no AI calls were made.
     def stopped(*a, **k):

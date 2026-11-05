@@ -8,6 +8,18 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The message led with settings the owner cannot change (PR #44)
+- **Problem:** our own site's message failed the editor: two of its three lead findings, Content Security Policy
+  and nosniff, had no step, so the owner got jargon with nothing to do. The code check allowed it on purpose,
+  because those settings are set by the website platform (Webflow here) and a step asking the owner to change them
+  would be wrong.
+- **Cause:** when nothing is costing customers, the message leads with the report's first three warnings, and
+  that choice did not skip warnings the owner's platform controls.
+- **What we did:** a warning on the platform rung never leads; a FAIL still always does. It stays in the attached
+  report, which says the platform sets it. On our own site the message now leads with the mobile speed and DNSSEC
+  warnings, both of which the owner can ask someone to fix.
+- **What it fixed:** measured on a fresh report of our own site.
+
 ### The speed step read as homework for the owner (PR #42)
 - **Problem:** on the second outside site, the live run and 1 of 5 redrafts on the same facts failed the editor
   for the same reason: the speed step told the owner's developer to "work through" Google's suggestions, and the
