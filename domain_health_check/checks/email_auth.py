@@ -46,7 +46,7 @@ DKIM_EXPLANATION = (
 DMARC_EXPLANATION = (
     "DMARC tells other mail systems what to do with emails that claim to be from you but fail its checks (SPF, "
     "the list of servers allowed to send your email, and DKIM, a signature on each message): deliver, send to "
-    "spam, or reject. Without an enforcing policy, scammers can send emails that appear to come from your domain."
+    "spam, or reject."
 )
 
 
