@@ -292,9 +292,12 @@ def _first_findings(checks: list[dict]) -> list[str]:
     """When the report ranks nothing as costing customers, the message still needs something to lead with: a
     clean site with six warnings got a message that said only "see the report", and the editor failed it 5 of 5
     for giving no next step. So it leads with the report's own first three confirmed findings, in the report's
-    order (its ladder of what matters to a visitor first). Code decides this, never the model."""
+    order (its ladder of what matters to a visitor first). Code decides this, never the model.
+
+    A warning the owner's website platform sets never leads: the owner cannot change it, so its bullet had no step,
+    and the editor failed our own Webflow site's message for it (November 5). It stays in the attached report."""
     found = [c for c in checks if c.get("status") in ("WARN", "FAIL") and c.get("certain", True)
-             and c.get("ran", True)]
+             and c.get("ran", True) and (c.get("rung") != "platform" or c.get("status") == "FAIL")]
     found.sort(key=lambda c: (layout.TIER.get(c["name"], (len(layout.LADDER), 99)), c.get("status") != "FAIL"))
     return [c["name"] for c in found[:layout.TOP]]
 
