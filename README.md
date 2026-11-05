@@ -574,7 +574,7 @@ domain_health_check/
   external.py       outside services fetched once per report (PageSpeed Insights), with a 24-hour cache
   scoring.py        the weighted 0 to 100 score
   layout.py         what each report section says, shared by both formats
-  report.py         Markdown report, and keeping only the latest per domain
+  report.py         Markdown report and report.json, one dated folder per run (older runs are kept)
   pdf.py            PDF report (WeasyPrint), from the same report object
   mailer.py         emails a finished report to the reviewer, never to the site owner
   agents.py         optional AI draft and review of the owner's message, with a template fallback

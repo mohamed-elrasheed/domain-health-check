@@ -2,7 +2,7 @@
 
 North Star: every word a business owner reads must be true, checked, and approved by a person. The facts come
 from our checks. The draft agent explains them. The review agent checks every claim against the facts, three
-times. Mo approves. If anything fails, the plain template goes out instead.
+times. An editor reads the whole message. Mo approves. If anything fails, the plain template goes out instead.
 
 This is a fixed workflow, not an autonomous agent. The steps never change, so nothing here gets to decide what
 to do next:
@@ -11,6 +11,7 @@ to do next:
            ──> draft()        Sonnet writes the bottom line, what is missing and what would help
            ──> code_check()   code   every rule a program can check exactly, checked exactly
            ──> review() x3    Sonnet checks every claim against the facts, in separate calls; all three must pass
+           ──> edit()         Sonnet reads only the message, as a busy owner would; it must pass too
            ──> Outcome        passed: the AI draft goes in Mo's review email. Anything else: the template does.
 
 Rules this file keeps:
@@ -232,16 +233,18 @@ def facts(report: DomainReport) -> dict:
     """The only data the agents see: the results in plain English, the score, and what leads. Built from the same
     record report.json holds, then cut down. Never the request log, the technical details, nearby averages, why a
     run was incomplete (those reasons can carry file paths from this computer), or anything about the person who
-    asked. A check that passed sends only its name and summary: there is nothing for the owner to do about it."""
+    asked. A check that passed, or did not run, sends only its name and status: there is nothing for the owner to
+    do about it, and its summary often quotes the site itself (the page title, the main heading), which is text
+    anyone can write and which widened what the code check accepted (found by the first audit)."""
     full = record(report)
     top = [r.name for r in layout.worth_doing(report)]
     lead, more = _lead_with(full["results"], top or _first_findings(full["results"]))
     checks = []
     for r in full["results"]:
         status = r["status"] if r["ran"] else "NOT CHECKED"
-        check = {"name": r["name"], "category": r["category"], "status": status, "summary": r["summary"]}
+        check = {"name": r["name"], "category": r["category"], "status": status}
         if status in ("WARN", "FAIL"):
-            check.update(certain=r["certain"], explanation=r["explanation"], fix=r["fix"],
+            check.update(summary=r["summary"], certain=r["certain"], explanation=r["explanation"], fix=r["fix"],
                          who=WHO.get(r["rung"]) if r["rung"] else None)
         checks.append(check)
     return {
@@ -262,7 +265,9 @@ def facts(report: DomainReport) -> dict:
 def upgrade_facts(saved: dict) -> dict:
     """Facts saved in an ai.json from before lead_with existed, given the same lead and count facts() makes now,
     from the saved checks alone. Lets scripts/redraft.py test today's rules without visiting the website again."""
-    saved = {**saved, "reading": calm(saved["reading"])}
+    saved = {**saved, "reading": calm(saved["reading"]),
+             "checks": [c if c["status"] in ("WARN", "FAIL") else {k: c[k] for k in ("name", "category", "status")
+                                                                  if k in c} for c in saved["checks"]]}
     if "lead_with" in saved and (saved["lead_with"] or not _first_findings(saved["checks"])):
         return saved
     rows = [{"name": c["name"], "ran": c["status"] != "NOT CHECKED", "status": c["status"]} for c in saved["checks"]]
@@ -379,7 +384,8 @@ HYPE = ("critical", "urgent", "urgently", "alarming", "huge", "amazing")
 # reads as pressure in a short message, so the message never repeats it; the attached report keeps its context.
 PRESSURE = ("costing you",)
 RECHECK = re.compile(r"\bre-?check|\bcheck (?:it |(?:your|the) \w+ )?again\b|\b(?:look|run) (?:it |them |"
-                     r"(?:the|these) checks )?again\b", re.I)
+                     r"(?:the|these) checks )?again\b|\bwe(?:'ll| will| can)? (?:look|check)\b[^.]*\bnext "
+                     r"(?:week|month|year)\b", re.I)
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 CAPS = re.compile(r"\b[A-Z]{2,}\b")
 SENTENCE = re.compile(r"(?<=[.?])\s+")
@@ -387,10 +393,17 @@ STATUS_LABEL = re.compile(r"\b(PASS|WARN|FAIL|NOT CHECKED)\b")
 # Ranking and praise the report never states. CLAUDE.md: no ranking language, no manufactured judgment.
 UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top priority", "very good",
             "excellent", "great shape", "good shape", "healthy shape", "sound shape", "in good health",
-            "doing well", "good condition", "perfect", "no rush", "rushing")
+            "doing well", "good condition", "perfect", "no rush", "rushing", "immediately", "right away",
+            "as soon as possible", "asap")
 # Saying something costs nothing is a claim about money. Runs 3 and 4 both called a Google tool free, which the
 # data never says, so code catches it unless the report itself says so. "Feel free" is an idiom, not a price.
-COST = (r"(?<!feel )\bfree\b", r"\bno cost\b", r"\bcosts? nothing\b")
+COST = (r"(?<!feel )(?<!-)\bfree\b(?! (?:website )?(?:health )?report)", r"\bno cost\b", r"\bcosts? nothing\b")
+
+
+def _unquoted(line: str, grounded: str) -> str:
+    """The line without any quoted text the report itself holds, such as a page title like "My Bakery", so a rule
+    about our own voice does not fire on the site's words."""
+    return re.sub(r'"([^"]+)"', lambda m: "" if m.group(1) in grounded else m.group(0), line)
 
 
 def code_check(d: Draft, facts: dict) -> list[str]:
@@ -398,7 +411,8 @@ def code_check(d: Draft, facts: dict) -> list[str]:
     review agent, so a draft with a broken rule never costs a review."""
     problems: list[str] = []
     by_name = {c["name"]: c for c in facts["checks"]}
-    grounded = json.dumps(facts, ensure_ascii=False)
+    # Everything the draft may repeat, minus the run's timestamp: its digits let "within 14 days" pass (2nd audit).
+    grounded = json.dumps({k: v for k, v in facts.items() if k != "checked_at"}, ensure_ascii=False)
     numbers = {n.replace(",", "") for n in NUMBER.findall(grounded)}
 
     if not d.bottom_line.strip():
@@ -423,6 +437,9 @@ def code_check(d: Draft, facts: dict) -> list[str]:
             if item.check in by_name and item.check not in lead:
                 problems.append(f'{section} lists "{item.check}", which the message does not lead with; the '
                                 "attached report covers it.")
+        names = [i.check for i in items]
+        for twice in sorted({n for n in names if names.count(n) > 1}):
+            problems.append(f'{section} lists "{twice}" more than once.')
         texts = [" ".join(i.text.lower().split()) for i in items]
         for twice in sorted({t for t in texts if texts.count(t) > 1}):
             problems.append(f'{section} says the same thing twice: "{twice}"')
@@ -438,7 +455,7 @@ def code_check(d: Draft, facts: dict) -> list[str]:
 
     text = d.text(facts)
     for line in filter(None, (line.strip() for line in text.splitlines())):
-        if "—" in line or "–" in line or " - " in line:
+        if "—" in line or "–" in line or " - " in line or "--" in line:
             problems.append(f'A dash used as punctuation: "{line}"')
         if "!" in line:
             problems.append(f'An exclamation mark: "{line}"')
@@ -462,13 +479,13 @@ def code_check(d: Draft, facts: dict) -> list[str]:
             problems.append(f'A price: "{line}"')
         if re.search(r"\b(?:price list|tune-up)\b", line, re.I):
             problems.append(f'Points to our paid work, which reads as a sales push: "{line}"')
-        if re.search(r"\bnot (?:been )?checked\b", line, re.I):
+        if re.search(r"\bnot (?:been )?checked\b(?! by)", line, re.I):
             problems.append(f'Mentions checks that were not checked, which the report already lists: "{line}"')
         if RECHECK.search(line):
             problems.append(f'A promise to check again: "{line}"')
         if re.search(r"\bcompetitors?\b", line, re.I):
             problems.append(f'A mention of competitors: "{line}"')
-        if re.search(r"\b(?:I|I'm|I've|[Mm]y|[Mm]e)\b", line):
+        if re.search(r"\b(?:I|I'm|I've|[Mm]y|[Mm]e)\b", _unquoted(line, grounded)):
             problems.append(f'First person instead of "we": "{line}"')
         for number in NUMBER.findall(line):
             if number.replace(",", "") not in numbers:
@@ -641,13 +658,16 @@ def run(report: DomainReport, client=None, *, output_dir: Path | None = None, re
         client, why = make_client(require_switch)
         if client is None:
             return Outcome("off", why)
-    the_facts = facts(report)
-    outcome = _run(the_facts, client, runs)
+    try:  # never raises, by construction rather than by luck (both audits)
+        the_facts = facts(report)
+        outcome = _run(the_facts, client, runs)
+    except Exception as exc:  # noqa: BLE001 - every failure fails closed
+        return Outcome("error", f"The AI step could not start: {_describe(exc)}")
     if output_dir is not None:
         try:
             write_log(report, output_dir, the_facts, outcome)
-        except OSError as exc:  # the run still counts; Mo hears about the missing log in the reason
-            outcome.reason += f" The run log could not be written: {exc}"
+        except Exception as exc:  # noqa: BLE001 - the run still counts; Mo hears about the missing log
+            outcome.reason += f" The run log could not be written: {_describe(exc)}"
     return outcome
 
 

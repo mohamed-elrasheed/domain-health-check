@@ -81,7 +81,7 @@ def test_facts_carry_the_results_and_nothing_about_the_requests_or_the_person():
     by_name = {c["name"]: c for c in f["checks"]}
     assert set(by_name["Main heading"]) == {"name", "category", "status", "summary", "certain", "explanation", "fix",
                                             "who"}
-    assert set(by_name["SSL certificate"]) == {"name", "category", "status", "summary"}  # nothing to do, so less
+    assert set(by_name["SSL certificate"]) == {"name", "category", "status"}  # nothing to do; no site text
     text = json.dumps(f)
     assert "No h1 element" not in text  # technical details stay out
     assert "requests" not in f and "nearby" not in f
@@ -136,6 +136,10 @@ def bad(**changes) -> agents.Draft:
     ("Your website is in very good shape.", '"very good"'),
     ("The site is in healthy shape overall.", '"healthy shape"'),
     ("The site is doing well overall.", '"doing well"'),
+    ("Fix this -- it matters.", "dash"),
+    ("Please fix this right away.", '"right away"'),
+    ("We will check your site next month.", "check again"),
+    ("Your listing has been the same for 14 days.", "number 14"),
     ("The overall picture is of a site in sound shape.", '"sound shape"'),
     ("None of them needs rushing.", '"rushing"'),
     ("Some checks were not checked, and we say which below.", "not checked"),
@@ -151,14 +155,16 @@ def test_the_code_check_catches_every_rule_a_program_can_check(sentence, problem
 
 
 def test_numbers_and_acronyms_from_the_report_are_allowed():
-    ok = bad(bottom_line="Your site scored 39 out of 100. Your SSL certificate is valid for 80 more days.")
+    # A passing check sends no summary, so its numbers ("valid for 80 more days") are no longer grounded: the
+    # message has no reason to repeat a passing check's details.
+    ok = bad(bottom_line="Your site scored 39 out of 100, and your SSL certificate is listed in the report.")
     assert agents.code_check(ok, agents.facts(report())) == []
 
 
 def test_feel_free_is_an_idiom_and_free_is_allowed_when_the_report_says_it():
     facts = agents.facts(report())
     assert agents.code_check(bad(bottom_line="Feel free to ask us about any of this."), facts) == []
-    facts["checks"][0]["summary"] += " The test is free."
+    next(c for c in facts["checks"] if "summary" in c)["summary"] += " The test is free."
     assert agents.code_check(bad(bottom_line="The test is free."), facts) == []
 
 
@@ -305,7 +311,10 @@ def test_the_eval_plants_ten_claims_and_measures_each_layer(tmp_path, monkeypatc
     assert summary["caught_by_ai"] == 0
     # The plants are worded to slip past the code check, so the eval measures the AI reviewer. Only the wrong score
     # trips it, since the number is not in the report.
-    assert {r["kind"] for r in summary["rows"] if r["code_caught"]} == {"a wrong score"}
+    # The code check alone now catches three: the wrong score, "we will look ... next month" (re-check rule) and
+    # "right away" (timing rule). The other seven are judgment calls left to the reviews.
+    caught = {r["kind"] for r in summary["rows"] if r["code_caught"]}
+    assert caught == {"a wrong score", "a promise to look again", "a warning made urgent"}
     assert "Planted 10:" in capsys.readouterr().out
 
 
@@ -511,3 +520,28 @@ def test_the_ai_step_stops_when_it_passes_its_time_budget(monkeypatch):
     monkeypatch.setattr(agents, "review", lambda *a, **k: pytest.fail("reviews ran past the budget"))
     outcome = agents._run(f, object(), 3)
     assert outcome.status == "error" and "budget" in outcome.reason
+
+
+@pytest.mark.parametrize("line", [
+    "Your report is error-free in this area.",
+    "This free report covers your home page.",
+    "Some items were not checked by Google this time.",
+])
+def test_normal_english_no_longer_trips_the_rules(line):
+    # False alarms the audits found: each cost a run and sent the template for no reason.
+    problems = agents.code_check(bad(bottom_line=line), agents.facts(report()))
+    assert not [p for p in problems if line in p]
+
+
+def test_a_quoted_site_title_in_the_first_person_is_not_our_voice():
+    f = agents.facts(report())
+    first = next(c for c in f["checks"] if "summary" in c)
+    first["summary"] += ' Your title is "My Bakery".'
+    problems = agents.code_check(bad(bottom_line='Your page title "My Bakery" is short.'), f)
+    assert not [p for p in problems if "First person" in p]
+
+
+def test_the_same_check_listed_twice_in_different_words_is_caught():
+    first = GOOD["missing"][0]
+    twice = bad(missing=GOOD["missing"] + [{"check": first["check"], "text": "Said again in other words."}])
+    assert any("more than once" in p for p in agents.code_check(twice, agents.facts(report())))

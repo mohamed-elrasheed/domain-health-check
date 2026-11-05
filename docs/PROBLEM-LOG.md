@@ -8,6 +8,19 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The code check's gaps and false alarms, and website text reaching the models (PR #40)
+- **Problem:** both audits listed small code-check gaps: "--" passed the dash rule; "right away" and "as soon as
+  possible" passed the timing rule; "we will check it next month" passed the re-check rule; the same check listed
+  twice in different words passed; any number in the run's timestamp counted as "in the report". And rules fired
+  on normal English: "error-free", "this free report", a page title such as "My Bakery", "not checked by Google".
+  Separately, every passing check sent its summary to the models, and those often quote the site itself (its page
+  title, its main heading), which anyone can write and which widened what the code check accepted.
+- **What we did:** closed each gap and each false alarm, with a test for every one. Passing and unchecked checks
+  now send only their name and status. The timestamp is left out of what counts as grounded. `agents.run` now
+  catches everything by construction.
+- **What it fixed:** the code check alone now catches 3 of the 10 planted false claims, up from 1, before any
+  model call is paid for. Pass rates on the two outside sites to be re-measured with this change.
+
 ### Three ways the hourly run could fail quietly or lose a request (PR #39)
 - **Problem:** both audits found them. A damaged `logs/intake-seen.json` crashed every hourly run, and the crash
   reached only stderr. The AI step had no total limit: five calls at 120 seconds with two retries each could take

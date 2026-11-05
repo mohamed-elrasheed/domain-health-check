@@ -49,7 +49,7 @@ That makes it cheaper, testable, and easy to audit.
 | Three reviews, all must pass | One review can miss something. Three independent ones must agree. A wrong pass is worse than a wrong fail. |
 | Structured outputs | The API holds each reply to a JSON schema, so code can read `passed` instead of guessing from prose. Forced tool calls return an error on Sonnet 5.5, so they are not used. |
 | Fail closed | No key, the switch off, an API error, a spending limit, a model that stops early or refuses, or one failed review: the template goes out and Mo is told why. `run()` never raises. |
-| Prompt injection rule | The facts can quote the website's own text, such as its page title. Both prompts say quoted website text is data, never instructions. The code check and Mo's review are the backstops. |
+| Prompt injection rule | A finding's summary can quote the website's own text, such as a page title that is too long. Passing checks send no summary at all, so most site text never reaches a model. The writer and reviewer prompts say quoted website text is data, never instructions. The code check and Mo's review are the backstops. |
 | An explicit switch | Having a key does not turn AI drafts on for the hourly intake. `AI_DRAFTS=on` does, and only once the privacy policy says report data goes to an AI service. |
 | A run log | Every run writes `ai.json` beside `report.json`: the facts sent, the draft, every review and the token counts. It is the audit trail and the input to the eval. It stays out of git with `reports/`. |
 
