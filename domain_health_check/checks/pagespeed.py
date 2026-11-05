@@ -102,8 +102,8 @@ LAB = {  # name -> (Lighthouse category, explanation, summary for each of Google
                   "are worth a look.",
     }),
 }
-FIX = ("Ask your web developer to open Google's PageSpeed Insights report for your home page, linked in the technical "
-       "details, and work through its suggestions.")
+FIX = ("Ask whoever built or manages your website to make your home page load faster on phones. Google's PageSpeed "
+       "Insights report, linked in the technical details, shows them what is slowing it down.")
 
 
 def lab_score(response: dict | None, category: str) -> int | None:

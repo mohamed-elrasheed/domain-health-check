@@ -241,3 +241,9 @@ def test_full_run_adds_the_speed_rows_and_scores_only_what_ran(fake_dns, monkeyp
     ]
     assert asked == ["https://www.mizangroupllc.com/"]  # the final URL, after the redirect
     assert scoring.score(report.results) == scoring.score([r for r in report.results if r.ran])
+
+
+def test_speed_step_asks_a_person_for_a_result():
+    from domain_health_check.checks import pagespeed
+    assert pagespeed.FIX.startswith("Ask whoever built or manages your website")
+    assert "work through" not in pagespeed.FIX
