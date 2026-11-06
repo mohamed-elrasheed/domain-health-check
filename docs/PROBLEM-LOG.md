@@ -8,6 +8,16 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 
 ## Running it for real (November 4)
 
+### The bottom line pointed to one item above a list of two (PR #47)
+- **Problem:** two live runs on our own site failed review for the same sentence: "The first item below is the one
+  we want to point out" and "The one thing we want to point out first", each above a list of two findings. The
+  reviews caught both, so nothing wrong reached Mo, but each cost a run.
+- **Cause:** the prompt let the writer introduce the list, and it sometimes miscounted it.
+- **What we did:** the prompt now says not to introduce or count the list, and the code check rejects "the one
+  thing", "the first item" and similar when the message leads with more than one finding. Code can see the count
+  exactly, so code checks it.
+- **What it fixed:** measured on fresh reports of our own site.
+
 ### The message led with settings the owner cannot change (PR #44)
 - **Problem:** our own site's message failed the editor: two of its three lead findings, Content Security Policy
   and nosniff, had no step, so the owner got jargon with nothing to do. The code check allowed it on purpose,

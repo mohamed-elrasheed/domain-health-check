@@ -81,9 +81,11 @@ anything. Base it on the report's reading, in your own plain words: do not quote
 the overall judgment: never add a verdict of your own on the whole site, such as "doing well", "in sound shape", "in
 good health", "very good" or "excellent". Do not count the findings ("three things could be better") or mention the
 rest of the report here; we add a line about it. Do not say which finding visitors will notice most or rank findings
-in any way the data does not. If lead_with is empty, the bottom line is all you write before our line: say in one or
-two sentences that nothing is broken today and that the attached report explains each thing that could be better and
-how to fix it. Do not say whether any of them needs action; the report does not decide that for the owner.
+in any way the data does not. Do not introduce the list or say how many items it has ("the one thing", "the first
+thing", "two things"): the list follows directly. If lead_with is empty, the bottom line is all you write before
+our line: say in one or two sentences that nothing is broken today and that the attached report explains each
+thing that could be better and how to fix it. Do not say whether any of them needs action; the report does not
+decide that for the owner.
 
 missing: what is missing or wrong. List exactly the checks named in lead_with, in that order, and no others: the
 attached report covers the rest, and we add a line saying how many. If lead_with is empty, leave missing empty. A
@@ -421,6 +423,7 @@ UNSTATED = ("most likely", "most important", "most urgent", "the biggest", "top 
             "as soon as possible", "asap")
 # Saying something costs nothing is a claim about money. Runs 3 and 4 both called a Google tool free, which the
 # data never says, so code catches it unless the report itself says so. "Feel free" is an idiom, not a price.
+ONE_THING = re.compile(r"\b(?:the (?:one|only|first|single|main) (?:thing|item|finding|issue)|one thing)\b", re.I)
 COST = (r"(?<!feel )(?<!-)\bfree\b(?! (?:website )?(?:health )?report)", r"\bno cost\b", r"\bcosts? nothing\b")
 
 
@@ -441,6 +444,11 @@ def code_check(d: Draft, facts: dict) -> list[str]:
 
     if not d.bottom_line.strip():
         problems.append("The draft has no bottom line.")
+    lead_count = len(facts.get("lead_with", facts["top_findings"]))
+    if lead_count > 1 and ONE_THING.search(d.bottom_line):
+        # Twice on our own site the bottom line said "the one thing" or "the first item" above a two-item list, and
+        # the reviews caught it each time (November 5). Code can see the count, so code checks it.
+        problems.append(f'The bottom line points to a single item, but the message leads with {lead_count}.')
     for section, items in (("What we would look at first", d.missing), ("A step", d.next_steps)):
         for item in items:
             found = by_name.get(item.check)
