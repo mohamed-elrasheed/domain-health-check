@@ -16,7 +16,7 @@ from real runs on mizangroupllc.com, our own site, unless an entry says otherwis
 - **What we did:** the prompt now says not to introduce or count the list, and the code check rejects "the one
   thing", "the first item" and similar when the message leads with more than one finding. Code can see the count
   exactly, so code checks it.
-- **What it fixed:** measured on fresh reports of our own site.
+- **What it fixed:** 5 of 5 redrafts on the saved facts of the failed run passed every gate (29 cents in all).
 
 ### The message led with settings the owner cannot change (PR #44)
 - **Problem:** our own site's message failed the editor: two of its three lead findings, Content Security Policy
