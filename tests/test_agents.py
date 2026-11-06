@@ -512,6 +512,22 @@ def test_a_warning_the_website_platform_sets_never_leads():
     f = agents.facts(site)
     assert f["lead_with"] == ["DNSSEC"] and f["more_to_look_at"] == 2
 
+
+def test_the_bottom_line_cannot_point_to_one_item_above_two():
+    # Twice on our own site the bottom line said "the one thing" above a two-item list; reviews caught it.
+    site = DomainReport("example.com", NOW, [
+        CheckResult(WEBSITE, "DNSSEC", Status.WARN, "Not on.", "Why.", "Ask."),
+        CheckResult(EMAIL, "DMARC (anti-spoofing policy)", Status.WARN, "Monitoring only.", "Why.", "Ask."),
+    ])
+    f = agents.facts(site)
+    assert len(f["lead_with"]) == 2
+    items = [agents.Item(n, "Found.") for n in f["lead_with"]]
+    steps = [agents.Item(n, "Ask whoever manages your domain.") for n in f["lead_with"]]
+    bad = agents.Draft("Nothing is broken today. The one thing we want to point out first is DNSSEC.", items, steps)
+    good = agents.Draft("Nothing on your site is broken today.", items, steps)
+    assert any("single item" in p for p in agents.code_check(bad, f))
+    assert not any("single item" in p for p in agents.code_check(good, f))
+
 def test_a_billed_call_that_fails_still_counts_in_the_cost(monkeypatch):
     # Found by the second audit: a max_tokens stop dropped its usage, so the email said no AI calls were made.
     def stopped(*a, **k):
