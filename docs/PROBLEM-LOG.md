@@ -6,7 +6,7 @@ evidence. Newest first. Each fix adds its entry in the same pull request, so thi
 A problem counts when it produced a wrong result, a false alarm, a security risk or a wasted run. The numbers are
 from real runs on mizangroupllc.com, our own site, unless an entry says otherwise.
 
-## Running it for real (November 4)
+## Running it for real (November 4 and 5)
 
 ### The bottom line pointed to one item above a list of two (PR #47)
 - **Problem:** two live runs on our own site failed review for the same sentence: "The first item below is the one
